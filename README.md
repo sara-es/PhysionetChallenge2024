@@ -46,7 +46,13 @@ from within the evaluation folder, where
 - `test_outputs` is a folder containing files with your model's outputs for the data; and
 - `scores.csv` (optional) is file with a collection of scores for your model.
 
-A small subset of labels (different from those present in `tiny_testset`) have already been provided in the `evaluation/labels` folder.
+A small subset of data and labels have been provided in the `tiny_testset` folder. If you simply want to test that your code runs on as few as 15 samples, run the following commands:
+
+    python train_model.py -d tiny_testset/records500 -m models -v
+
+    python run_model.py -d tiny_testset/records500 -m models -o tiny_testset/test_outputs
+
+    python evaluate_model.py -d tiny_testset/records500 -o tiny_testset/test_outputs
 
 ## How do I create data for these scripts?
 
