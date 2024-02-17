@@ -14,9 +14,7 @@ A small subset of data and labels have been provided in the `tiny_testset` folde
 
     python train_model.py -d tiny_testset/records500 -m models -v
 
-
     python run_model.py -d tiny_testset/records500 -m models -o tiny_testset/test_outputs
-
 
     python evaluate_model.py -d tiny_testset/records500 -o tiny_testset/test_outputs
 
