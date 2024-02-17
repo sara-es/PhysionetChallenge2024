@@ -36,15 +36,17 @@ where
 
 The [Challenge website](https://physionetchallenges.org/2024/#data) provides a training database with a description of the contents and structure of the data files.
 
-You can evaluate your model by pulling or downloading the [evaluation code](https://github.com/physionetchallenges/evaluation-2024) and running
+The evaluation code has been copied from the provided [evaluation code](https://github.com/physionetchallenges/evaluation-2024). This and other test scripts are located in the `evaluation` folder. You can evaluate the model's performance by running
 
     python evaluate_model.py -d labels -o test_outputs -s scores.csv
 
-where
+from within the evaluation folder, where
 
 - `labels` is a folder with labels for the data, such as the training database on the PhysioNet webpage (you can use the `ptb-xl/records100/00000` folder from the below steps, but it would be better to repeat these steps on a new subset of the data that you did not use to train your model);
 - `test_outputs` is a folder containing files with your model's outputs for the data; and
 - `scores.csv` (optional) is file with a collection of scores for your model.
+
+A small subset of labels (different from those present in `tiny_testset`) have already been provided in the `evaluation/labels` folder.
 
 ## How do I create data for these scripts?
 
