@@ -9,66 +9,59 @@
 #
 ################################################################################
 
-import joblib
+import os, sys, time, joblib
 import numpy as np
-import os
+from tqdm import tqdm
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-import sys
+import torch
 
-from helper_code import *
+import helper_code 
+import preprocessing, reconstruction, classification
+from utils import default_models, utils
 
 ################################################################################
 #
-# Required functions. Edit these functions to add your code, but do not change the arguments of the functions.
+# Required functions. Edit these functions to add your code, but do not change the 
+# arguments of the functions.
 #
 ################################################################################
 
 # Train your digitization model.
 def train_digitization_model(data_folder, model_folder, verbose):
+    """
+    A wrapper function for training the digitization model. Loads in the data files,
+    calls train_digitization_model_team() to train the model, and saves it to the model_folder.
+    NOTE: Do not edit the arguments of this function.
+    """
+
     # Find data files.
     if verbose:
         print('Training the digitization model...')
         print('Finding the Challenge data...')
 
-    records = find_records(data_folder)
-    num_records = len(records)
-
-    if num_records == 0:
+    records = helper_code.find_records(data_folder)
+    if len(records) == 0:
         raise FileNotFoundError('No data was provided.')
 
     # Create a folder for the model if it does not already exist.
     os.makedirs(model_folder, exist_ok=True)
 
-    # Extract the features and labels.
-    if verbose:
-        print('Extracting features and labels from the data...')
-
-    features = list()
-
-    for i in range(num_records):
-        if verbose:
-            width = len(str(num_records))
-            print(f'- {i+1:>{width}}/{num_records}: {records[i]}...')
-
-        record = os.path.join(data_folder, records[i])
-
-        # Extract the features from the image...
-        current_features = extract_features(record)
-        features.append(current_features)
-
-    # Train the model.
-    if verbose:
-        print('Training the model on the data...')
-
-    # This overly simple model uses the mean of these overly simple features as a seed for a random number generator.
-    model = np.mean(features)
+    # Main function call. Pass in names of records here for cross-validation.
+    models = train_digitization_model_team(data_folder, records, verbose)
 
     # Save the model.
-    save_digitization_model(model_folder, model)
+    for name, model in models.items():
+        if isinstance(model, torch.nn.Module):
+            utils.save_model_torch(model, name, model_folder)
+        else:
+            utils.save_model_pkl(model, name, model_folder)
+        if verbose >= 2:
+            print(f'{name} model saved.')
 
     if verbose:
         print('Done.')
         print()
+        
 
 # Train your dx model.
 def train_dx_model(data_folder, model_folder, verbose):
@@ -77,7 +70,7 @@ def train_dx_model(data_folder, model_folder, verbose):
         print('Training the dx classification model...')
         print('Finding the Challenge data...')
 
-    records = find_records(data_folder)
+    records = helper_code.find_records(data_folder)
     num_records = len(records)
 
     if num_records == 0:
@@ -103,7 +96,7 @@ def train_dx_model(data_folder, model_folder, verbose):
         # Extract the features from the image, but only if the image has one or more dx classes.
         dx = load_dx(record)
         if dx:
-            current_features = extract_features(record)
+            current_features = preprocessing.example.extract_features(record)
             features.append(current_features)
             dxs.append(dx)
 
@@ -112,7 +105,7 @@ def train_dx_model(data_folder, model_folder, verbose):
 
     features = np.vstack(features)
     classes = sorted(set.union(*map(set, dxs)))
-    dxs = compute_one_hot_encoding(dxs, classes)
+    dxs = helper_code.compute_one_hot_encoding(dxs, classes)
 
     # Train the model.
     if verbose:
@@ -152,14 +145,14 @@ def run_digitization_model(digitization_model, record, verbose):
     model = digitization_model['model']
 
     # Extract features.
-    features = extract_features(record)
+    features = preprocessing.example.extract_features(record)
 
     # Load the dimensions of the signal.
-    header_file = get_header_file(record)
-    header = load_text(header_file)
+    header_file = helper_code.get_header_file(record)
+    header = helper_code.load_text(header_file)
 
-    num_samples = get_num_samples(header)
-    num_signals = get_num_signals(header)
+    num_samples = helper_code.get_num_samples(header)
+    num_signals = helper_code.get_num_signals(header)
 
     # For a overly simply minimal working example, generate "random" waveforms.
     seed = int(round(model + np.mean(features)))
@@ -175,7 +168,7 @@ def run_dx_model(dx_model, record, signal, verbose):
     classes = dx_model['classes']
 
     # Extract features.
-    features = extract_features(record)
+    features = preprocessing.example.extract_features(record)
     features = features.reshape(1, -1)
 
     # Get model probabilities.
@@ -194,25 +187,61 @@ def run_dx_model(dx_model, record, signal, verbose):
 #
 ################################################################################
 
-# Extract features.
-def extract_features(record):
-    images = load_image(record)
-    mean = 0.0
-    std = 0.0
-    for image in images:
-        image = np.asarray(image)
-        mean += np.mean(image)
-        std += np.std(image)
-    return np.array([mean, std])
+def train_digitization_model_team(data_folder, records, verbose, models_to_train=['all'], allow_failures=False):
+    """
+    Main function call for train_digitization_model(). 
 
-# Save your trained digitization model.
-def save_digitization_model(model_folder, model):
-    d = {'model': model}
-    filename = os.path.join(model_folder, 'digitization_model.sav')
-    joblib.dump(d, filename, protocol=0)
+    Parameters:
+        data_folder (str): The path to the foldder containing the data.
+        records (list): A list of the records to use for training the model. e.g. ['00001_lr']
+        verbose (bool): How many printouts do you want?
+        models_to_train (list, default: "all"): A list of the models to train, used mainly for modular testing.
+            Allows the user to specify which models should be trained. Default behaviour is to train all models
+            available. 
+        allow_failures (bool, default: False): when testing, allow code to continue if a recording 
+            cannot be loaded. Needs to be False for official Challenge runs.
 
-# Save your trained dx classification model.
-def save_dx_model(model_folder, model, classes):
-    d = {'model': model, 'classes': classes}
-    filename = os.path.join(model_folder, 'dx_model.sav')
-    joblib.dump(d, filename, protocol=0)
+    Returns:
+        team_models (dict): The trained models.
+    """
+
+    if ['all'] in models_to_train:
+        models_to_train = default_models.DIGITIZATION_MODELS
+
+    start = time.time() # because I am impatient
+    models = {} 
+
+    ############## Extract the features and labels. ###############
+    if verbose:
+        print('Extracting features and labels from the data...')
+        t1 = time.time()
+
+    num_records = len(records)
+    features = list()
+
+    for i in tqdm(range(num_records)):
+        if verbose:
+            width = len(str(num_records))
+            print(f'- {i+1:>{width}}/{num_records}: {records[i]}...')
+
+        record = os.path.join(data_folder, records[i])
+
+        # Extract the features from the image...
+        current_features = preprocessing.example.extract_features(record)
+        features.append(current_features)
+
+    if verbose:
+        t2 = time.time()
+        print(f'Done. Time to extract features: {t2 - t1:.2f} seconds.')
+
+    ############## Train the models. ################
+    if verbose:
+        print('Training the model on the data...')
+
+    models['example'] = reconstruction.example.train(features)
+
+    if verbose:
+        print(f'Done. Time to train individual models: {time.time() - t2:.2f} seconds.')
+        print(f'Total time elapsed: {time.time() - start:.2f} seconds.')
+
+    return models
