@@ -3,10 +3,24 @@
 
 ## What's in this repository?
 
-This repository contains a simple example that illustrates how to format a Python entry for the [George B. Moody PhysioNet Challenge 2024](https://physionetchallenges.org/2024/). If you are participating in the 2024 Challenge, then we recommend using this repository as a template for your entry. You can remove some of the code, reuse other code, and add new code to create your entry. You do not need to use the models, features, and/or libraries in this example for your entry. We encourage a diversity of approaches for the Challenges.>
+This repository contains a Python entry for the [George B. Moody PhysioNet Challenge 2024](https://physionetchallenges.org/2024/), as well as 15 sample images, wfdb data and header files that can be used to quickly test the code.
 
-For this example, we implemented a random forest model with several simple features. (This simple example is **not** designed to perform well, so you should **not** use it as a baseline for your approach's performance.) You can try it by running the following commands on the Challenge training set. If you are using a relatively recent personal computer, then you should be able to run these commands from start to finish on a small subset (1000 records) of the training data in less than 30 minutes.
+## Quickstart guide
+First, download this repository and install the requirements:
 
+    pip install -r requirements.txt
+    
+A small subset of data and labels have been provided in the `tiny_testset` folder. If you simply want to test that your code runs on as few as 15 samples, run the following commands:
+
+    python train_model.py -d tiny_testset/records500 -m models -v
+
+    python run_model.py -d tiny_testset/records500 -m models -o tiny_testset/test_outputs
+
+    python evaluate_model.py -d tiny_testset/records500 -o tiny_testset/test_outputs
+
+The full instructions, copied from the [Physionet python example code](https://github.com/physionetchallenges/python-example-2024) and [Physionet scoring code](https://github.com/physionetchallenges/evaluation-2024), have been copied below. 
+
+# Instructions for python template code for the George B. Moody PhysioNet Challenge 2024
 ## How do I run these scripts?
 
 First, you can download and create data for these scripts by following the instructions in the following section.
@@ -36,11 +50,11 @@ where
 
 The [Challenge website](https://physionetchallenges.org/2024/#data) provides a training database with a description of the contents and structure of the data files.
 
-You can evaluate your model by pulling or downloading the [evaluation code](https://github.com/physionetchallenges/evaluation-2024) and running
+The evaluation code has been copied from the provided [evaluation code](https://github.com/physionetchallenges/evaluation-2024). This and other test scripts are located in the `evaluation` folder. You can evaluate the model's performance by running
 
     python evaluate_model.py -d labels -o test_outputs -s scores.csv
 
-where
+from within the evaluation folder, where
 
 - `labels` is a folder with labels for the data, such as the training database on the PhysioNet webpage (you can use the `ptb-xl/records100/00000` folder from the below steps, but it would be better to repeat these steps on a new subset of the data that you did not use to train your model);
 - `test_outputs` is a folder containing files with your model's outputs for the data; and
@@ -157,7 +171,27 @@ If you have trouble running your code, then please try the follow steps to run t
 
 This repository does not include data or the code for generating ECG images. Please see the above instructions for how to download and prepare the data.
 
-This repository does not include code for evaluating your entry. Please see the [evaluation code repository](https://github.com/physionetchallenges/evaluation-2024) for code and instructions for evaluating your entry using the Challenge scoring metric.
+# Scoring code for the George B. Moody PhysioNet Challenge 2024
+
+This repository contains the Python and MATLAB evaluation code for the George B. Moody PhysioNet Challenge 2024.
+
+The `evaluate_model` script evaluates the outputs of your models using the evaluation metric that is described on the [webpage](https://physionetchallenges.org/2024/) for the 2024 Challenge. This script reports multiple evaluation metrics, so check the [scoring section](https://physionetchallenges.org/2024/#scoring) of the webpage to see how we evaluate and rank your models.
+
+## Python
+
+You can run the Python evaluation code by installing the NumPy package and running the following command in your terminal:
+
+    python evaluate_model.py -d labels -o outputs -s scores.csv
+
+where
+
+- `labels` (input; required) is a folder with labels for the data, such as the [training data](https://physionetchallenges.org/2024/#data) on the PhysioNet Challenge webpage;
+- `outputs` (input; required) is a folder containing files with your model's outputs for the data; and
+- `scores.csv` (output; optional) is a collection of scores for your model.
+
+## Troubleshooting
+
+Unable to run this code with your code? Try one of the [example codes](https://physionetchallenges.org/2024/#submissions) on the [training data](https://physionetchallenges.org/2024/#data). Unable to install or run Python? Try [Python](https://www.python.org/downloads/), [Anaconda](https://www.anaconda.com/products/individual), or your package manager.
 
 ## How do I learn more? How do I share more?
 
