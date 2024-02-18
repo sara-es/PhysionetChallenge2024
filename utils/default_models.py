@@ -1,2 +1,7 @@
-DIGITIZATION_MODELS = ['example']
-DX_MODELS = ['dx_model']
+DIGITIZATION_MODELS = [
+    'digit_example'
+]
+
+DX_MODELS = [
+    'dx_example'
+]
