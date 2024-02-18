@@ -5,3 +5,4 @@ import numpy as np
 def train(features):
     model = np.mean(features)
     return model
+

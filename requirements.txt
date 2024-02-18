@@ -8,3 +8,5 @@ tqdm
 torch
 torchvision
 torchaudio
+imageio
+matplotlib

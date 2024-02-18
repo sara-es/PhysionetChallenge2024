@@ -1,6 +1,7 @@
 # Project specific /  data files
 ptb-xl-a-large-publicly-available-electrocardiography-dataset-1.0.3/
 ptb-xl/
+models/
 scratch.ipynb
 *.zip
 *.7z
