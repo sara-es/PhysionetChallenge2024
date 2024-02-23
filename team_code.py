@@ -261,8 +261,10 @@ def train_dx_model_team(data_folder, records, verbose,
         # Extract the features from the image, but only if the image has one or more dx classes.
         dx = helper_code.load_dx(record)
         if dx:
-            current_features = preprocessing.example.extract_features(record)
-            features.append(current_features)
+            age_gender = preprocessing.demographics.extract_features(record) # len 3 array (age/100, male, female)
+            
+            # current_features = preprocessing.example.extract_features(record)
+            # features.append(current_features)
             labels.append(dx)
         
     if not labels:
