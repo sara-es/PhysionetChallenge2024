@@ -248,6 +248,7 @@ def train_dx_model_team(data_folder, records, verbose,
         t1 = time.time()
 
     num_records = len(records)
+    record_paths = []
     features = list()
     labels = list()
 
@@ -257,12 +258,13 @@ def train_dx_model_team(data_folder, records, verbose,
             print(f'- {i+1:>{width}}/{num_records}: {records[i]}...')
 
         record = os.path.join(data_folder, records[i])
+        record_paths.append(record)
 
         # Extract the features from the image, but only if the image has one or more dx classes.
         dx = helper_code.load_dx(record)
         if dx:
             age_gender = preprocessing.demographics.extract_features(record) # len 3 array (age/100, male, female)
-            
+
             # current_features = preprocessing.example.extract_features(record)
             # features.append(current_features)
             labels.append(dx)
@@ -285,8 +287,29 @@ def train_dx_model_team(data_folder, records, verbose,
     
     if 'seresnet' in models_to_train:
         channels = 12 # TODO: MAGIC NUMBER find a way to get the number of channels from the data
-        models['seresnet'] = classification.seresnet18.resnet18(in_channel=channels, 
-                              out_channel=len(models['dx_classes']))
+
+        args = {
+            # INITIAL SETTINGS
+            train_file: train_split_1_1.csv
+            val_file: val_split_1_1.csv
+
+            # TRAINING SETTINGS
+            batch_size: 10,
+            num_workers: 1,
+            epochs: 1,
+            lr: 0.003000,
+            weight_decay: 0.000010,
+
+            # VALIDATION SETTINGS
+            threshold: 0.5,
+
+            # DEVICE CONFIGS
+            device_count: 1
+        }
+        trainer = classification.train_utils.Training(args)
+        trainer.setup()
+        trainer.train()
+        models['seresnet'] = trainer
             
 
     if verbose:

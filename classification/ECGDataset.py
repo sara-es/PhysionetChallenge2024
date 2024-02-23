@@ -1,8 +1,10 @@
+import sys, os
+sys.path.append(os.path.join(sys.path[0], '..'))
+
 import torch
 from torch.utils.data import Dataset
 import pandas as pd
-from .dataset_utils import load_data, encode_metadata
-from .transforms import Compose, RandomClip, Normalize, ValClip, Retype
+from preprocessing.transforms import Compose, RandomClip, Normalize, ValClip, Retype
 
 
 def get_transforms(dataset_type):
@@ -72,6 +74,6 @@ class ECGDataset(Dataset):
         
         age = self.age[item]
         gender = self.gender[item]
-        age_gender = encode_metadata(age, gender)
+        # age_gender = encode_metadata(age, gender)
         return ecg, torch.from_numpy(age_gender).float(), torch.from_numpy(label).float()
       

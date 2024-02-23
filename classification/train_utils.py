@@ -6,8 +6,8 @@ import numpy as np
 from torch import nn
 from torch import optim
 from torch.utils.data import DataLoader
-from .models.seresnet18 import resnet18
-from ..dataloader.dataset import ECGDataset, get_transforms
+from seresnet18 import resnet18
+from ECGDataset import ECGDataset, get_transforms
 import pickle
 
 class Training(object):
