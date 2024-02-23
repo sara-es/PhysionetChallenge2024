@@ -287,24 +287,27 @@ def train_dx_model_team(data_folder, records, verbose,
     
     if 'seresnet' in models_to_train:
         channels = 12 # TODO: MAGIC NUMBER find a way to get the number of channels from the data
+        record_paths.shuffle()
+        tts = int(len(record_paths) * 0.8)
 
         args = {
             # INITIAL SETTINGS
-            train_file: train_split_1_1.csv
-            val_file: val_split_1_1.csv
+            'train_file': record_paths[:tts],
+            'val_file': record_paths[tts:],
+            'labels': labels,
 
             # TRAINING SETTINGS
-            batch_size: 10,
-            num_workers: 1,
-            epochs: 1,
-            lr: 0.003000,
-            weight_decay: 0.000010,
+            'batch_size': 10,
+            'num_workers': 1,
+            'epochs': 1,
+            'lr': 0.003000,
+            'weight_decay': 0.000010,
 
             # VALIDATION SETTINGS
-            threshold: 0.5,
+            'threshold': 0.5,
 
             # DEVICE CONFIGS
-            device_count: 1
+            'device_count': 1
         }
         trainer = classification.train_utils.Training(args)
         trainer.setup()
