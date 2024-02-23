@@ -268,6 +268,8 @@ def train_dx_model_team(data_folder, records, verbose,
     if not labels:
         raise Exception('There are no labels for the data.')  
 
+    models['dx_classes'] = sorted(set.union(*map(set, labels)))
+
     if verbose:
         t2 = time.time()
         print(f'Done. Time to extract features and labels: {t2 - t1:.2f} seconds.')
@@ -278,8 +280,12 @@ def train_dx_model_team(data_folder, records, verbose,
 
     if 'dx_example' in models_to_train:
         models['dx_example'] = classification.example.train(features, labels)
-
-    models['dx_classes'] = sorted(set.union(*map(set, labels)))
+    
+    if 'seresnet' in models_to_train:
+        channels = 12 # TODO: MAGIC NUMBER find a way to get the number of channels from the data
+        models['seresnet'] = classification.seresnet18.resnet18(in_channel=channels, 
+                              out_channel=len(models['dx_classes']))
+            
 
     if verbose:
         print(f'Done. Time to train individual models: {time.time() - t2:.2f} seconds.')
