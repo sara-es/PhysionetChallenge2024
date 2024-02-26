@@ -3,9 +3,8 @@ sys.path.append(os.path.join(sys.path[0], '..'))
 
 import torch
 from torch.utils.data import Dataset
-import pandas as pd
 from preprocessing.transforms import Compose, RandomClip, Normalize, ValClip, Retype
-
+from helper_code import load_signal
 
 def get_transforms(dataset_type):
     ''' Get transforms for ECG data based on the dataset type (train, validation, test)
@@ -39,7 +38,7 @@ def get_transforms(dataset_type):
 class ECGDataset(Dataset):
     ''' Class implementation of Dataset of ECG recordings
     
-    :param path: The directory of the data used
+    :param path: Paths of the filenames for the records 
     :type path: str
     :param preprocess: Preprocess transforms for ECG recording
     :type preprocess: datasets.transforms.Compose
@@ -47,16 +46,11 @@ class ECGDataset(Dataset):
     :type transform: datasets.transforms.Compose
     '''
 
-    def __init__(self, path, transforms):
-        df = pd.read_csv(path)
-        self.data = df['path'].tolist()
-        labels = df.iloc[:, 4:].values
-        self.multi_labels = [labels[i, :] for i in range(labels.shape[0])]
-        
-        self.age = df['age'].tolist()
-        self.gender = df['gender'].tolist()
-        self.fs = df['fs'].tolist()
-
+    def __init__(self, records, labels, features, fss, transforms):
+        self.data = records
+        self.labels = labels
+        self.ag = features
+        self.fs = fss
         self.transforms = transforms
         self.channels = 12
         
@@ -66,14 +60,9 @@ class ECGDataset(Dataset):
     def __getitem__(self, item):
         file_name = self.data[item]
         fs = self.fs[item]
-        ecg = load_data(file_name)
-        
-        ecg = self.transforms(ecg)
-        
-        label = self.multi_labels[item]
-        
-        age = self.age[item]
-        gender = self.gender[item]
-        # age_gender = encode_metadata(age, gender)
-        return ecg, torch.from_numpy(age_gender).float(), torch.from_numpy(label).float()
-      
+        ecg, _ = load_signal(file_name)
+        ecg = ecg.T # CHECK THIS OUT!?!?!!?
+
+        label = self.labels[item]
+        ag = self.ag[item]
+        return ecg, torch.from_numpy(ag).float(), torch.from_numpy(label).float()

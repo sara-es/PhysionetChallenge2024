@@ -10,13 +10,16 @@
 #
 ################################################################################
 
-import os, time, joblib
+import os, time, joblib, sys
 import numpy as np
 from tqdm import tqdm
 
 import helper_code 
 import preprocessing, reconstruction, classification
 from utils import default_models, utils
+from sklearn.preprocessing import OneHotEncoder
+from iterstrat.ml_stratifiers import MultilabelStratifiedShuffleSplit
+from classification.train_utils import Training
 
 ################################################################################
 #
@@ -78,7 +81,7 @@ def train_dx_model(data_folder, model_folder, verbose):
     os.makedirs(model_folder, exist_ok=True)
 
     # Main function call. Pass in names of records here for cross-validation.
-    models = train_dx_model_team(data_folder, records, verbose)
+    models = train_dx_model_team(data_folder, records, verbose, models_to_train='seresnet')
 
     # Save the model.
     utils.save_models(models, model_folder, verbose)
@@ -251,7 +254,9 @@ def train_dx_model_team(data_folder, records, verbose,
     record_paths = []
     features = list()
     labels = list()
+    fs_arr = list()
 
+    # Iterate over recordings and find: FS, AGE, SEX
     for i in tqdm(range(num_records), disable=~verbose):
         if verbose:
             width = len(str(num_records))
@@ -264,15 +269,25 @@ def train_dx_model_team(data_folder, records, verbose,
         dx = helper_code.load_dx(record)
         if dx:
             age_gender = preprocessing.demographics.extract_features(record) # len 3 array (age/100, male, female)
+            features.append(age_gender) # => splitted the ag array just for simplicity (for now)
+            labels.append(dx)
+            
+            # Load header
+            header = helper_code.load_header(record)
+            fs = helper_code.get_sampling_frequency(header)
+            fs_arr.append(fs)
 
             # current_features = preprocessing.example.extract_features(record)
             # features.append(current_features)
-            labels.append(dx)
-        
+            
     if not labels:
         raise Exception('There are no labels for the data.')  
 
-    models['dx_classes'] = sorted(set.union(*map(set, labels)))
+    # One-hot-encode labels 
+    ohe = OneHotEncoder(sparse=False)
+    multilabels = ohe.fit_transform(labels)
+    uniq_labels = ohe.categories_[0] # order of the labels!
+    models['dx_classes'] = uniq_labels
 
     if verbose:
         t2 = time.time()
@@ -284,39 +299,47 @@ def train_dx_model_team(data_folder, records, verbose,
 
     if 'dx_example' in models_to_train:
         models['dx_example'] = classification.example.train(features, labels)
-    
+
     if 'seresnet' in models_to_train:
         channels = 12 # TODO: MAGIC NUMBER find a way to get the number of channels from the data
-        record_paths.shuffle()
-        tts = int(len(record_paths) * 0.8)
+        
+        # VALIDATION?
+        # Split data to training and validation
+        split_index_list = train_val_split(multilabels)
 
-        args = {
-            # INITIAL SETTINGS
-            'train_file': record_paths[:tts],
-            'val_file': record_paths[tts:],
-            'labels': labels,
+        if len(split_index_list) == 1: # Working only with n_splits (number of train-test splits) == 1
+            train_idx, val_idx = split_index_list[0][0], split_index_list[0][1]
 
-            # TRAINING SETTINGS
-            'batch_size': 10,
-            'num_workers': 1,
-            'epochs': 1,
-            'lr': 0.003000,
-            'weight_decay': 0.000010,
+        train_records, val_records = list(map(record_paths.__getitem__, train_idx)), list(map(record_paths.__getitem__, val_idx))
+        train_labels, val_labels = list(map(multilabels.__getitem__, train_idx)), list(map(multilabels.__getitem__, val_idx))
+        train_feats, val_feats = list(map(features.__getitem__, train_idx)), list(map(features.__getitem__, val_idx))
+        train_fs, val_fs = list(map(fs_arr.__getitem__, train_idx)), list(map(fs_arr.__getitem__, val_idx))
 
-            # VALIDATION SETTINGS
-            'threshold': 0.5,
+        args = {'train_records': train_records, 'val_records': val_records,
+                'train_labels': train_labels, 'val_labels': val_labels,
+                'train_feats': train_feats, 'val_feats': val_feats,
+                'train_fs': train_fs, 'val_fs': val_fs,
+                'dx_labels': uniq_labels, 'epochs': 5, 'batch_size': 5}
 
-            # DEVICE CONFIGS
-            'device_count': 1
-        }
-        trainer = classification.train_utils.Training(args)
+        # Training a ResNet model
+        trainer = Training(args)
         trainer.setup()
-        trainer.train()
-        models['seresnet'] = trainer
-            
+        models['state_dict'] = trainer.train() 
+        return models
 
     if verbose:
         print(f'Done. Time to train individual models: {time.time() - t2:.2f} seconds.')
         print(f'Total time elapsed: {time.time() - start:.2f} seconds.')
 
     return models
+
+# Splitting data into two sets using MultilabelStratifiedShuffleSplit
+# return indeces of the splits
+def train_val_split(labels, n_splits=1):
+    cv = MultilabelStratifiedShuffleSplit(n_splits = n_splits, train_size=0.75, test_size=0.25, random_state=2024)
+    X = np.arange(labels.shape[0])
+    split_index_list = []
+    for train_index, val_index in cv.split(X, labels):
+        split_index_list.append([train_index, val_index])
+
+    return split_index_list
