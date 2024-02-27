@@ -18,9 +18,7 @@ import helper_code
 import preprocessing, reconstruction, classification
 from utils import default_models, utils
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.model_selection import train_test_split, StratifiedKFold
-from iterstrat.ml_stratifiers import MultilabelStratifiedShuffleSplit, MultilabelStratifiedKFold # For multilabel stratification
-from classification.train_utils import Training
+
 
 ################################################################################
 #
@@ -264,7 +262,7 @@ def train_dx_model_team(data_folder, records, verbose,
             print(f'- {i+1:>{width}}/{num_records}: {records[i]}...')
 
         record = os.path.join(data_folder, records[i])
-        record_paths.append(record)
+        record_paths.append(record) 
 
         # Extract the features from the image, but only if the image has one or more dx classes.
         dx = helper_code.load_dx(record)
@@ -307,90 +305,10 @@ def train_dx_model_team(data_folder, records, verbose,
         models['dx_example'] = classification.example.train(features, labels)
 
     if 'seresnet' in models_to_train:
-        # This is now set in the ECGDataset class so no need to set it here unless we choose otherwise :)
-        #channels = 12 # TODO: MAGIC NUMBER find a way to get the number of channels from the data
-        
-        # ============= VALIDATION? =============
-        perform_validation = True ## WHERE TO SET THIS?
-
-        if perform_validation:
-            # 1) Split data to training and validation; return indeces for training and validation sets
-            # Either one stratified train/val split OR Stratified K-fold
-            split_index_list = split_data(data, multilabels, n_splits=5) # Default, one train/val split
-
-            # Iterate over train/test splits
-            pool_metrics = []
-            for train_idx, val_idx in split_index_list:
-                train_data, val_data = list(map(data.__getitem__, train_idx)), list(map(data.__getitem__, val_idx))
-                train_labels, val_labels = list(map(multilabels.__getitem__, train_idx)), list(map(multilabels.__getitem__, val_idx))
-
-                args = {'train_data': train_data, 'val_data': val_data,
-                        'train_labels': train_labels, 'val_labels': val_labels,
-                        'dx_labels': uniq_labels, 'epochs': 5, 'batch_size': 5}
-                
-                # 2) Training ResNet model(s) on the training data and evaluating on the validation set
-                trainer = Training(args)
-                trainer.setup()
-                metrics = trainer.train(compute_metrics=True) # Compute also the classification metrics (now, F-measure)
-                pool_metrics.append(metrics)  
-
-            print('\nValidation phase performed using {}'.format('basic train/val split' 
-                                                               if len(split_index_list) == 1 
-                                                               else '{}-Fold'.format(len(split_index_list ))))
-            print('\t - F-measure: {}'.format(pool_metrics[0] 
-                                              if len(split_index_list) == 1 
-                                              else np.nanmean(pool_metrics)))
-        
-        else: # Only train the model
-
-            # Train the model using entire data and store the state dictionary
-            args = {'train_data': data, 'val_data': None,
-                    'train_labels': multilabels, 'val_labels': None,
-                    'dx_labels': uniq_labels, 'epochs': 5, 'batch_size': 5}
-            
-            trainer = Training(args)
-            trainer.setup()
-            models['state_dict'] = trainer.train() 
-            return models
+        models['seresnet'] = classification.seresnet18.train(data, multilabels, uniq_labels, models, verbose)
 
     if verbose:
         print(f'Done. Time to train individual models: {time.time() - t2:.2f} seconds.')
         print(f'Total time elapsed: {time.time() - start:.2f} seconds.')
 
     return models
-
-# =======================================================================
-# Multilabel version
-# Splitting data into two sets based on number of splits that are needed
-# return indeces of the data for the splits
-def split_data(data, labels, n_splits=1):
-    idx = np.arange(len(data))
-    split_index_list = []
-
-    if n_splits == 1: # One train/Test split
-        mss = MultilabelStratifiedShuffleSplit(n_splits = n_splits, train_size=.75, test_size=.25, random_state=2024)
-        for train_idx, test_idx in mss.split(idx, labels):
-            split_index_list.append([train_idx, test_idx])
-        
-    else: # K-Fold
-        skfold = MultilabelStratifiedKFold(n_splits = n_splits)
-        for train_idx, test_idx in skfold.split(idx, labels):
-            split_index_list.append([train_idx, test_idx])
-
-    return split_index_list
-
-# Binary version
-def _split_data(data, labels, n_splits=1):
-    idx = np.arange(len(data))
-    split_indeces = []
-
-    if n_splits == 1: # Basic train/test split
-        train_idx, test_idx = train_test_split(idx, stratify=labels, test_size=.25, random_state=2024)
-        split_indeces.append([train_idx, test_idx])
-    
-    else: # K-Fold
-        skfold = StratifiedKFold(n_splits=n_splits)
-        for train_idx, test_idx in skfold.split(idx, labels):
-            split_indeces.append([train_idx, test_idx])
-
-    return split_indeces
