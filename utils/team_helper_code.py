@@ -39,3 +39,23 @@ def compute_classification_metrics(actual_labels, pre_logits, threshold):
     f_measure, _, _ = helper_code.compute_f_measure(actual_labels, pre_binary)
 
     return f_measure
+
+
+def multiclass_predict_from_logits(dx_labels, pre_logits, threshold=0.5):
+    """
+    The same as preprocess_labels, I presume, but for one sample and without known labels.
+    """
+    # define an empty array to store the predicted labels
+    pred_labels = np.zeros(len(dx_labels)) # pre_binary
+
+    # Find the index of the maximum value within the logits
+    likeliest_dx = np.argmax(pre_logits)
+
+    # Add all Dx above the decision threshold
+    pred_labels[pre_logits >= threshold] = 1
+
+    # Make sure at least one diagnosis is included (the likeliest one)
+    # NOTE if we don't include 'Norm' as a diagnosis, we can remove this line
+    pred_labels[likeliest_dx] = 1  
+
+    return pred_labels

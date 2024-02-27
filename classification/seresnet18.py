@@ -38,8 +38,10 @@ class Training(object):
                 print('using {} cpu'.format(self.device_count))
 
         # Load the datasets       
-        training_set = ECGDataset(self.args['train_data'], self.args['train_labels'],
-                                  get_transforms('train'))
+        training_set = ECGDataset(self.args['train_data'], 
+                                  get_transforms('train'),
+                                  self.args['train_labels'],
+                                  )
         channels = training_set.channels
         self.train_dl = DataLoader(training_set,
                                    batch_size=self.args['batch_size'],
@@ -49,8 +51,10 @@ class Training(object):
                                    drop_last=True)
 
         if self.args['val_data'] is not None:
-            validation_set = ECGDataset(self.args['val_data'], self.args['val_labels'], 
-                                        get_transforms('val')) 
+            validation_set = ECGDataset(self.args['val_data'],
+                                        get_transforms('val'),
+                                        self.args['val_labels'], 
+                                        ) 
             self.validation_files = validation_set.data
             self.val_dl = DataLoader(validation_set,
                                     batch_size=1,
@@ -170,9 +174,70 @@ class Training(object):
 
         model_state_dict = self.model.module.state_dict() if self.device_count > 1 else self.model.state_dict()
         return model_state_dict, f_measure
+    
  
+class Predicting(object):
+    def __init__(self, args):
+        self.args = args
+    
+    def setup(self):
+        ''' Initializing the device conditions and dataloader,
+        loading trained model
+        '''
+        # Consider the GPU or CPU condition
+        if torch.cuda.is_available():
+            self.device = torch.device("cuda")
+            self.device_count = self.args.device_count
+        else:
+            self.device = torch.device("cpu")
+            self.device_count = 1
+        
+        # Load the test data
+        testing_set = ECGDataset(self.args['test_data'], 
+                                 get_transforms('test'))
+        channels = testing_set.channels
+        self.test_dl = DataLoader(testing_set,
+                                  batch_size=1,
+                                  shuffle=False,
+                                  pin_memory=(True if self.device == 'cuda' else False),
+                                  drop_last=True)
+        
+        # Load the trained model
+        self.model = resnet18(in_channel=channels, 
+                              out_channel=len(self.args['dx_labels']))
+        self.model.load_state_dict(self.args['model'])
 
-# =======================================================================
+        self.sigmoid = nn.Sigmoid()
+        self.sigmoid.to(self.device)
+        self.model.to(self.device)
+        
+    def predict(self):
+        ''' Make predictions
+        '''
+        # if self.args['verbose']: 
+        #     print('predict() called: model={}, device={}'.format(
+        #         type(self.model).__name__,
+        #         self.device))
+ 
+        # --- EVALUATE ON TESTING SET ------------------------------------- 
+        self.model.eval()
+        logits_prob_all = torch.tensor((), device=self.device)  
+        
+        for i, (ecgs, ag) in enumerate(self.test_dl):
+            ecgs = ecgs.float().to(self.device) # ECGs
+            ag = ag.float().to(self.device) # age and gender
+
+            with torch.set_grad_enabled(False):  
+                logits = self.model(ecgs, ag)
+                logits_prob = self.sigmoid(logits)
+                logits_prob_all = torch.cat((logits_prob_all, logits_prob), 0)
+           
+            return logits_prob.cpu().detach().numpy().squeeze()
+            
+        torch.cuda.empty_cache()
+
+
+# =============== Main train and test function calls =============================
 # Multilabel version
 # Splitting data into two sets based on number of splits that are needed
 # return indeces of the data for the splits
@@ -217,7 +282,10 @@ def train(data, multilabels, uniq_labels, verbose, epochs=5, validate=True):
         uniq_labels (list): List of unique labels
         verbose (bool): printouts?
         epochs (int): number of epochs to train
-        validate (bool): perform validation? 
+        validate (bool): perform validation?
+    Returns:
+        state_dict (pytorch model): state dictionary of the trained model
+        metrics (float): F-measure (if validate=True, else None)
     """
     # n channels is now set in the ECGDataset class so no need to set it here unless we choose otherwise :)
     # can also set channels = len(sig[1]['units']) where sig = helper_code.load_signal(record)
@@ -265,3 +333,25 @@ def train(data, multilabels, uniq_labels, verbose, epochs=5, validate=True):
         state_dict, _ = trainer.train() 
 
     return state_dict
+
+
+def predict_proba(model, data, classes, verbose):
+    """
+    Parameters:
+        model (pytorch model): trained model
+        data (list): [path (str), fs (int), age and gender features (np.array)]
+        classes (list): List of possible unique labels
+        verbose (bool): printouts?
+
+    Returns:
+        probabilities (np.array): predicted probabilities for each class
+    """
+    # Predict the probabilities for the classes
+    args = {'model': model, 'test_data': data, 'dx_labels': classes, 'threshold': 0.5, 
+            'device_count': 1, 'verbose': verbose}
+    
+    predictor = Predicting(args)
+    predictor.setup()
+    probabilities = predictor.predict()
+
+    return probabilities

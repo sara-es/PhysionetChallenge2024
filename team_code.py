@@ -14,9 +14,9 @@ import os, time, joblib, sys
 import numpy as np
 from tqdm import tqdm
 
-import helper_code 
+import helper_code
 import preprocessing, reconstruction, classification
-from utils import default_models, utils
+from utils import default_models, utils, team_helper_code
 from sklearn.preprocessing import OneHotEncoder
 
 
@@ -80,7 +80,11 @@ def train_dx_model(data_folder, model_folder, verbose):
     os.makedirs(model_folder, exist_ok=True)
 
     # Main function call. Pass in names of records here for cross-validation.
-    models = train_dx_model_team(data_folder, records, verbose, models_to_train='seresnet')
+    # DO NOT replace the argument to models_to_train with your model. 
+    # Add it to the default_models.py file instead.
+    models = train_dx_model_team(data_folder, records, verbose, 
+                                 models_to_train=default_models.DX_MODELS
+                                 )
 
     # Save the model.
     utils.save_models(models, model_folder, verbose)
@@ -139,27 +143,61 @@ def run_digitization_model(digitization_model, record, verbose):
 # Run your trained dx classification model. This function is *required*. You should edit 
 # this function to add your code, but do *not* change the arguments of this function.
 def run_dx_model(dx_model, record, signal, verbose):
+    """
+    Parameters:
+        dx_model (dict): The trained model.
+        record (str): The path to the record to classify.
+        signal (np.ndarray): The signal to classify.
+        verbose (bool): printouts? you want 'em, we got 'em
+    """
+
     classes = dx_model['dx_classes']
 
-    # Extract features.
-    features = preprocessing.example.extract_features(record)
-    features = features.reshape(1, -1)
-
-    # Get model probabilities.
+    ####### Example model ########
     if 'dx_example' in dx_model.keys():
+        # Extract features.
+        features = preprocessing.example.extract_features(record)
+        features = features.reshape(1, -1)
+
+        # Get model probabilities.
         model = dx_model['dx_example']
         probabilities = model.predict_proba(features)
         probabilities = np.asarray(probabilities, dtype=np.float32)[:, 0, 1]
 
-    # Choose the class(es) with the highest probability as the label(s).
-    try: 
-        max_probability = np.nanmax(probabilities)
-    except ValueError:
-        raise ValueError("No probabilities returned. Check that you've loaded the right model(s).")
-    
-    labels = [classes[i] for i, probability in enumerate(probabilities) if 
+        # Choose the class(es) with the highest probability as the label(s).
+        max_probability = np.nanmax(probabilities)   
+        labels = [classes[i] for i, probability in enumerate(probabilities) if 
               probability == max_probability]
 
+    ######### SEResNet ###########
+    if 'seresnet' in dx_model.keys():
+        # Extract features: load header
+        header = helper_code.load_header(record)
+        age_gender = preprocessing.demographics.extract_features(record)
+        fs = helper_code.get_sampling_frequency(header)
+        data = [[record, fs, age_gender]]
+
+        # Get model probabilities.
+        model = dx_model['seresnet']
+        probabilities = classification.seresnet18.predict_proba(model, data, classes, verbose)
+        
+        # Choose the class(es) with the highest probability as the label(s).
+        # Set the threshold for additional labels here
+        pred_dx = team_helper_code.multiclass_predict_from_logits(
+                    classes, probabilities, threshold=0.5
+                )
+        labels = classes[np.where(pred_dx == 1)]
+        if verbose:
+            print(f"Classes: {classes}, probabilities: {probabilities}")
+            print(f"Predicted labels: {labels}")
+
+    try:
+        if len(labels) == 0:
+            raise ValueError("No or invalid probabilities returned. "+
+                         "Check that your model can cast probabilities to labels correctly.")
+    except UnboundLocalError:
+        raise UnboundLocalError("No labels returned. "+
+                         "Check that you've loaded the right model(s).")
     return labels
 
 
@@ -308,7 +346,7 @@ def train_dx_model_team(data_folder, records, verbose,
 
     if 'seresnet' in models_to_train:
         models['seresnet'] = classification.seresnet18.train(
-                                    data, multilabels, uniq_labels, models, verbose
+                                    data, multilabels, uniq_labels, verbose, epochs=5, validate=True
                                 )
 
     if verbose:

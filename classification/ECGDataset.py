@@ -47,13 +47,17 @@ class ECGDataset(Dataset):
     :type transform: datasets.transforms.Compose
     '''
 
-    def __init__(self, data, labels, transforms):
+    def __init__(self, data, transforms, labels=None):
         self.data = [ls[0] for ls in data] # ECG paths, str
         self.fs = [ls[1] for ls in data] # fs, int
         self.ag = [ls[2] for ls in data] # 89-year-old Male => [0.89, 0, 1]
-        self.labels = labels
         self.transforms = transforms
         self.channels = 12
+        if labels is not None:
+            self.labels = labels
+            self.training = True
+        else:
+            self.training = False
         
     def __len__(self):
         return len(self.data)
@@ -63,7 +67,10 @@ class ECGDataset(Dataset):
         fs = self.fs[item]
         ecg, _ = load_signal(file_name) # shape (samples, channels)
         ecg = ecg.T # shape (channels, samples)
-
-        label = self.labels[item]
         ag = self.ag[item]
-        return ecg, torch.from_numpy(ag).float(), torch.from_numpy(label).float()
+
+        if self.training:
+            label_torch = self.labels[item]
+            return ecg, torch.from_numpy(ag).float(), torch.from_numpy(label_torch).float()
+        else:
+            return ecg, torch.from_numpy(ag).float()
