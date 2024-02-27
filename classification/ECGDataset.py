@@ -38,19 +38,19 @@ def get_transforms(dataset_type):
 class ECGDataset(Dataset):
     ''' Class implementation of Dataset of ECG recordings
     
-    :param path: Paths of the filenames for the records 
-    :type path: str
-    :param preprocess: Preprocess transforms for ECG recording
-    :type preprocess: datasets.transforms.Compose
-    :param transform: The other transforms used for ECG recording
+    :param data: list of data where [path (str), fs (int), age and sex features (np.array)]
+    :type data: lst[lst]
+    :param labels: List of multilabels
+    :type labels: lst[lst]
+    :param transform: The transforms to use for ECG recordings
     :type transform: datasets.transforms.Compose
     '''
 
-    def __init__(self, records, labels, features, fss, transforms):
-        self.data = records
+    def __init__(self, data, labels, transforms):
+        self.data = [ls[0] for ls in data] # ECG paths, str
+        self.fs = [ls[1] for ls in data] # fs, int
+        self.ag = [ls[2] for ls in data] # 89-year-old Male => [0.89, 0, 1]
         self.labels = labels
-        self.ag = features
-        self.fs = fss
         self.transforms = transforms
         self.channels = 12
         

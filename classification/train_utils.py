@@ -8,6 +8,7 @@ from torch import optim
 from torch.utils.data import DataLoader
 from .seresnet18 import resnet18
 from .ECGDataset import ECGDataset, get_transforms
+from .metrics import compute_classification_metrics
 import pickle
 
 class Training(object):
@@ -31,8 +32,7 @@ class Training(object):
             print('using {} cpu'.format(self.device_count))
 
         # Load the datasets       
-        training_set = ECGDataset(self.args['train_records'], self.args['train_labels'], 
-                                  self.args['train_feats'], self.args['train_fs'], 
+        training_set = ECGDataset(self.args['train_data'], self.args['train_labels'],
                                   get_transforms('train'))
         channels = training_set.channels
         self.train_dl = DataLoader(training_set,
@@ -42,9 +42,8 @@ class Training(object):
                                    pin_memory=(True if self.device == 'cuda' else False),
                                    drop_last=True)
 
-        if self.args['val_records'] is not None:
-            validation_set = ECGDataset(self.args['val_records'], self.args['val_labels'], 
-                                        self.args['val_feats'], self.args['val_fs'], 
+        if self.args['val_data'] is not None:
+            validation_set = ECGDataset(self.args['val_data'], self.args['val_labels'], 
                                         get_transforms('val')) 
             self.validation_files = validation_set.data
             self.val_dl = DataLoader(validation_set,
@@ -71,11 +70,11 @@ class Training(object):
         self.sigmoid.to(self.device)
         self.model.to(self.device)
         
-    def train(self):
+    def train(self, compute_metrics=False):
         ''' PyTorch training loop
         '''
-        
-        print('train() called: model=%s, opt=%s(lr=%f), epochs=%d, device=%s\n' % \
+
+        print('train() called: model=%s, opt=%s(lr=%f), epochs=%d, device=%s' % \
               (type(self.model).__name__, 
                type(self.optimizer).__name__,
                self.optimizer.param_groups[0]['lr'], 
@@ -132,12 +131,13 @@ class Training(object):
 
             train_loss = train_loss / len(self.train_dl.dataset)            
 
-            if self.args['val_records'] is not None:
+            if self.args['val_data'] is not None:
             # --- EVALUATE ON VALIDATION SET ------------------------------------- 
                 self.model.eval()
                 val_loss = 0.0  
                 labels_all = torch.tensor((), device=self.device)
                 logits_prob_all = torch.tensor((), device=self.device)  
+                threshold = 0.5
                 
                 for ecgs, ag, labels in self.val_dl:
                     ecgs = ecgs.float().to(self.device) # ECGs
@@ -154,6 +154,9 @@ class Training(object):
                         logits_prob_all = torch.cat((logits_prob_all, logits_prob), 0)
 
                 val_loss = val_loss / len(self.val_dl.dataset)
+
+                # Return only metrics when validating
+                return compute_classification_metrics(labels_all, logits_prob_all, threshold)
 
         model_state_dict = self.model.module.state_dict() if self.device_count > 1 else self.model.state_dict()
         return model_state_dict

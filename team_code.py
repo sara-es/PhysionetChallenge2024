@@ -18,7 +18,8 @@ import helper_code
 import preprocessing, reconstruction, classification
 from utils import default_models, utils
 from sklearn.preprocessing import OneHotEncoder
-from iterstrat.ml_stratifiers import MultilabelStratifiedShuffleSplit
+from sklearn.model_selection import train_test_split, StratifiedKFold
+from iterstrat.ml_stratifiers import MultilabelStratifiedShuffleSplit, MultilabelStratifiedKFold # For multilabel stratification
 from classification.train_utils import Training
 
 ################################################################################
@@ -282,9 +283,14 @@ def train_dx_model_team(data_folder, records, verbose,
             
     if not labels:
         raise Exception('There are no labels for the data.')  
+    
+    # ========= Combine data obtained =====
+    data = [list(ls) for ls in zip(record_paths, fs_arr, features)] # Take order of variables into account
+    # =====================================
 
+    # We don't need one hot encoding?
     # One-hot-encode labels 
-    ohe = OneHotEncoder(sparse=False)
+    ohe = OneHotEncoder(sparse_output=False)
     multilabels = ohe.fit_transform(labels)
     uniq_labels = ohe.categories_[0] # order of the labels!
     models['dx_classes'] = uniq_labels
@@ -301,31 +307,51 @@ def train_dx_model_team(data_folder, records, verbose,
         models['dx_example'] = classification.example.train(features, labels)
 
     if 'seresnet' in models_to_train:
-        channels = 12 # TODO: MAGIC NUMBER find a way to get the number of channels from the data
+        # This is now set in the ECGDataset class so no need to set it here unless we choose otherwise :)
+        #channels = 12 # TODO: MAGIC NUMBER find a way to get the number of channels from the data
         
-        # VALIDATION?
-        # Split data to training and validation
-        split_index_list = train_val_split(multilabels)
+        # ============= VALIDATION? =============
+        perform_validation = True ## WHERE TO SET THIS?
 
-        if len(split_index_list) == 1: # Working only with n_splits (number of train-test splits) == 1
-            train_idx, val_idx = split_index_list[0][0], split_index_list[0][1]
+        if perform_validation:
+            # 1) Split data to training and validation; return indeces for training and validation sets
+            # Either one stratified train/val split OR Stratified K-fold
+            split_index_list = split_data(data, multilabels, n_splits=5) # Default, one train/val split
 
-        train_records, val_records = list(map(record_paths.__getitem__, train_idx)), list(map(record_paths.__getitem__, val_idx))
-        train_labels, val_labels = list(map(multilabels.__getitem__, train_idx)), list(map(multilabels.__getitem__, val_idx))
-        train_feats, val_feats = list(map(features.__getitem__, train_idx)), list(map(features.__getitem__, val_idx))
-        train_fs, val_fs = list(map(fs_arr.__getitem__, train_idx)), list(map(fs_arr.__getitem__, val_idx))
+            # Iterate over train/test splits
+            pool_metrics = []
+            for train_idx, val_idx in split_index_list:
+                train_data, val_data = list(map(data.__getitem__, train_idx)), list(map(data.__getitem__, val_idx))
+                train_labels, val_labels = list(map(multilabels.__getitem__, train_idx)), list(map(multilabels.__getitem__, val_idx))
 
-        args = {'train_records': train_records, 'val_records': val_records,
-                'train_labels': train_labels, 'val_labels': val_labels,
-                'train_feats': train_feats, 'val_feats': val_feats,
-                'train_fs': train_fs, 'val_fs': val_fs,
-                'dx_labels': uniq_labels, 'epochs': 5, 'batch_size': 5}
+                args = {'train_data': train_data, 'val_data': val_data,
+                        'train_labels': train_labels, 'val_labels': val_labels,
+                        'dx_labels': uniq_labels, 'epochs': 5, 'batch_size': 5}
+                
+                # 2) Training ResNet model(s) on the training data and evaluating on the validation set
+                trainer = Training(args)
+                trainer.setup()
+                metrics = trainer.train(compute_metrics=True) # Compute also the classification metrics (now, F-measure)
+                pool_metrics.append(metrics)  
 
-        # Training a ResNet model
-        trainer = Training(args)
-        trainer.setup()
-        models['state_dict'] = trainer.train() 
-        return models
+            print('\nValidation phase performed using {}'.format('basic train/val split' 
+                                                               if len(split_index_list) == 1 
+                                                               else '{}-Fold'.format(len(split_index_list ))))
+            print('\t - F-measure: {}'.format(pool_metrics[0] 
+                                              if len(split_index_list) == 1 
+                                              else np.nanmean(pool_metrics)))
+        
+        else: # Only train the model
+
+            # Train the model using entire data and store the state dictionary
+            args = {'train_data': data, 'val_data': None,
+                    'train_labels': multilabels, 'val_labels': None,
+                    'dx_labels': uniq_labels, 'epochs': 5, 'batch_size': 5}
+            
+            trainer = Training(args)
+            trainer.setup()
+            models['state_dict'] = trainer.train() 
+            return models
 
     if verbose:
         print(f'Done. Time to train individual models: {time.time() - t2:.2f} seconds.')
@@ -333,13 +359,38 @@ def train_dx_model_team(data_folder, records, verbose,
 
     return models
 
-# Splitting data into two sets using MultilabelStratifiedShuffleSplit
-# return indeces of the splits
-def train_val_split(labels, n_splits=1):
-    cv = MultilabelStratifiedShuffleSplit(n_splits = n_splits, train_size=0.75, test_size=0.25, random_state=2024)
-    X = np.arange(labels.shape[0])
+# =======================================================================
+# Multilabel version
+# Splitting data into two sets based on number of splits that are needed
+# return indeces of the data for the splits
+def split_data(data, labels, n_splits=1):
+    idx = np.arange(len(data))
     split_index_list = []
-    for train_index, val_index in cv.split(X, labels):
-        split_index_list.append([train_index, val_index])
+
+    if n_splits == 1: # One train/Test split
+        mss = MultilabelStratifiedShuffleSplit(n_splits = n_splits, train_size=.75, test_size=.25, random_state=2024)
+        for train_idx, test_idx in mss.split(idx, labels):
+            split_index_list.append([train_idx, test_idx])
+        
+    else: # K-Fold
+        skfold = MultilabelStratifiedKFold(n_splits = n_splits)
+        for train_idx, test_idx in skfold.split(idx, labels):
+            split_index_list.append([train_idx, test_idx])
 
     return split_index_list
+
+# Binary version
+def _split_data(data, labels, n_splits=1):
+    idx = np.arange(len(data))
+    split_indeces = []
+
+    if n_splits == 1: # Basic train/test split
+        train_idx, test_idx = train_test_split(idx, stratify=labels, test_size=.25, random_state=2024)
+        split_indeces.append([train_idx, test_idx])
+    
+    else: # K-Fold
+        skfold = StratifiedKFold(n_splits=n_splits)
+        for train_idx, test_idx in skfold.split(idx, labels):
+            split_indeces.append([train_idx, test_idx])
+
+    return split_indeces
