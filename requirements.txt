@@ -10,3 +10,4 @@ torchvision
 torchaudio
 imageio
 matplotlib
+iterative_stratification==0.1.7 
