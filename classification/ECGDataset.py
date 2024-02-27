@@ -6,6 +6,7 @@ from torch.utils.data import Dataset
 from preprocessing.transforms import Compose, RandomClip, Normalize, ValClip, Retype
 from helper_code import load_signal
 
+
 def get_transforms(dataset_type):
     ''' Get transforms for ECG data based on the dataset type (train, validation, test)
     '''
@@ -60,8 +61,8 @@ class ECGDataset(Dataset):
     def __getitem__(self, item):
         file_name = self.data[item]
         fs = self.fs[item]
-        ecg, _ = load_signal(file_name)
-        ecg = ecg.T # CHECK THIS OUT!?!?!!?
+        ecg, _ = load_signal(file_name) # shape (samples, channels)
+        ecg = ecg.T # shape (channels, samples)
 
         label = self.labels[item]
         ag = self.ag[item]

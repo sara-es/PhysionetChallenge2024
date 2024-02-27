@@ -29,12 +29,14 @@ class Training(object):
         if torch.cuda.is_available():
             self.device = torch.device("cuda")
             self.device_count = 1
-            print('using {} gpu(s)'.format(self.device_count))
+            if self.args['verbose']:
+                print('using {} gpu(s)'.format(self.device_count))
             assert self.args['batch_size'] % self.device_count == 0, "batch size should be divided by device count"
         else:
             self.device = torch.device("cpu")
             self.device_count = 1
-            print('using {} cpu'.format(self.device_count))
+            if self.args['verbose']:
+                print('using {} cpu'.format(self.device_count))
 
         # Load the datasets       
         training_set = ECGDataset(self.args['train_data'], self.args['train_labels'],
@@ -79,12 +81,13 @@ class Training(object):
         ''' PyTorch training loop
         '''
 
-        print('train() called: model=%s, opt=%s(lr=%f), epochs=%d, device=%s' % \
-              (type(self.model).__name__, 
-               type(self.optimizer).__name__,
-               self.optimizer.param_groups[0]['lr'], 
-               self.args['epochs'], 
-               self.device))
+        if self.args['verbose']:
+                print('train() called: model=%s, opt=%s(lr=%f), epochs=%d, device=%s' % \
+                    (type(self.model).__name__, 
+                    type(self.optimizer).__name__,
+                    self.optimizer.param_groups[0]['lr'], 
+                    self.args['epochs'], 
+                    self.device))
         
         for epoch in range(1, self.args['epochs']):
             
@@ -123,12 +126,13 @@ class Training(object):
                         batch_loss += loss_tmp
                         batch_count += ecgs.size(0)
                         batch_loss = batch_loss / batch_count
-                        print('epoch {:^3} [{}/{}] train loss: {:>5.4f}'.format(
-                            epoch, 
-                            batch_idx * len(ecgs), 
-                            len(self.train_dl.dataset), 
-                            batch_loss
-                        ))
+                        if self.args['verbose']:
+                            print('epoch {:^3} [{}/{}] train loss: {:>5.4f}'.format(
+                                epoch, 
+                                batch_idx * len(ecgs), 
+                                len(self.train_dl.dataset), 
+                                batch_loss
+                            ))
 
                         batch_loss = 0.0
                         batch_count = 0
@@ -204,14 +208,12 @@ def _split_data(data, labels, n_splits=1):
     return split_indeces
 
 
-def train(data, multilabels, uniq_labels, models, verbose):
-    # This is now set in the ECGDataset class so no need to set it here unless we choose otherwise :)
-        #channels = 12 # TODO: MAGIC NUMBER find a way to get the number of channels from the data
-        
-        # ============= VALIDATION? =============
-    perform_validation = True ## WHERE TO SET THIS?
-
-    if perform_validation:
+def train(data, multilabels, uniq_labels, models, verbose, epochs=5, validate=True):
+    # n channels is now set in the ECGDataset class so no need to set it here unless we choose otherwise :)
+    # can also set channels = len(sig[1]['units']) where sig = helper_code.load_signal(record)
+    
+    # ============= VALIDATION? =============
+    if validate:
         # 1) Split data to training and validation; return indeces for training and validation sets
         # Either one stratified train/val split OR Stratified K-fold
         split_index_list = split_data(data, multilabels, n_splits=5) # Default, one train/val split
@@ -224,7 +226,8 @@ def train(data, multilabels, uniq_labels, models, verbose):
 
             args = {'train_data': train_data, 'val_data': val_data,
                     'train_labels': train_labels, 'val_labels': val_labels,
-                    'dx_labels': uniq_labels, 'epochs': 5, 'batch_size': 5}
+                    'dx_labels': uniq_labels, 'epochs': epochs, 'batch_size': 5,
+                    'verbose': verbose}
             
             # 2) Training ResNet model(s) on the training data and evaluating on the validation set
             trainer = Training(args)
@@ -232,10 +235,11 @@ def train(data, multilabels, uniq_labels, models, verbose):
             metrics = trainer.train(compute_metrics=True) # Compute also the classification metrics (now, F-measure)
             pool_metrics.append(metrics)  
 
-        print('\nValidation phase performed using {}'.format('basic train/val split' 
-                                                            if len(split_index_list) == 1 
-                                                            else '{}-Fold'.format(len(split_index_list ))))
-        print('\t - F-measure: {}'.format(pool_metrics[0] 
+        if verbose:
+            print('\nValidation phase performed using {}'.format('basic train/val split' 
+                                                                if len(split_index_list) == 1 
+                                                                else '{}-Fold'.format(len(split_index_list ))))
+            print('\t - F-measure: {}'.format(pool_metrics[0] 
                                             if len(split_index_list) == 1 
                                             else np.nanmean(pool_metrics)))
     
@@ -244,7 +248,8 @@ def train(data, multilabels, uniq_labels, models, verbose):
         # Train the model using entire data and store the state dictionary
         args = {'train_data': data, 'val_data': None,
                 'train_labels': multilabels, 'val_labels': None,
-                'dx_labels': uniq_labels, 'epochs': 5, 'batch_size': 5}
+                'dx_labels': uniq_labels, 'epochs': epochs, 'batch_size': 5,
+                'verbose': verbose}
         
         trainer = Training(args)
         trainer.setup()

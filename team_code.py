@@ -267,7 +267,8 @@ def train_dx_model_team(data_folder, records, verbose,
         # Extract the features from the image, but only if the image has one or more dx classes.
         dx = helper_code.load_dx(record)
         if dx:
-            age_gender = preprocessing.demographics.extract_features(record) # len 3 array (age/100, male, female)
+            # age_gender is len 3 array: (age/100, male, female)
+            age_gender = preprocessing.demographics.extract_features(record) 
             features.append(age_gender) # => splitted the ag array just for simplicity (for now)
             labels.append(dx)
             
@@ -283,7 +284,8 @@ def train_dx_model_team(data_folder, records, verbose,
         raise Exception('There are no labels for the data.')  
     
     # ========= Combine data obtained =====
-    data = [list(ls) for ls in zip(record_paths, fs_arr, features)] # Take order of variables into account
+    # Take order of variables into account
+    data = [list(ls) for ls in zip(record_paths, fs_arr, features)] 
     # =====================================
 
     # We don't need one hot encoding?
@@ -305,7 +307,9 @@ def train_dx_model_team(data_folder, records, verbose,
         models['dx_example'] = classification.example.train(features, labels)
 
     if 'seresnet' in models_to_train:
-        models['seresnet'] = classification.seresnet18.train(data, multilabels, uniq_labels, models, verbose)
+        models['seresnet'] = classification.seresnet18.train(
+                                    data, multilabels, uniq_labels, models, verbose
+                                )
 
     if verbose:
         print(f'Done. Time to train individual models: {time.time() - t2:.2f} seconds.')
