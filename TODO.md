@@ -2,6 +2,7 @@
 
 ### TODO
 - test on larger dataset (on tiny test we are returning all 'Norm')
+- unittests for dataloaders 
 - 5-fold CV
 - single preprocessing function for both train and test
 - looks like frequency (fs) is passed to dataloaders not used currently
