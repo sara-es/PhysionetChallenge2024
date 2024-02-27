@@ -9,11 +9,10 @@ from torch.utils.data import DataLoader
 
 from sklearn.model_selection import train_test_split, StratifiedKFold
 from iterstrat.ml_stratifiers import MultilabelStratifiedShuffleSplit, MultilabelStratifiedKFold # For multilabel stratification
-from classification.seresnet18 import Training
 
 from classification.SEResNet import resnet18
 from classification.ECGDataset import ECGDataset, get_transforms
-from utils import compute_classification_metrics
+from utils.team_helper_code import compute_classification_metrics
 
 
 class Training(object):
@@ -88,7 +87,9 @@ class Training(object):
                     self.optimizer.param_groups[0]['lr'], 
                     self.args['epochs'], 
                     self.device))
-        
+                
+        f_measure = None
+
         for epoch in range(1, self.args['epochs']):
             
             # --- TRAIN ON TRAINING SET -----------------------------
@@ -164,11 +165,11 @@ class Training(object):
 
                 val_loss = val_loss / len(self.val_dl.dataset)
 
-                # Return only metrics when validating
-                return compute_classification_metrics(labels_all, logits_prob_all, threshold)
+                # Return metrics when validating
+                f_measure = compute_classification_metrics(labels_all, logits_prob_all, threshold)
 
         model_state_dict = self.model.module.state_dict() if self.device_count > 1 else self.model.state_dict()
-        return model_state_dict
+        return model_state_dict, f_measure
  
 
 # =======================================================================
@@ -208,7 +209,16 @@ def _split_data(data, labels, n_splits=1):
     return split_indeces
 
 
-def train(data, multilabels, uniq_labels, models, verbose, epochs=5, validate=True):
+def train(data, multilabels, uniq_labels, verbose, epochs=5, validate=True):
+    """
+    Parameters:
+        data (list): list of data where [path (str), fs (int), age and sex features (np.array)]
+        multilabels (list): List of multilabels
+        uniq_labels (list): List of unique labels
+        verbose (bool): printouts?
+        epochs (int): number of epochs to train
+        validate (bool): perform validation? 
+    """
     # n channels is now set in the ECGDataset class so no need to set it here unless we choose otherwise :)
     # can also set channels = len(sig[1]['units']) where sig = helper_code.load_signal(record)
     
@@ -216,7 +226,7 @@ def train(data, multilabels, uniq_labels, models, verbose, epochs=5, validate=Tr
     if validate:
         # 1) Split data to training and validation; return indeces for training and validation sets
         # Either one stratified train/val split OR Stratified K-fold
-        split_index_list = split_data(data, multilabels, n_splits=5) # Default, one train/val split
+        split_index_list = split_data(data, multilabels, n_splits=1) # Default, one train/val split
 
         # Iterate over train/test splits
         pool_metrics = []
@@ -232,7 +242,7 @@ def train(data, multilabels, uniq_labels, models, verbose, epochs=5, validate=Tr
             # 2) Training ResNet model(s) on the training data and evaluating on the validation set
             trainer = Training(args)
             trainer.setup()
-            metrics = trainer.train(compute_metrics=True) # Compute also the classification metrics (now, F-measure)
+            state_dict, metrics = trainer.train(compute_metrics=True) # Compute also the classification metrics (now, F-measure)
             pool_metrics.append(metrics)  
 
         if verbose:
@@ -244,7 +254,6 @@ def train(data, multilabels, uniq_labels, models, verbose, epochs=5, validate=Tr
                                             else np.nanmean(pool_metrics)))
     
     else: # Only train the model
-
         # Train the model using entire data and store the state dictionary
         args = {'train_data': data, 'val_data': None,
                 'train_labels': multilabels, 'val_labels': None,
@@ -253,5 +262,6 @@ def train(data, multilabels, uniq_labels, models, verbose, epochs=5, validate=Tr
         
         trainer = Training(args)
         trainer.setup()
-        models['state_dict'] = trainer.train() 
-        return models
+        state_dict, _ = trainer.train() 
+
+    return state_dict

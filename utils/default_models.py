@@ -3,5 +3,6 @@ DIGITIZATION_MODELS = [
 ]
 
 DX_MODELS = [
-    'dx_example'
+    # 'dx_example',
+    'seresnet'
 ]
