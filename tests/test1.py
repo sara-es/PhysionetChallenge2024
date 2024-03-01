@@ -11,6 +11,7 @@ import scipy as sp
 import cv2
 from skimage.morphology import closing
 from scipy.stats import mode
+from sklearn.neighbors import KernelDensity
 # For automatic digitisation tools to work, we need to clean up the initial image in stages:
 # 1. rotate image (note that this can be applied to image, or to the extracted signal at the end)
 # 2. de-shadow image
@@ -40,8 +41,15 @@ axs[3].imshow(blue_im)
 
 ## ---- process the image to enhance the grid and get rid of shadows
 # todo - fix magic number here
-dev_im = blue_im - (red_im*1.4) # scaled red image so that it is the same brightness. Hard_coded for now
+scale = np.mean(blue_im)/np.mean(red_im)
+dev_im = blue_im - (red_im*scale) # scaled red image so that it is the same brightness. Hard_coded for now
+plt.figure()
 plt.imshow(dev_im)
+#scale so that white is 255, and black is 0
+im_range = np.ptp(dev_im)
+im_min = np.min(dev_im)
+dev_im = (dev_im - im_min)*255/im_range
+
 dev_im[abs(dev_im)<50] = 0 # enhance image so that any light greys are forced to be white
 
 
@@ -50,6 +58,8 @@ dev_im[abs(dev_im)<50] = 0 # enhance image so that any light greys are forced to
 copy_im = np.uint8(dev_im)
 edges = cv2.Canny(copy_im,50,150,apertureSize = 3)
 
+#output of hough transform is array of lines, with 2nd column as angle in radians. I *think* the
+# starting angle of zero points west, and this is clockwise rotation.
 lines = cv2.HoughLines(edges,1,np.pi/180,800)
 for rho,theta in lines[0]:
     a = np.cos(theta)
@@ -68,17 +78,50 @@ for rho,theta in lines[0]:
 angles = lines[:,0,1]*180/np.pi #angles in degrees
 angles = angles[angles<90]
 rot_angle = mode(angles, keepdims = False)
-
-#output of hough transform is array of lines, with 2nd column as angle in radians. I *think* the
-# starting angle of zero points west, and this is clockwise rotation.
-
-
-
-
-
-# --- undo rotation on the gridlines, as proof of principle --- 
-angle = 57.29*1.5 # hard coded for the moment - this is degrees/radian * hough transform angle
-out = sp.ndimage.rotate(dev_im, -(90-angle), axes=(1, 0), reshape=True)
+if rot_angle[0]>45:
+    rot_angle = rot_angle[0] - 90
+else:
+    rot_angle = rot_angle[0]
 
 # morphological filter on red channel? (closing?)
-test = closing(red_im, footprint=[(np.ones((9, 1)), 1), (np.ones((1, 9)), 1)])
+test = closing(red_im, footprint=[(np.ones((7, 1)), 1), (np.ones((1, 7)), 1)])
+
+output_im = red_im - test
+plt.figure()
+plt.imshow(output_im)
+
+# darken the 9.2% darkest pixels
+vals = output_im.flatten()
+b = np.histogram(vals,255)
+a = np.cumsum(b[0])
+thresh = np.argmax(a[a<345260])
+
+output_im[output_im<thresh] = 0 # need to figure out this magic number
+plt.figure()
+plt.imshow(output_im)
+output_rot = sp.ndimage.rotate(output_im, rot_angle, axes=(1, 0), reshape=True)
+plt.figure()
+plt.imshow(output_rot)
+
+# # ------ Work out the size of the ECG grid (in pixels) by finding distance between grid lines
+# # for the moment: --------------------------------------------------------------------------
+# #   assume that aspect ratio is always 1:1
+# #   assume that we can get this from the hough lines (hough lines are a bit flaky, so might need another way)
+
+# # find the biggest peak
+# # find the mode of the biggest peak
+# offsets = lines[:,0,0]
+# gaps = np.diff(offsets)
+# density = sp.stats.gaussian_kde(gaps, bw_method=0.01)
+# gap_hist = density(list(range(100)))
+# ave_gap = np.argmax(gap_hist)
+
+# # now multiply to get a whole 2.5 secs of ECG
+# block_width = 12.5*ave_gap
+# block_height = 7 *ave_gap
+
+# # find the start of the top-left ECG, and place the grids (this is probably fragile). A better alternative
+# # might be to find the writing, and then work out where the corresponding ECG channel is
+
+
+# send the 12 ECG segments to the digitizer
