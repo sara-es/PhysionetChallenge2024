@@ -151,10 +151,3 @@ class ResNet(nn.Module):
         x = self.fc(x) # Fully connected layers, outputs
 
         return x
-    
-
-def resnet18(**kwargs):
-    """Constructing a ResNet-18 model.
-    """
-    model = ResNet(BasicBlock, [2, 2, 2, 2], **kwargs)
-    return model

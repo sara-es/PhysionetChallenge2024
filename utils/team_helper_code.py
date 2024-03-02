@@ -31,12 +31,21 @@ def preprocess_labels(true_labels, pre_logits, threshold):
     return true_labels, pre_logits, pre_binary
 
 
-def compute_classification_metrics(actual_labels, pre_logits, threshold):
+def compute_classification_metrics(actual_labels, pre_logits, unique_labels, threshold):
+    """
+    Parameters
+        actual_labels (torch.Tensor): The true labels, one hot encoded
+        pre_logits (torch.Tensor): The predicted logits (probabilities), one hot encoded
+        unique_labels (list): unique labels in string format
+        threshold (float): The decision threshold for additional (multilabel) predicted labels
 
+    Returns
+        f_measure (float)
+    """
     actual_labels, pre_logits, pre_binary = preprocess_labels(actual_labels, pre_logits, threshold)
 
     # Compute the metrics
-    f_measure, _, _ = helper_code.compute_f_measure(actual_labels, pre_binary)
+    f_measure, _, _ = compute_f_measure_from_onehot(actual_labels, pre_binary, unique_labels)
 
     return f_measure
 
@@ -59,3 +68,31 @@ def multiclass_predict_from_logits(dx_labels, pre_logits, threshold=0.5):
     pred_labels[likeliest_dx] = 1  
 
     return pred_labels
+
+
+def compute_f_measure_from_onehot(labels, outputs, unique_classes):
+    """
+    Takes in labels and pre_logits as one-hot encoded arrays.
+
+    Similar to helper_code.compute_f_measure(), except that function expects inputs as 
+    (label_dxs, output_dxs) where label_dxs and output_dxs are lists of diagnoses in string format.
+    """
+    A = helper_code.compute_one_vs_rest_confusion_matrix(labels, outputs, unique_classes)
+
+    num_classes = len(unique_classes)
+    per_class_f_measure = np.zeros(num_classes)
+    for k in range(num_classes):
+        tp, fp, fn, tn = A[k, 0, 0], A[k, 0, 1], A[k, 1, 0], A[k, 1, 1]
+        if 2 * tp + fp + fn > 0:
+            per_class_f_measure[k] = float(2 * tp) / float(2 * tp + fp + fn)
+        else:
+            per_class_f_measure[k] = float('nan')
+
+    if np.any(np.isfinite(per_class_f_measure)):
+        macro_f_measure = np.nanmean(per_class_f_measure)
+    else:
+        macro_f_measure = float('nan')
+
+    return macro_f_measure, per_class_f_measure, unique_classes
+
+    

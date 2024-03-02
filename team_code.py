@@ -179,13 +179,9 @@ def run_dx_model(dx_model, record, signal, verbose):
 
         # Get model probabilities.
         model = dx_model['seresnet']
-        probabilities = classification.seresnet18.predict_proba(model, data, classes, verbose)
-        
-        # Choose the class(es) with the highest probability as the label(s).
-        # Set the threshold for additional labels here
-        pred_dx = team_helper_code.multiclass_predict_from_logits(
-                    classes, probabilities, threshold=0.5
-                )
+        # mutli_dx_threshold is probability above which secondary labels are returned positive in pred_dx
+        pred_dx, probabilities = classification.seresnet18.predict_proba(
+                                        model, data, classes, verbose, multi_dx_threshold=0.5)
         labels = classes[np.where(pred_dx == 1)]
         if verbose:
             print(f"Classes: {classes}, probabilities: {probabilities}")
@@ -345,7 +341,7 @@ def train_dx_model_team(data_folder, records, verbose,
         models['dx_example'] = classification.example.train(features, labels)
 
     if 'seresnet' in models_to_train:
-        models['seresnet'] = classification.seresnet18.train(
+        models['seresnet'] = classification.seresnet18.train_model(
                                     data, multilabels, uniq_labels, verbose, epochs=5, validate=True
                                 )
 
