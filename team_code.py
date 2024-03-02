@@ -156,7 +156,7 @@ def run_dx_model(dx_model, record, signal, verbose):
     ####### Example model ########
     if 'dx_example' in dx_model.keys():
         # Extract features.
-        features = preprocessing.example.extract_features(record)
+        features = preprocessing.demographics.extract_features(record) # for consistency with train
         features = features.reshape(1, -1)
 
         # Get model probabilities.
