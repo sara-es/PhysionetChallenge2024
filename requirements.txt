@@ -11,3 +11,5 @@ torchaudio
 imageio
 matplotlib
 iterative_stratification==0.1.7 
+scikit-image
+opencv-python
