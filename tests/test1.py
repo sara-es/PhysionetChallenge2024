@@ -4,6 +4,7 @@ Created on Fri Feb 16 14:01:03 2024
 
 @author: hssdwo
 """
+import os
 import imageio.v3 as iio
 import numpy as np
 from matplotlib import pyplot as plt
@@ -18,7 +19,7 @@ from sklearn.neighbors import KernelDensity
 # 3. identify the 12 lead labels, and segment the image into the 12 leads
 
 ## ---- import image from folder ------
-im = iio.imread('C:/Users/hssdwo/Desktop/pn2024/00001_hr-0.png')
+im = iio.imread(os.path.join('tiny_testset', 'records500', '00001_hr-0.png'))
 
 
 # files are png, in RGBa format. The alpha channel is 255 for all pixels (opaque) and therefore

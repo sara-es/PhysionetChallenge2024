@@ -10,3 +10,5 @@ torchvision
 torchaudio
 imageio
 matplotlib
+scikit-image
+opencv-python
