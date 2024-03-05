@@ -3,7 +3,7 @@
 ### TODO
 - test on larger dataset (on tiny test we are returning all 'Norm')
 - unittests for dataloaders 
-- 5-fold CV
+- 5-fold CV: Evaluation
 - single preprocessing function for both train and test
 - looks like frequency (fs) is passed to dataloaders but not used, do we need this?
 - currently, we make a list of file paths to pass into resnet, there is probably a better option?

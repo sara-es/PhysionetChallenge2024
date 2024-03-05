@@ -229,7 +229,6 @@ def train_model(data, multilabels, uniq_labels, verbose, epochs=5, validate=True
             train_data, val_data = list(map(data.__getitem__, train_idx)), list(map(data.__getitem__, val_idx))
             train_labels, val_labels = list(map(multilabels.__getitem__, train_idx)), list(map(multilabels.__getitem__, val_idx))
             # Iterate over train/test splits
-            pool_metrics = []
             train_dl, val_dl = initialise_with_eval(train_data, train_labels, val_data, val_labels, device, batch_size=5)
             
             # Training ResNet model(s) on the training data and evaluating on the validation set
