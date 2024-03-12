@@ -251,6 +251,9 @@ def train_digitization_model_team(data_folder, records, verbose,
 
     if 'digit_example' in models_to_train:
         models['digit_example'] = reconstruction.example.train(features)
+    if 'digit_clean_miner' in models_to_train:
+        #to check - not sure if this is right#########
+        models['digit_clean_miner'] = reconstruction.clean_miner.digitize
 
     if verbose:
         print(f'Done. Time to train individual models: {time.time() - t2:.2f} seconds.')
