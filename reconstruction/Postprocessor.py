@@ -39,7 +39,7 @@ class Postprocessor:
         self.__layout = (3,4)
         self.__cabrera = False
         self.__interpolation = None
-        self.__rhythm = Format.STANDARD
+        self.__rhythm = [Lead.II]
 
     def postprocess(
         self, raw_signals: Iterable[Iterable[Point]], ecg_crop: Image

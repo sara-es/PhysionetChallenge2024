@@ -12,7 +12,7 @@ class Image:
     the color space in which it is stored. Could be GRAY, BGR, RGB or HSV.
     """
 
-    def __init__(self, path: str) -> None:
+    def __init__(self, cleaned_image: any) -> None:
         """
         Initialization of the image, by default is in BGR format.
 
@@ -22,11 +22,8 @@ class Image:
         Raises:
             FileNotFoundError: File does not exist.
         """
-        self.__data = None
-        self.__data = cv.imread(path)
-        self.__color_space = ColorSpace.BGR
-        if self.__data is None:
-            raise FileNotFoundError(f'File "{path}" does not exist')
+        self.__data = cleaned_image
+        self.__color_space = ColorSpace.RGB
 
     def __getitem__(
         self, index: Sequence
