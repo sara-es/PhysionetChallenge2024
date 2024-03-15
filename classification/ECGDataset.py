@@ -1,4 +1,4 @@
-import sys, os
+import sys, os, numpy as np
 sys.path.append(os.path.join(sys.path[0], '..'))
 
 import torch
@@ -68,6 +68,8 @@ class ECGDataset(Dataset):
         ecg, _ = load_signal(file_name) # shape (samples, channels)
         ecg = ecg.T # shape (channels, samples)
         ag = self.ag[item]
+
+        ecg = np.nan_to_num(ecg, nan=0) # HANDLING THE NAN VALUES IN SIGNAL DATA
 
         if self.training:
             label_torch = self.labels[item]
