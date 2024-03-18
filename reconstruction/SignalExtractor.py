@@ -9,9 +9,12 @@ import numpy as np
 from scipy.signal import find_peaks
 
 # Application-specific imports
-from Rectangle import Rectangle
-from Point import Point
-from Image import Image
+#from Rectangle import Rectangle
+#from Point import Point
+#from Image import Image
+from reconstruction.Image import Image
+from reconstruction.Point import Point
+from reconstruction.Rectangle import Rectangle
 from reconstruction.DigitizationError import DigitizationError
 
 

@@ -15,7 +15,7 @@ import numpy as np
 from tqdm import tqdm
 
 import helper_code
-import preprocessing, reconstruction, classification
+import preprocessing, reconstruction, classification, reconstruction.image_cleaning
 from utils import default_models, utils, team_helper_code
 from sklearn.preprocessing import OneHotEncoder
 

@@ -6,20 +6,23 @@ Created on Thu Feb 29 15:51:53 2024
 """
 import imageio.v3 as iio
 import numpy as np
-from matplotlib import pyplot as plt
+#from matplotlib import pyplot as plt
 import scipy as sp
 import cv2
 from skimage.morphology import closing
 from scipy.stats import mode
-
+from reconstruction.Image import Image
 from reconstruction.ECGClass import PaperECG
 
 
 def digitize(image):
     cleaned_image = clean_image(image)
-    # for testing - display the clean image
-
-    ECG_signals = digitize_image(cleaned_image)
+    
+    # convert greyscale to rgb
+    cleaned_image = cv2.merge([cleaned_image,cleaned_image,cleaned_image])
+    cleaned_image = np.uint8(cleaned_image)
+    cleaned_image = Image(cleaned_image) # cleaned_image = reconstruction.Image.Image(cleaned_image)
+    ECG_signals = digitize_image(cleaned_image) # paper_ecg = reconstruction.image_cleaning.PaperECG(cleaned_image)
     return (ECG_signals)
 
 
@@ -31,8 +34,8 @@ def clean_image(image):
     im = np.delete(im, np.s_[-1:], axis=2)
 
     # plot to view the raw image, and the RGB channels individually
-    red_im = im[:, :, 0]  # this channel doesn't show up the grid very much
-    blue_im = im[:, :, 2]
+    red_im = im[:, :, 0].astype(np.float32)  # this channel doesn't show up the grid very much
+    blue_im = im[:, :, 2].astype(np.float32)
 
     # 2. rotate image
     angle = get_rotation_angle(blue_im, red_im)
@@ -54,7 +57,7 @@ def digitize_image(restored_image):
 
 # Simple function to remove shadows - room for much improvement.
 def remove_shadow(red_im, angle):
-    output_im = close_filter(red_im, 9)  # this removes the shadows
+    output_im = close_filter(red_im, 8)  # this removes the shadows
     output_im0 = close_filter(red_im, 2)  # this removes the filter artifacts
 
     sigmoid_norm1 = 255 * sigmoid(norm_rescale(output_im - 0.95 * output_im0, contrast=8))
@@ -117,7 +120,7 @@ def get_rotation_angle(blue_im, red_im):
 
 def close_filter(image, footprint):
     # morphological filter on red channel? (closing?)
-    test = closing(image, footprint=[(np.ones((9, 1)), 1), (np.ones((1, 9)), 1)])
+    test = closing(image, footprint=[(np.ones((footprint, 1)), 1), (np.ones((1, footprint)), 1)])
     output_im = image - test
     return output_im
 

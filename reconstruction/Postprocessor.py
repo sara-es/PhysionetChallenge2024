@@ -5,11 +5,11 @@ from typing import Iterable, Tuple
 import numpy as np
 import pandas as pd
 from scipy import interpolate
-from Format import Format
+#from Format import Format
 
 # Application-specific imports
-from Image import Image
-from Point import Point
+from reconstruction.Image import Image
+from reconstruction.Point import Point
 from reconstruction.Lead import Lead
 from reconstruction.DigitizationError import DigitizationError
 from reconstruction.Format import Format

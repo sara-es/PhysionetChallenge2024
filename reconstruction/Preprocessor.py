@@ -6,9 +6,12 @@ import cv2 as cv
 import numpy as np
 
 # Application-specific imports
-from Image import Image
-from Rectangle import Rectangle
-from Point import Point
+from reconstruction.Image import Image
+from reconstruction.Point import Point
+from reconstruction.Rectangle import Rectangle
+#from Image import Image
+#from Rectangle import Rectangle
+#from Point import Point
 
 
 class Preprocessor:
@@ -34,7 +37,9 @@ class Preprocessor:
                 and the rectangle of the area cropped with respect to the original image.
         """
         ecg = ecg.copy()
-        rect = self.__img_partitioning(ecg)
+        #rect = self.__img_partitioning(ecg)
+        im_size = np.shape(ecg.data)
+        rect = Rectangle(Point(0, 0), Point(im_size[1], im_size[0])) #set it to image size
         ecg.crop(rect)
         ecg = self.__gridline_removal(ecg)
         return (ecg, rect)
