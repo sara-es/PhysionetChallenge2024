@@ -95,4 +95,15 @@ def compute_f_measure_from_onehot(labels, outputs, unique_classes):
 
     return macro_f_measure, per_class_f_measure, unique_classes
 
-    
+
+def load_image_paths(record):
+    path = os.path.split(record)[0]
+    image_files = helper_code.get_image_files(record)
+
+    images = list()
+    for image_file in image_files:
+        image_file_path = os.path.join(path, image_file)
+        if os.path.isfile(image_file_path):
+            images.append(image_file_path)
+
+    return images

@@ -15,7 +15,7 @@ import numpy as np
 from tqdm import tqdm
 
 import helper_code
-import preprocessing, reconstruction, classification
+import preprocessing, reconstruction, classification, reconstruction.image_cleaning
 from utils import default_models, utils, team_helper_code
 from sklearn.preprocessing import OneHotEncoder, MultiLabelBinarizer
 
@@ -114,24 +114,42 @@ def load_dx_model(model_folder, verbose):
 # Run your trained digitization model. This function is *required*. You should edit 
 # this function to add your code, but do *not* change the arguments of this function.
 def run_digitization_model(digitization_model, record, verbose):
-    # Extract features.
-    features = preprocessing.example.extract_features(record)
 
-    # Load the dimensions of the signal.
+    image = helper_code.load_image(record)
     header_file = helper_code.get_header_file(record)
     header = helper_code.load_text(header_file)
 
     num_samples = helper_code.get_num_samples(header)
     num_signals = helper_code.get_num_signals(header)
 
+    ###### Example model ######
     if 'digit_example' in digitization_model.keys():
+        
         model = digitization_model['digit_example']
+        # Extract features.
+        features = preprocessing.example.extract_features(record)
 
         # For a overly simply minimal working example, generate "random" waveforms.
         seed = int(round(model + np.mean(features)))
         signal = np.random.default_rng(seed=seed).uniform(low=-1000, 
                                                             high=1000, 
                                                             size=(num_samples, num_signals))
+
+    if 'digit_clean_miner' in digitization_model.keys():
+        image_files = team_helper_code.load_image_paths(record)
+        image_file = image_files[0]
+        if len(image_files) > 1:
+            if verbose:
+                print(f"Multiple images found, using image at {image_file}.")
+        try:
+            signal = reconstruction.image_cleaning.digitize(image_file)
+            signal = np.nan_to_num(signal)
+        except Exception as e: 
+            # FIXME for now, let the code continue if there's an error
+            if verbose:
+                print(f"Error digitizing image {image_file}: {e}")
+            signal = np.zeros((num_samples, num_signals))
+    
     try:
         signal = np.asarray(signal, dtype=np.int16)
     except ValueError:
@@ -219,8 +237,17 @@ def train_digitization_model_team(data_folder, records, verbose,
     Returns:
         team_models (dict): The trained models.
     """
-    start = time.time() # because I am impatient
     models = {} 
+
+    if 'digit_clean_miner' in models_to_train:
+        # put this at the top since we don't train anything in this case
+        models['digit_clean_miner'] = -1 # return a dummy value
+        if len(models_to_train) == 1: # if this is the only model we're using
+            if verbose: 
+                print("Performing algorithmic digitization only (no training); a dummy model will be returned.")
+            return models # return without running any more code
+
+    start = time.time() # because I am impatient
 
     ############## Extract the features and labels. ###############
     if verbose:
