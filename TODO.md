@@ -16,6 +16,8 @@
 
 ## Reconstruction
 ### TODO
+- multiple image files for a single ECG are ignored currently
+- clean up `ECGClass.py` (random `__main__` here, commented out for now)
 
 ## General
 - cross-validation for classification

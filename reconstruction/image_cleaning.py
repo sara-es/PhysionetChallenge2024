@@ -16,6 +16,11 @@ from reconstruction.ECGClass import PaperECG
 
 
 def digitize(image):
+    if type(image) == list:
+        #TODO: handle multiple images
+        print("Multiple images found, using the first one.")
+        image = image[0]
+        
     cleaned_image = clean_image(image)
     
     # convert greyscale to rgb

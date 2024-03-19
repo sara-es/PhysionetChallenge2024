@@ -173,13 +173,13 @@ class Postprocessor:
             columns=[lead.name for lead in Format.STANDARD],
         )
         for i, lead in enumerate(ORDER):
-            plt.plot(signal)
-            plt.show()
+            # plt.plot(signal)
+            # plt.show()
             rhythm = lead in self.__rhythm
             r = self.__rhythm.index(lead) + NROWS if rhythm else i % NROWS
             c = 0 if rhythm else i // NROWS
             # Reference pulses
-            print(r)
+            # print(r)
             volt_0 = ref_pulses[r][0]
             volt_1 = ref_pulses[r][1]
             if volt_0 == volt_1:

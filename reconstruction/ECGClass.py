@@ -46,13 +46,13 @@ class PaperECG:
 
         raw_signals = self.signal_extractor.extract_signals(ecg_crop)
         digitised_signals, trace = self.postprocessor.postprocess(raw_signals, ecg_crop)
-        trace.save("trace.png")
+        # trace.save("trace.png")
 
         return digitised_signals
 
 
-if __name__ == "__main__":
-    test_img = cv.imread("../tiny_testset/records100/00001_lr-0.png")
-    test_img = Image(test_img)
-    ecg = PaperECG(test_img)
-    digital_ecg = ecg.digitise()
+# if __name__ == "__main__":
+#     test_img = cv.imread("../tiny_testset/records100/00001_lr-0.png")
+#     test_img = Image(test_img)
+#     ecg = PaperECG(test_img)
+#     digital_ecg = ecg.digitise()
