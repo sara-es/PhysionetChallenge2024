@@ -39,7 +39,7 @@ class Preprocessor:
         ecg = ecg.copy()
         #rect = self.__img_partitioning(ecg)
         im_size = np.shape(ecg.data)
-        rect = Rectangle(Point(0, 0), Point(im_size[1], im_size[0])) #set it to image size
+        rect = Rectangle(Point(0, 350), Point(im_size[1], im_size[0])) #set it to image size
         ecg.crop(rect)
         ecg = self.__gridline_removal(ecg)
         return (ecg, rect)
