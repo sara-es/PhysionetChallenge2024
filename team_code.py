@@ -114,38 +114,40 @@ def load_dx_model(model_folder, verbose):
 # Run your trained digitization model. This function is *required*. You should edit 
 # this function to add your code, but do *not* change the arguments of this function.
 def run_digitization_model(digitization_model, record, verbose):
-    # Extract features.
-    features = preprocessing.example.extract_features(record)
 
-    # Load the dimensions of the signal.
-    header_file = helper_code.get_header_file(record)
-    header = helper_code.load_text(header_file)
-
-    num_samples = helper_code.get_num_samples(header)
-    num_signals = helper_code.get_num_signals(header)
-    
     image = helper_code.load_image(record)
 
     ###### Example model ######
-    # if 'digit_example' in digitization_model.keys():
-    #     model = digitization_model['digit_example']
+    if 'digit_example' in digitization_model.keys():
+        header_file = helper_code.get_header_file(record)
+        header = helper_code.load_text(header_file)
 
-    #     # For a overly simply minimal working example, generate "random" waveforms.
-    #     seed = int(round(model + np.mean(features)))
-    #     signal = np.random.default_rng(seed=seed).uniform(low=-1000, 
-    #                                                         high=1000, 
-    #                                                         size=(num_samples, num_signals))
-    # try:
-    #     signal = np.asarray(signal, dtype=np.int16)
-    # except ValueError:
-    #     raise ValueError("Could not digitalize signal. Check that you've loaded the right model(s).")
+        num_samples = helper_code.get_num_samples(header)
+        num_signals = helper_code.get_num_signals(header)
+        model = digitization_model['digit_example']
+        # Extract features.
+        features = preprocessing.example.extract_features(record)
+
+        # For a overly simply minimal working example, generate "random" waveforms.
+        seed = int(round(model + np.mean(features)))
+        signal = np.random.default_rng(seed=seed).uniform(low=-1000, 
+                                                            high=1000, 
+                                                            size=(num_samples, num_signals))
 
     if 'digit_clean_miner' in digitization_model.keys():
-        model = digitization_model['digit_clean_miner'] #this line isn't actuall required
         try:
             signal = reconstruction.image_cleaning.digitize(image)
-        except ValueError:
-            raise ValueError("Could not digitalize signal. Check that you've loaded the right model(s).")
+        except Exception as e: 
+            # FIXME for now, let the code continue if there's an error
+            if verbose:
+                print(f"Error digitizing image {image}: {e}")
+            signal = np.zeros((1000, 12))
+    
+    try:
+        signal = np.asarray(signal, dtype=np.int16)
+    except ValueError:
+        raise ValueError("Could not digitalize signal. Check that you've loaded the right model(s).")
+
     return signal
 
 
@@ -228,8 +230,17 @@ def train_digitization_model_team(data_folder, records, verbose,
     Returns:
         team_models (dict): The trained models.
     """
-    start = time.time() # because I am impatient
     models = {} 
+
+    if 'digit_clean_miner' in models_to_train:
+        # put this at the top since we don't train anything in this case
+        models['digit_clean_miner'] = -1 # return a dummy value
+        if len(models_to_train) == 1: # this is the only model we're using
+            if verbose: 
+                print("Performing algorithmic digitization only (no training); a dummy model will be returned.")
+            return models # return without running any more code
+
+    start = time.time() # because I am impatient
 
     ############## Extract the features and labels. ###############
     if verbose:
@@ -260,10 +271,6 @@ def train_digitization_model_team(data_folder, records, verbose,
 
     if 'digit_example' in models_to_train:
         models['digit_example'] = reconstruction.example.train(features)
-    if 'digit_clean_miner' in models_to_train:
-        #to check - not sure if this is right#########
-        #models['digit_clean_miner'] = reconstruction.clean_miner.digitize
-        models['digit_clean_miner'] = -1 #return a null value
 
     if verbose:
         print(f'Done. Time to train individual models: {time.time() - t2:.2f} seconds.')
