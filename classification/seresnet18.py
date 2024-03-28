@@ -243,7 +243,7 @@ def train_model(data, multilabels, uniq_labels, verbose, epochs=5, validate=True
         train_dl = initialise_train_only(data, multilabels, device, batch_size=5)
         
         for epoch in range(1, epochs+1):
-            train(model, train_dl, device, criterion, sigmoid, optimizer, epoch, verbose)
+            train(model, train_dl, device, criterion, sigmoid, optimizer, epoch, uniq_labels, verbose)
 
     return model.state_dict()
 
