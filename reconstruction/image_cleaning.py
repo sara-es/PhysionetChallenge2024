@@ -9,7 +9,7 @@ import numpy as np
 #from matplotlib import pyplot as plt
 import scipy as sp
 import cv2
-from skimage.morphology import closing
+from skimage.morphology import closing, opening
 from scipy.stats import mode
 from reconstruction.Image import Image
 from reconstruction.ECGClass import PaperECG
@@ -42,6 +42,10 @@ def clean_image(image):
 
     # 1. remove the shadows and grid
     restored_image = remove_shadow(red_im, angle)
+    
+    # Testing: hack to close up more of the gaps
+    restored_image = opening(restored_image, footprint=[(np.ones((3, 1)), 1), (np.ones((1, 3)), 1)])
+    #restored_image = opening(restored_image, footprint=[(np.ones((5, 1)), 1), (np.ones((1, 1)), 1)])
 
     return restored_image
 
