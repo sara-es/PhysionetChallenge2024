@@ -17,7 +17,7 @@ from tqdm import tqdm
 import helper_code
 import preprocessing, reconstruction, classification, reconstruction.image_cleaning
 from utils import default_models, utils, team_helper_code
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, MultiLabelBinarizer
 
 
 ################################################################################
@@ -191,8 +191,18 @@ def run_dx_model(dx_model, record, signal, verbose):
     if 'seresnet' in dx_model.keys():
         # Extract features: load header
         header = helper_code.load_header(record)
-        age_gender = preprocessing.demographics.extract_features(record)
-        fs = helper_code.get_sampling_frequency(header)
+        try:
+            age_gender = preprocessing.demographics.extract_features(record)
+        except ValueError as e:
+            if verbose:
+                print(f"No demographic data found for record {record}.")
+            age_gender = np.zeros(3)
+        try:
+            fs = helper_code.get_sampling_frequency(header)
+        except ValueError as e:
+            if verbose:
+                print(f"No sampling frequency found for record {record}.")
+            fs = 100
         data = [[record, fs, age_gender]]
 
         # Get model probabilities.
@@ -327,7 +337,7 @@ def train_dx_model_team(data_folder, records, verbose,
 
         # Extract the features from the image, but only if the image has one or more dx classes.
         dx = helper_code.load_dx(record)
-        if dx:
+        if dx and dx != [""]:
             # age_gender is len 3 array: (age/100, male, female)
             age_gender = preprocessing.demographics.extract_features(record) 
             features.append(age_gender) # => splitted the ag array just for simplicity (for now)
@@ -351,9 +361,12 @@ def train_dx_model_team(data_folder, records, verbose,
 
     # We don't need one hot encoding?
     # One-hot-encode labels 
-    ohe = OneHotEncoder(sparse_output=False)
+    # ohe = OneHotEncoder(sparse_output=False) # this breaks if more than one label is present in ANY records
+    ohe = MultiLabelBinarizer()
     multilabels = ohe.fit_transform(labels)
-    uniq_labels = ohe.categories_[0] # order of the labels!
+    # uniq_labels = ohe.categories_[0] # order of the labels!
+    uniq_labels = ohe.classes_ # order of the labels
+    print(f"Unique labels: {uniq_labels}")
     models['dx_classes'] = uniq_labels
 
     if verbose:
@@ -369,7 +382,7 @@ def train_dx_model_team(data_folder, records, verbose,
 
     if 'seresnet' in models_to_train:
         models['seresnet'] = classification.seresnet18.train_model(
-                                    data, multilabels, uniq_labels, verbose, epochs=5, validate=True
+                                    data, multilabels, uniq_labels, verbose, epochs=20, validate=True
                                 )
 
     if verbose:
