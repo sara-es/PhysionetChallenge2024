@@ -71,9 +71,9 @@ def remove_shadow(red_im, angle):
     # feel like we can combine these somehow to be useful?
     combo1 = -(sigmoid_norm1 - sigmoid_std1)  # I have no idea why this works, but it does
 
-    greyscale_out = 255 * zero_one_rescale(
+    greyscale_out = zero_one_rescale(
         sp.ndimage.rotate(combo1, angle, axes=(1, 0), reshape=True, cval=combo1.mean()))
-    cleaned_image = sigmoid_gen(greyscale_out, 10, 100)
+    cleaned_image = sigmoid_gen(greyscale_out, 10/255, 100/255)
     cleaned_image = 255 * zero_one_rescale(cleaned_image)
     return cleaned_image
 
