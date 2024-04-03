@@ -42,7 +42,7 @@ class Postprocessor:
         self.__rhythm = [Lead.II]
 
     def postprocess(
-        self, raw_signals: Iterable[Iterable[Point]], ecg_crop: Image
+        self, gridsize, raw_signals: Iterable[Iterable[Point]], ecg_crop: Image
     ) -> Tuple[pd.DataFrame, Image]:
         """
         Post process the raw signals, getting a matrix with the signals of 12 leads
@@ -56,7 +56,7 @@ class Postprocessor:
             Tuple[pd.DataFrame,Image]: Dataframe with the signals and image of the trace.
         """
         signals, ref_pulses = self.__segment(raw_signals)
-        data = self.__vectorize(signals, ref_pulses)
+        data = self.__vectorize(gridsize, signals, ref_pulses)
         trace = self.__get_trace(ecg_crop, signals, ref_pulses)
         return (data, trace)
 
@@ -129,6 +129,7 @@ class Postprocessor:
             for i in range(len(raw_signals))
         ]
         
+        ##### hard coded - set reference pulses to none for the moment #####
         if pulse_pos == NONE:
             ref_pulses = [] # if there are no references pulses, then replace with empty list
             
@@ -136,6 +137,7 @@ class Postprocessor:
 
     def __vectorize(
         self,
+        gridsize,
         signals: Iterable[Iterable[Point]],
         ref_pulses: Iterable[Tuple[int, int]],
     ) -> pd.DataFrame:
@@ -189,8 +191,8 @@ class Postprocessor:
                 volt_0 = ref_pulses[r][0]
                 volt_1 = ref_pulses[r][1]
             else:
-                volt_0 = 0 # place holder - the difference between v0 and v1 should be two square blocks
-                volt_1 = 80
+                volt_0 = gridsize ### place holder - the difference between v0 and v1 should be two square blocks ##
+                volt_1 = 0
             if volt_0 == volt_1:
                 raise DigitizationError(
                     f"Reference pulses have not been detected correctly"

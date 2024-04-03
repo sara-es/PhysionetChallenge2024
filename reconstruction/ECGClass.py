@@ -24,7 +24,8 @@ class PaperECG:
     postprocessor = Postprocessor()
 
     def __init__(self,
-                 image: Image) -> None:  # this image: Image thing is bad but fits w/ challenge function structure for now
+                 image: Image,
+                 gridsize) -> None:  # this image: Image thing is bad but fits w/ challenge function structure for now
         """
         Initialization of the ECG.
 
@@ -33,6 +34,7 @@ class PaperECG:
         """
 
         self.image = image
+        self.gridsize = gridsize
 
     def digitise(self) -> pd.DataFrame:
         """
@@ -45,7 +47,7 @@ class PaperECG:
         ecg_crop, rect = self.preprocessor.preprocess(self.image)
 
         raw_signals = self.signal_extractor.extract_signals(ecg_crop)
-        digitised_signals, trace = self.postprocessor.postprocess(raw_signals, ecg_crop)
+        digitised_signals, trace = self.postprocessor.postprocess(self.gridsize, raw_signals, ecg_crop)
         trace.save("trace.png")
 
         return digitised_signals
