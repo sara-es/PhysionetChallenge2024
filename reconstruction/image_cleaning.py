@@ -9,7 +9,7 @@ import numpy as np
 #from matplotlib import pyplot as plt
 import scipy as sp
 import cv2
-from skimage.morphology import closing
+from skimage.morphology import closing, opening
 from scipy.stats import mode
 from reconstruction.Image import Image
 from reconstruction.ECGClass import PaperECG
@@ -21,13 +21,12 @@ def digitize(image):
         print("Multiple images found, using the first one.")
         image = image[0]
         
-    cleaned_image = clean_image(image)
-    
+    cleaned_image, gridsize = clean_image(image)    
     # convert greyscale to rgb
     cleaned_image = cv2.merge([cleaned_image,cleaned_image,cleaned_image])
     cleaned_image = np.uint8(cleaned_image)
     cleaned_image = Image(cleaned_image) # cleaned_image = reconstruction.Image.Image(cleaned_image)
-    ECG_signals = digitize_image(cleaned_image) # paper_ecg = reconstruction.image_cleaning.PaperECG(cleaned_image)
+    ECG_signals = digitize_image(cleaned_image, gridsize) # paper_ecg = reconstruction.image_cleaning.PaperECG(cleaned_image)
     return (ECG_signals)
 
 
@@ -43,18 +42,22 @@ def clean_image(image):
     blue_im = im[:, :, 2].astype(np.float32)
 
     # 2. rotate image
-    angle = get_rotation_angle(blue_im, red_im)
+    angle, gridsize = get_rotation_angle(blue_im, red_im)
 
     # 1. remove the shadows and grid
     restored_image = remove_shadow(red_im, angle)
+    
+    # Testing: hack to close up more of the gaps
+    restored_image = opening(restored_image, footprint=[(np.ones((3, 1)), 1), (np.ones((1, 3)), 1)])
+    #restored_image = opening(restored_image, footprint=[(np.ones((5, 1)), 1), (np.ones((1, 1)), 1)])
 
-    return restored_image
+    return restored_image, gridsize
 
 
-def digitize_image(restored_image):
+def digitize_image(restored_image, gridsize):
     ##### TODO - INCLUDE ECG-MINER CODE HERE ####
     # incoming: bad code~~~~~
-    paper_ecg = PaperECG(restored_image)
+    paper_ecg = PaperECG(restored_image, gridsize)
     ECG_signals = paper_ecg.digitise()
 
     return ECG_signals
@@ -120,12 +123,31 @@ def get_rotation_angle(blue_im, red_im):
         rot_angle = rot_angle[0] - 90
     else:
         rot_angle = rot_angle[0]
-    return rot_angle
+        
+    # # ------ Work out the size of the ECG grid (in pixels) by finding distance between grid lines
+    # # for the moment: --------------------------------------------------------------------------
+    # #   assume that aspect ratio is always 1:1
+    # #   assume that we can get this from the hough lines (hough lines are a bit flaky, so might need another way)
+
+    # # find the biggest peak
+    # # find the mode of the biggest peak
+    offsets = lines[:,0,0]
+    gaps = np.diff(offsets)
+    density = sp.stats.gaussian_kde(gaps, bw_method=0.01)
+    gap_hist = density(list(range(100)))
+    ave_gap = np.argmax(gap_hist)
+    
+    #this is the gap in the y axis direction, so need to do a 1/cos(theta)
+    gap = ave_gap * (np.cos(rot_angle*np.pi/180))
+
+    return rot_angle, gap
 
 
-def close_filter(image, footprint):
+def close_filter(image, fp):
     # morphological filter on red channel? (closing?)
-    test = closing(image, footprint=[(np.ones((footprint, 1)), 1), (np.ones((1, footprint)), 1)])
+    aa = footprint=[(np.ones((fp, 1)), 1), (np.ones((1, fp)), 1)]
+
+    test = closing(image, footprint=[(np.ones((fp, 1)), 1), (np.ones((1, fp)), 1)])
     output_im = image - test
     return output_im
 
