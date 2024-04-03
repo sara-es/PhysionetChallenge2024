@@ -17,7 +17,11 @@
 ### TODO
 - multiple image files for a single ECG are ignored currently
 - clean up `ECGClass.py` (random `__main__` here, commented out for now)
-- add option to return cleaned image for inspection before reconstruction step
+- Current hard coded refernce pulse height, can use grid lines to detect scale instead
+- find a way to deal with column gaps in ECG (try: checking if two predicted ECGs overlap?)
+- time() print statements to figure out why it's taking so long to run
+- overflow warning (:
+- add option to return cleaned image for inspection before reconstruction step: currently fails on some images 
 
 ## General
 - cross-validation for classification
