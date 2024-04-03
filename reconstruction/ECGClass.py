@@ -48,7 +48,7 @@ class PaperECG:
 
         raw_signals = self.signal_extractor.extract_signals(ecg_crop)
         digitised_signals, trace = self.postprocessor.postprocess(self.gridsize, raw_signals, ecg_crop)
-        trace.save("trace.png")
+        # trace.save("trace.png")
 
         return digitised_signals
 

@@ -117,8 +117,8 @@ def get_rotation_angle(blue_im, red_im):
     # extract the angles of the lines - if all is well, we should find two main angles corresponding
     # to the horizontal and vertical lines
     angles = lines[:, 0, 1] * 180 / np.pi  # angles in degrees
-    angles = angles[angles < 90]
-    rot_angle = mode(angles, keepdims=False)
+    # angles = angles[angles < 90]
+    rot_angle = mode((angles%90).astype(int), keepdims=False)
     if rot_angle[0] > 45:
         rot_angle = rot_angle[0] - 90
     else:
@@ -132,15 +132,21 @@ def get_rotation_angle(blue_im, red_im):
     # # find the biggest peak
     # # find the mode of the biggest peak
     offsets = lines[:,0,0]
-    gaps = np.diff(offsets)
+    gaps = np.diff(np.sort(offsets)) # sort the offsets first in increasing order -> gaps are positive
     density = sp.stats.gaussian_kde(gaps, bw_method=0.01)
-    gap_hist = density(list(range(100)))
-    ave_gap = np.argmax(gap_hist)
+    import matplotlib.pyplot as plt
     
-    #this is the gap in the y axis direction, so need to do a 1/cos(theta)
-    gap = ave_gap * (np.cos(rot_angle*np.pi/180))
-
-    return rot_angle, gap
+    gap_hist = density(list(range(100)))
+    # take *second* biggest peak (note: this is sometimes still 0, 1, or 2) 
+    # ave_gap = np.argsort(gap_hist)[-2]
+    # instead of taking second biggest, we can set a minimum gap size in pixels)
+    min_gap = 6
+    gap_peaks = np.argsort(gap_hist)
+    ave_gap = gap_peaks[gap_peaks > min_gap][-1]
+    # fallback to stop reference pulse error in case gridline detection fails
+    if ave_gap == 0:
+        ave_gap = 1
+    return rot_angle, ave_gap
 
 
 def close_filter(image, fp):
