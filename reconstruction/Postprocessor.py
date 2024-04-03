@@ -204,6 +204,7 @@ class Postprocessor:
             signal = signal[c * obs_num : (c + 1) * obs_num]
             # Scale signal with ref pulses
             signal = [(volt_0 - y) * (1 / (volt_0 - volt_1)) for y in signal]
+            signal = signal-np.median(signal) # FUDGE TO GET ECGs CENTRED NEAR ZERO
             # Round voltages to 4 decimals
             signal = np.round(signal, 4)
             # Cabrera format -aVR
