@@ -149,7 +149,7 @@ def run_digitization_model(digitization_model, record, verbose):
             # FIXME for now, let the code continue if there's an error
             if verbose:
                 print(f"Error digitizing image {image_file}: {e}")
-                print(traceback.format_exc())
+                # print(traceback.format_exc())
             signal = None
     
     if signal is not None:
