@@ -130,10 +130,10 @@ def get_rotation_angle(blue_im, red_im):
     gaps = np.diff(offsets)
     density = sp.stats.gaussian_kde(gaps, bw_method=0.01)
     gap_hist = density(list(range(100)))
-    ave_gap = np.argmax(gap_hist)
+    gap = np.argmax(gap_hist)
     
     #this is the gap in the y axis direction, so need to do a 1/cos(theta)
-    gap = ave_gap * (np.cos(rot_angle*np.pi/180))
+    #gap = ave_gap * (np.cos(rot_angle*np.pi/180))
 
     return rot_angle, gap
 
