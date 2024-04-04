@@ -122,6 +122,7 @@ def run_digitization_model(digitization_model, record, verbose):
 
     num_samples = helper_code.get_num_samples(header)
     num_signals = helper_code.get_num_signals(header)
+    signal=None
 
     ###### Example model ######
     if 'digit_example' in digitization_model.keys():
@@ -150,7 +151,6 @@ def run_digitization_model(digitization_model, record, verbose):
             if verbose:
                 print(f"Error digitizing image {image_file}: {e}")
                 # print(traceback.format_exc())
-            signal = None
     
     if signal is not None:
         try:

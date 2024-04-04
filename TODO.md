@@ -21,10 +21,11 @@
 - ~~Current hard coded refernce pulse height, can use grid lines to detect scale instead~~ done DW 03/04
 - find a way to deal with column gaps in ECG (try: checking if two predicted ECGs overlap?)
 - time() print statements to figure out why it's taking so long to run
-- overflow warning (:
+- ~~overflow warning (:~~ done SS 03/04
 - add option to return cleaned image for inspection before reconstruction step: currently fails on some images 
 
 ## General
 - cross-validation for classification
 - validation script for reconstruction
 - would be nice to have a cv script that saves both cleaned and reconstructed images before classification
+- Train model on both 100 Hz and 500 Hz data - seems to fail currently if predicting at a different frequency than training data
