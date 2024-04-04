@@ -356,14 +356,13 @@ def train_dx_model_team(data_folder, records, verbose,
             print(f'- {i+1:>{width}}/{num_records}: {records[i]}...')
 
         record = os.path.join(data_folder, records[i])
-        record_paths.append(record) 
 
         # Extract the features from the image, but only if the image has one or more dx classes.
         dx = helper_code.load_dx(record)
         if dx and dx != [""]:
             # age_gender is len 3 array: (age/100, male, female)
             age_gender = preprocessing.demographics.extract_features(record) 
-            features.append(age_gender) # => splitted the ag array just for simplicity (for now)
+            features.append(age_gender) 
             labels.append(dx)
             
             # Load header
@@ -373,7 +372,9 @@ def train_dx_model_team(data_folder, records, verbose,
 
             # current_features = preprocessing.example.extract_features(record)
             # features.append(current_features)
-            
+
+            record_paths.append(record)
+
     if not labels:
         raise Exception('There are no labels for the data.')  
     
@@ -384,12 +385,9 @@ def train_dx_model_team(data_folder, records, verbose,
 
     # We don't need one hot encoding?
     # One-hot-encode labels 
-    # ohe = OneHotEncoder(sparse_output=False) # this breaks if more than one label is present in ANY records
-    ohe = MultiLabelBinarizer()
-    multilabels = ohe.fit_transform(labels)
-    # uniq_labels = ohe.categories_[0] # order of the labels!
-    uniq_labels = ohe.classes_ # order of the labels
-    print(f"Unique labels: {uniq_labels}")
+    mlb = MultiLabelBinarizer()
+    multilabels = mlb.fit_transform(labels)
+    uniq_labels = mlb.classes_
     models['dx_classes'] = uniq_labels
 
     if verbose:
@@ -405,7 +403,7 @@ def train_dx_model_team(data_folder, records, verbose,
 
     if 'seresnet' in models_to_train:
         models['seresnet'] = classification.seresnet18.train_model(
-                                    data, multilabels, uniq_labels, verbose, epochs=20, validate=True
+                                    data, multilabels, uniq_labels, verbose, epochs=5, validate=False
                                 )
 
     if verbose:
