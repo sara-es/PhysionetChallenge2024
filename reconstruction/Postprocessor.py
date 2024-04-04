@@ -42,7 +42,7 @@ class Postprocessor:
         self.__rhythm = [Lead.II]
 
     def postprocess(
-        self, raw_signals: Iterable[Iterable[Point]], ecg_crop: Image
+        self, gridsize, raw_signals: Iterable[Iterable[Point]], ecg_crop: Image
     ) -> Tuple[pd.DataFrame, Image]:
         """
         Post process the raw signals, getting a matrix with the signals of 12 leads
@@ -56,7 +56,7 @@ class Postprocessor:
             Tuple[pd.DataFrame,Image]: Dataframe with the signals and image of the trace.
         """
         signals, ref_pulses = self.__segment(raw_signals)
-        data = self.__vectorize(signals, ref_pulses)
+        data = self.__vectorize(gridsize, signals, ref_pulses)
         trace = self.__get_trace(ecg_crop, signals, ref_pulses)
         return (data, trace)
 
@@ -75,7 +75,7 @@ class Postprocessor:
             list with the points of each of the signals of each lead and list with
             the reference pulses of each ECG row.
         """
-        INI, MID, END = (0, 1, 2)
+        INI, MID, END, NONE = (0, 1, 2, 3)
         LIMIT = min([len(signal) for signal in raw_signals])
         PIXEL_EPS = 5
         # Check if ref pulse is at right side or left side of the ECG
@@ -83,7 +83,7 @@ class Postprocessor:
         direction = (
             range(-1, -LIMIT, -1) if self.__rp_at_right else range(LIMIT)
         )
-        pulse_pos = INI
+        pulse_pos = NONE
         ini_count = 0
         cut = None
         for i in direction:
@@ -109,6 +109,8 @@ class Postprocessor:
                 ini_count -= 1
             elif pulse_pos == END:
                 ini_count -= 1
+            elif pulse_pos == NONE:
+                cut = 0
         # Slice signal
         signal_slice = (
             slice(0, cut + 1) if self.__rp_at_right else slice(cut, None)
@@ -126,10 +128,16 @@ class Postprocessor:
             (first_pixels[i], ref_pulses[i][-1])
             for i in range(len(raw_signals))
         ]
+        
+        ##### hard coded - set reference pulses to none for the moment #####
+        if pulse_pos == NONE:
+            ref_pulses = [] # if there are no references pulses, then replace with empty list
+            
         return (signals, ref_pulses)
 
     def __vectorize(
         self,
+        gridsize,
         signals: Iterable[Iterable[Point]],
         ref_pulses: Iterable[Tuple[int, int]],
     ) -> pd.DataFrame:
@@ -179,9 +187,12 @@ class Postprocessor:
             r = self.__rhythm.index(lead) + NROWS if rhythm else i % NROWS
             c = 0 if rhythm else i // NROWS
             # Reference pulses
-            # print(r)
-            volt_0 = ref_pulses[r][0]
-            volt_1 = ref_pulses[r][1]
+            if ref_pulses:
+                volt_0 = ref_pulses[r][0]
+                volt_1 = ref_pulses[r][1]
+            else:
+                volt_0 = gridsize ### place holder - the difference between v0 and v1 should be two square blocks ##
+                volt_1 = 0
             if volt_0 == volt_1:
                 raise DigitizationError(
                     f"Reference pulses have not been detected correctly"
@@ -193,6 +204,7 @@ class Postprocessor:
             signal = signal[c * obs_num : (c + 1) * obs_num]
             # Scale signal with ref pulses
             signal = [(volt_0 - y) * (1 / (volt_0 - volt_1)) for y in signal]
+            signal = signal-np.median(signal) # FUDGE TO GET ECGs CENTRED NEAR ZERO
             # Round voltages to 4 decimals
             signal = np.round(signal, 4)
             # Cabrera format -aVR

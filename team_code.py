@@ -13,11 +13,12 @@
 import os, time, joblib, sys
 import numpy as np
 from tqdm import tqdm
+import traceback
 
 import helper_code
 import preprocessing, reconstruction, classification, reconstruction.image_cleaning
 from utils import default_models, utils, team_helper_code
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, MultiLabelBinarizer
 
 
 ################################################################################
@@ -121,6 +122,7 @@ def run_digitization_model(digitization_model, record, verbose):
 
     num_samples = helper_code.get_num_samples(header)
     num_signals = helper_code.get_num_signals(header)
+    signal=None
 
     ###### Example model ######
     if 'digit_example' in digitization_model.keys():
@@ -148,12 +150,13 @@ def run_digitization_model(digitization_model, record, verbose):
             # FIXME for now, let the code continue if there's an error
             if verbose:
                 print(f"Error digitizing image {image_file}: {e}")
-            signal = np.zeros((num_samples, num_signals))
+                # print(traceback.format_exc())
     
-    try:
-        signal = np.asarray(signal, dtype=np.int16)
-    except ValueError:
-        raise ValueError("Could not digitalize signal. Check that you've loaded the right model(s).")
+    if signal is not None:
+        try:
+            signal = np.asarray(signal, dtype=np.int16)
+        except ValueError:
+            raise ValueError("Could not digitalize signal. Check that you've loaded the right model(s).")
 
     return signal
 
@@ -191,9 +194,33 @@ def run_dx_model(dx_model, record, signal, verbose):
     if 'seresnet' in dx_model.keys():
         # Extract features: load header
         header = helper_code.load_header(record)
-        age_gender = preprocessing.demographics.extract_features(record)
-        fs = helper_code.get_sampling_frequency(header)
-        data = [[record, fs, age_gender]]
+        try:
+            age_gender = preprocessing.demographics.extract_features(record)
+        except ValueError as e:
+            if verbose:
+                print(f"No demographic data found for record {record}.")
+            age_gender = np.zeros(3)
+        try:
+            fs = helper_code.get_sampling_frequency(header)
+        except ValueError as e:
+            if verbose:
+                print(f"No sampling frequency found for record {record}.")
+            fs = 100
+        
+        # if signal is None, attempt to load from file
+        if signal is None:
+            if verbose: 
+                print(f"Signal is None for record {record}. Attempting to load from file...")
+            try:
+                signal, _ = helper_code.load_signal(record)
+            except FileNotFoundError:
+                # FIXME this will continue to run if reconstruction fails
+                print(f"No signal or signal file found for record {record}. ")
+                num_samples = helper_code.get_num_samples(header)
+                num_signals = helper_code.get_num_signals(header)
+                signal = np.zeros((num_samples, num_signals))
+
+        data = [[signal, fs, age_gender]]
 
         # Get model probabilities.
         model = dx_model['seresnet']
@@ -246,6 +273,12 @@ def train_digitization_model_team(data_folder, records, verbose,
             if verbose: 
                 print("Performing algorithmic digitization only (no training); a dummy model will be returned.")
             return models # return without running any more code
+    if 'digit_example' in models_to_train:
+        # WARNING: this returns None, not a valid model
+        if len(models_to_train) == 1: # if this is the only model we're using
+            if verbose: 
+                print("Not performing digitization; returning None.")
+            return None
 
     start = time.time() # because I am impatient
 
@@ -323,14 +356,13 @@ def train_dx_model_team(data_folder, records, verbose,
             print(f'- {i+1:>{width}}/{num_records}: {records[i]}...')
 
         record = os.path.join(data_folder, records[i])
-        record_paths.append(record) 
 
         # Extract the features from the image, but only if the image has one or more dx classes.
         dx = helper_code.load_dx(record)
-        if dx:
+        if dx and dx != [""]:
             # age_gender is len 3 array: (age/100, male, female)
             age_gender = preprocessing.demographics.extract_features(record) 
-            features.append(age_gender) # => splitted the ag array just for simplicity (for now)
+            features.append(age_gender) 
             labels.append(dx)
             
             # Load header
@@ -340,7 +372,9 @@ def train_dx_model_team(data_folder, records, verbose,
 
             # current_features = preprocessing.example.extract_features(record)
             # features.append(current_features)
-            
+
+            record_paths.append(record)
+
     if not labels:
         raise Exception('There are no labels for the data.')  
     
@@ -351,9 +385,9 @@ def train_dx_model_team(data_folder, records, verbose,
 
     # We don't need one hot encoding?
     # One-hot-encode labels 
-    ohe = OneHotEncoder(sparse_output=False)
-    multilabels = ohe.fit_transform(labels)
-    uniq_labels = ohe.categories_[0] # order of the labels!
+    mlb = MultiLabelBinarizer()
+    multilabels = mlb.fit_transform(labels)
+    uniq_labels = mlb.classes_
     models['dx_classes'] = uniq_labels
 
     if verbose:
@@ -369,7 +403,7 @@ def train_dx_model_team(data_folder, records, verbose,
 
     if 'seresnet' in models_to_train:
         models['seresnet'] = classification.seresnet18.train_model(
-                                    data, multilabels, uniq_labels, verbose, epochs=5, validate=True
+                                    data, multilabels, uniq_labels, verbose, epochs=5, validate=False
                                 )
 
     if verbose:

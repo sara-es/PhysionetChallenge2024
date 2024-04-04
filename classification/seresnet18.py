@@ -250,9 +250,12 @@ def train_model(data, multilabels, uniq_labels, verbose, epochs=5, validate=True
 
 def predict_proba(saved_model, data, classes, verbose, multi_dx_threshold=0.5):
     """
+    NOTE: As opposed to the train function, this function takes in a signal 
+    (numpy array) directly, instead of a path to a signal.
+
     Parameters:
         saved_model (pytorch state dict): trained model
-        data (list): [path (str), fs (int), age and gender features (np.array)]
+        data (list): [signal (np.array), fs (int), age and gender features (np.array)]
         classes (list): List of possible unique labels
         verbose (bool): printouts?
 
