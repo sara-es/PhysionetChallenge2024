@@ -228,8 +228,6 @@ def run_dx_model(dx_model, record, signal, verbose):
         pred_dx, probabilities = classification.seresnet18.predict_proba(
                                         model, data, classes, verbose, multi_dx_threshold=0.5)
         labels = classes[np.where(pred_dx == 1)]
-
-        labels = ["NORM"] # ALERT FIXME JUST HERE TO TEST DURING UNOFFICIAL PHASE
         if verbose:
             print(f"Classes: {classes}, probabilities: {probabilities}")
             print(f"Predicted labels: {labels}")
