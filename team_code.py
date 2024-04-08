@@ -228,6 +228,8 @@ def run_dx_model(dx_model, record, signal, verbose):
         pred_dx, probabilities = classification.seresnet18.predict_proba(
                                         model, data, classes, verbose, multi_dx_threshold=0.5)
         labels = classes[np.where(pred_dx == 1)]
+
+        labels = ["NORM"] # ALERT FIXME JUST HERE TO TEST DURING UNOFFICIAL PHASE
         if verbose:
             print(f"Classes: {classes}, probabilities: {probabilities}")
             print(f"Predicted labels: {labels}")
@@ -403,7 +405,7 @@ def train_dx_model_team(data_folder, records, verbose,
 
     if 'seresnet' in models_to_train:
         models['seresnet'] = classification.seresnet18.train_model(
-                                    data, multilabels, uniq_labels, verbose, epochs=5, validate=False
+                                    data, multilabels, uniq_labels, verbose, epochs=15, validate=False
                                 )
 
     if verbose:
