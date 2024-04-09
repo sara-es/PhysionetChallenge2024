@@ -62,7 +62,7 @@ def train(model, train_loader, device, loss_fct, sigmoid, optimizer, epoch, uniq
 
     if verbose: # only need to keep track of this if we're printing it out
         running_loss = 0.0
-        batches_per_printout = 100
+        batches_per_printout = 200
         labels_all = torch.tensor((), device=device)
         logits_prob_all = torch.tensor((), device=device)
 
@@ -93,7 +93,7 @@ def train(model, train_loader, device, loss_fct, sigmoid, optimizer, epoch, uniq
                                     labels_all, logits_prob_all, uniq_labels, threshold=0.5)
                     
                     # Print
-                    print(f'Epoch {epoch} [{batch_idx+1 * len(ecgs)}/{len(train_loader.dataset)}] \
+                    print(f'Epoch {epoch} [{(batch_idx+1) * len(ecgs)}/{len(train_loader.dataset)}] \
                           loss: {avg_loss:.4f}, F-measure: {f_measure:.4f}')
                     
                     # Reset accumulated loss and outputs
