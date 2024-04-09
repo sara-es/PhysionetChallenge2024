@@ -6,7 +6,6 @@
  - update first submission 03/04: model uses file paths to .dat files when training, but directly receives reconstructed signal when testing. May want to also train on reconstructed signals, or make other adjustments for robustness
 - currently, demographics for classification are sex and age, is it worth adding height and weight?
  - note demographics are not present in hidden test set unless extracted from image
- - something funny is going on with epoch printouts when training without validation
 
 #### Low priority
 - looks like frequency (fs) is passed to dataloaders but not used, do we need this?
