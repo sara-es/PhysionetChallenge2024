@@ -48,8 +48,19 @@ class PaperECG:
 
         raw_signals = self.signal_extractor.extract_signals(ecg_crop)
         digitised_signals, trace = self.postprocessor.postprocess(self.gridsize, raw_signals, ecg_crop)
+        
+        # plot the image trace and digitized signals
         # trace.save("trace.png")
+        # print(digitised_signals.shape)
+        # dsa = digitised_signals.to_numpy()
+        # fig, axs = plt.subplots(dsa.shape[1], 1, figsize=(10, 10))
+        # for i in range(dsa.shape[1]):
+        #     axs[i].plot(dsa[:, i])
+        # plt.savefig("digitized_signals.png")
+        # plt.close()
 
+
+        # TODO: may be faster as a np.array instead of pd.dataframe
         return digitised_signals
 
 

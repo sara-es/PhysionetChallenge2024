@@ -38,6 +38,7 @@ def clean_image(image):
     im = np.delete(im, np.s_[-1:], axis=2)
 
     # plot to view the raw image, and the RGB channels individually
+    # note: these might be backwards - I think cv2 uses BGR, not RGB
     red_im = im[:, :, 0].astype(np.float32)  # this channel doesn't show up the grid very much
     blue_im = im[:, :, 2].astype(np.float32)
 

@@ -191,7 +191,7 @@ class Postprocessor:
                 volt_0 = ref_pulses[r][0]
                 volt_1 = ref_pulses[r][1]
             else:
-                volt_0 = gridsize ### place holder - the difference between v0 and v1 should be two square blocks ##
+                volt_0 = 2*gridsize ### place holder - the difference between v0 and v1 should be two square blocks ##
                 volt_1 = 0
             if volt_0 == volt_1:
                 raise DigitizationError(

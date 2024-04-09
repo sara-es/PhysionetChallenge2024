@@ -214,11 +214,12 @@ def run_dx_model(dx_model, record, signal, verbose):
             try:
                 signal, _ = helper_code.load_signal(record)
             except FileNotFoundError:
-                # FIXME this will continue to run if reconstruction fails
-                print(f"No signal or signal file found for record {record}. ")
-                num_samples = helper_code.get_num_samples(header)
-                num_signals = helper_code.get_num_signals(header)
-                signal = np.zeros((num_samples, num_signals))
+                print(f"No signal or signal file found for record {record}. Cannot classify.")
+                # Uncomment below to continue running the code if signal is not present
+                # num_samples = helper_code.get_num_samples(header)
+                # num_signals = helper_code.get_num_signals(header)
+                # signal = np.zeros((num_samples, num_signals))
+                return None
 
         data = [[signal, fs, age_gender]]
 

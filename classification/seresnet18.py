@@ -70,7 +70,8 @@ def train(model, train_loader, device, loss_fct, sigmoid, optimizer, epoch, uniq
         for batch_idx, (ecgs, ag, labels) in enumerate(train_loader):
             ecgs = ecgs.float().to(device) # ECGs
             ag = ag.float().to(device) # age and gender
-            labels = labels.float().to(device) # diagnoses in SNOMED CT codes  
+            labels = labels.float().to(device) # diagnoses in SNOMED CT codes 
+            # TODO we should check the above - labels are not CT codes, but one-hot encoded corresponding to uniq_labels
         
             # Core training loop
             optimizer.zero_grad()
