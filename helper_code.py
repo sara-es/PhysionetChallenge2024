@@ -39,6 +39,7 @@ def load_signal(record):
         signal, fields = None, None
     return signal, fields
 
+# Load the signal(s) for a record.
 def load_signals(record):
     return load_signal(record)
 
@@ -58,6 +59,7 @@ def load_image(record):
 
     return images
 
+# Load the image(s) for a record.
 def load_images(record):
     return load_image(record)
 
@@ -98,6 +100,7 @@ def save_signal(record, signal, comments=list()):
                 d_signal=signal, fmt=signal_formats, adc_gain=adc_gains, baseline=baselines, comments=comments, \
                 write_dir=path)
 
+# Save the signal(s) for a record.
 def save_signals(record, signals):
     save_signal(record, signals)
 
@@ -125,109 +128,6 @@ def save_text(filename, string):
     with open(filename, 'w') as f:
         f.write(string)
 
-# Get the record name from a header file.
-def get_record_name(string):
-    value = string.split('\n')[0].split(' ')[0].split('/')[0].strip()
-    return value
-
-# Get the number of signals from a header file.
-def get_num_signals(string):
-    value = string.split('\n')[0].split(' ')[1].strip()
-    if is_integer(value):
-        value = int(value)
-    else:
-        value = None
-    return value
-
-# Get the sampling frequency from a header file.
-def get_sampling_frequency(string):
-    value = string.split('\n')[0].split(' ')[2].split('/')[0].strip()
-    if is_number(value):
-        value = float(value)
-    else:
-        value = None
-    return value
-
-# Get the number of samples from a header file.
-def get_num_samples(string):
-    value = string.split('\n')[0].split(' ')[3].strip()
-    if is_integer(value):
-        value = int(value)
-    else:
-        value = None
-    return value
-
-# Get signal units from a header file.
-def get_signal_formats(string):
-    num_signals = get_num_signals(string)
-    values = list()
-    for i, l in enumerate(string.split('\n')):
-        if 1 <= i <= num_signals:
-            field = l.split(' ')[1]
-            if 'x' in field:
-                field = field.split('x')[0]
-            if ':' in field:
-                field = field.split(':')[0]
-            if '+' in field:
-                field = field.split('+')[0]
-            value = field
-            values.append(value)
-    return values
-
-# Get signal units from a header file.
-def get_adc_gains(string):
-    num_signals = get_num_signals(string)
-    values = list()
-    for i, l in enumerate(string.split('\n')):
-        if 1 <= i <= num_signals:
-            field = l.split(' ')[2]
-            if '/' in field:
-                field = field.split('/')[0]
-            if '(' in field and ')' in field:
-                field = field.split('(')[0]
-            value = float(field)
-            values.append(value)
-    return values
-
-# Get signal units from a header file.
-def get_baselines(string):
-    num_signals = get_num_signals(string)
-    values = list()
-    for i, l in enumerate(string.split('\n')):
-        if 1 <= i <= num_signals:
-            field = l.split(' ')[2]
-            if '/' in field:
-                field = field.split('/')[0]
-            if '(' in field and ')' in field:
-                field = field.split('(')[1].split(')')[0]
-            value = int(field)
-            values.append(value)
-    return values
-
-# Get signal units from a header file.
-def get_signal_units(string):
-    num_signals = get_num_signals(string)
-    values = list()
-    for i, l in enumerate(string.split('\n')):
-        if 1 <= i <= num_signals:
-            field = l.split(' ')[2]
-            if '/' in field:
-                value = field.split('/')[1]
-            else:
-                value = 'mV'
-            values.append(value)
-    return values
-
-# Get the number of samples from a header file.
-def get_signal_names(string):
-    num_signals = get_num_signals(string)
-    values = list()
-    for i, l in enumerate(string.split('\n')):
-        if 1 <= i <= num_signals:
-            value = l.split(' ')[8]
-            values.append(value)
-    return values
-
 # Get a variable from a string.
 def get_variable(string, variable_name):
     variable = ''
@@ -238,7 +138,7 @@ def get_variable(string, variable_name):
             has_variable = True
     return variable, has_variable
 
-# Get variables from a text file.
+# Get variables from a string.
 def get_variables(string, variable_name, sep=','):
     variables = list()
     has_variable = False
@@ -299,6 +199,168 @@ def get_image_files(record):
     image_files = get_image_files_from_header(header)
     return image_files
 
+### WFDB functions
+
+# Get the record name from a header file.
+def get_record_name(string):
+    value = string.split('\n')[0].split(' ')[0].split('/')[0].strip()
+    return value
+
+# Get the number of signals from a header file.
+def get_num_signals(string):
+    value = string.split('\n')[0].split(' ')[1].strip()
+    if is_integer(value):
+        value = int(value)
+    else:
+        value = None
+    return value
+
+# Get the sampling frequency from a header file.
+def get_sampling_frequency(string):
+    value = string.split('\n')[0].split(' ')[2].split('/')[0].strip()
+    if is_number(value):
+        value = float(value)
+    else:
+        value = None
+    return value
+
+# Get the number of samples from a header file.
+def get_num_samples(string):
+    value = string.split('\n')[0].split(' ')[3].strip()
+    if is_integer(value):
+        value = int(value)
+    else:
+        value = None
+    return value
+
+# Get the signal formats from a header file.
+def get_signal_formats(string):
+    num_signals = get_num_signals(string)
+    values = list()
+    for i, l in enumerate(string.split('\n')):
+        if 1 <= i <= num_signals:
+            field = l.split(' ')[1]
+            if 'x' in field:
+                field = field.split('x')[0]
+            if ':' in field:
+                field = field.split(':')[0]
+            if '+' in field:
+                field = field.split('+')[0]
+            value = field
+            values.append(value)
+    return values
+
+# Get the ADC gains from a header file.
+def get_adc_gains(string):
+    num_signals = get_num_signals(string)
+    values = list()
+    for i, l in enumerate(string.split('\n')):
+        if 1 <= i <= num_signals:
+            field = l.split(' ')[2]
+            if '/' in field:
+                field = field.split('/')[0]
+            if '(' in field and ')' in field:
+                field = field.split('(')[0]
+            value = float(field)
+            values.append(value)
+    return values
+
+# Get the baselines from a header file.
+def get_baselines(string):
+    num_signals = get_num_signals(string)
+    values = list()
+    for i, l in enumerate(string.split('\n')):
+        if 1 <= i <= num_signals:
+            field = l.split(' ')[2]
+            if '/' in field:
+                field = field.split('/')[0]
+            if '(' in field and ')' in field:
+                field = field.split('(')[1].split(')')[0]
+            else:
+                field = get_adc_zeros(string)[i-1]
+            value = int(field)
+            values.append(value)
+    return values
+
+# Get the signal units from a header file.
+def get_signal_units(string):
+    num_signals = get_num_signals(string)
+    values = list()
+    for i, l in enumerate(string.split('\n')):
+        if 1 <= i <= num_signals:
+            field = l.split(' ')[2]
+            if '/' in field:
+                value = field.split('/')[1]
+            else:
+                value = 'mV'
+            values.append(value)
+    return values
+
+# Get the ADC resolutions from a header file.
+def get_adc_resolutions(string):
+    num_signals = get_num_signals(string)
+    values = list()
+    for i, l in enumerate(string.split('\n')):
+        if 1 <= i <= num_signals:
+            field = l.split(' ')[3]
+            value = int(field)
+            values.append(value)
+    return values
+
+# Get the ADC zeros from a header file.
+def get_adc_zeros(string):
+    num_signals = get_num_signals(string)
+    values = list()
+    for i, l in enumerate(string.split('\n')):
+        if 1 <= i <= num_signals:
+            field = l.split(' ')[4]
+            value = int(field)
+            values.append(value)
+    return values
+
+# Get the initial values of a signal from a header file.
+def get_initial_values(string):
+    num_signals = get_num_signals(string)
+    values = list()
+    for i, l in enumerate(string.split('\n')):
+        if 1 <= i <= num_signals:
+            field = l.split(' ')[5]
+            value = int(field)
+            values.append(value)
+    return values
+
+# Get the checksums of a signal from a header file.
+def get_checksums(string):
+    num_signals = get_num_signals(string)
+    values = list()
+    for i, l in enumerate(string.split('\n')):
+        if 1 <= i <= num_signals:
+            field = l.split(' ')[6]
+            value = int(field)
+            values.append(value)
+    return values
+
+# Get the block sizes of a signal from a header file.
+def get_block_sizes(string):
+    num_signals = get_num_signals(string)
+    values = list()
+    for i, l in enumerate(string.split('\n')):
+        if 1 <= i <= num_signals:
+            field = l.split(' ')[7]
+            value = int(field)
+            values.append(value)
+    return values
+
+# Get the signal names from a header file.
+def get_signal_names(string):
+    num_signals = get_num_signals(string)
+    values = list()
+    for i, l in enumerate(string.split('\n')):
+        if 1 <= i <= num_signals:
+            value = l.split(' ')[8]
+            values.append(value)
+    return values
+
 ### Evaluation functions
 
 # Construct the binary one-vs-rest confusion matrices, where the columns are the expert labels and the rows are the classifier
@@ -349,15 +411,17 @@ def compute_f_measure(labels, outputs):
 
 # Reorder channels in signal.
 def reorder_signal(input_signal, input_channels, output_channels):
-    if input_signal is None:
-        return None
+    # Do not allow repeated channels with potentially different values in a signal.
+    assert(len(set(input_channels)) == len(input_channels))
+    assert(len(set(output_channels)) == len(output_channels))
 
-    if input_channels == output_channels and len(set(input_channels)) == len(set(output_channels)) == len(output_channels):
+    if input_channels == output_channels:
         output_signal = input_signal
     else:
         input_channels = [channel.strip().casefold() for channel in input_channels]
         output_channels = [channel.strip().casefold() for channel in output_channels]
 
+        input_signal = np.asarray(input_signal)
         num_samples = np.shape(input_signal)[0]
         num_channels = len(output_channels)
         data_type = input_signal.dtype
@@ -366,26 +430,24 @@ def reorder_signal(input_signal, input_channels, output_channels):
         for i, output_channel in enumerate(output_channels):
             for j, input_channel in enumerate(input_channels):
                 if input_channel == output_channel:
-                    output_signal[:, i] += input_signal[:, j]
+                    output_signal[:, i] = input_signal[:, j]
 
     return output_signal
 
 # Pad or truncate signal.
-def trim_signal(input_signal, num_samples):
-    if input_signal is None:
-        return None
-
-    cur_samples, num_channels = np.shape(input_signal)
+def trim_signal(input_signal, num_samples_trimmed):
+    input_signal = np.asarray(input_signal)
+    num_samples, num_channels = np.shape(input_signal)
     data_type = input_signal.dtype
 
-    if cur_samples == num_samples:
+    if num_samples == num_samples_trimmed:
         output_signal = input_signal
     else:
-        output_signal = np.zeros((num_samples, num_channels), dtype=data_type)
-        if cur_samples < num_samples: # Zero-pad the signals.
-            output_signal[:cur_samples, :] = input_signal
+        output_signal = np.zeros((num_samples_trimmed, num_channels), dtype=data_type)
+        if num_samples < num_samples_trimmed: # Zero-pad the signals.
+            output_signal[:num_samples, :] = input_signal
         else: # Truncate the signals.
-            output_signal = input_signal[:num_samples, :]
+            output_signal = input_signal[:num_samples_trimmed, :]
 
     return output_signal
 
@@ -393,10 +455,16 @@ def trim_signal(input_signal, num_samples):
 def compute_snr(label_signal, output_signal):
     label_signal = np.asarray(label_signal)
     output_signal = np.asarray(output_signal)
-    assert(np.all(np.shape(label_signal) == np.shape(output_signal)))
 
-    label_signal[np.isnan(label_signal)] = 0
-    output_signal[np.isnan(output_signal)] = 0
+    assert(label_signal.ndim == output_signal.ndim == 1)
+    assert(np.size(label_signal) == np.size(output_signal))
+
+    idx_finite_signal = np.isfinite(label_signal)
+    label_signal = label_signal[idx_finite_signal]
+    output_signal = output_signal[idx_finite_signal]
+
+    idx_nan_signal = np.isnan(output_signal)
+    output_signal[idx_nan_signal] = 0
 
     noise_signal = output_signal - label_signal
 
@@ -416,10 +484,16 @@ def compute_snr(label_signal, output_signal):
 def compute_snr_median(label_signal, output_signal):
     label_signal = np.asarray(label_signal)
     output_signal = np.asarray(output_signal)
-    assert(np.all(np.shape(label_signal) == np.shape(output_signal)))
 
-    label_signal[np.isnan(label_signal)] = 0
-    output_signal[np.isnan(output_signal)] = 0
+    assert(label_signal.ndim == output_signal.ndim == 1)
+    assert(np.size(label_signal) == np.size(output_signal))
+
+    idx_finite_signal = np.isfinite(label_signal)
+    label_signal = label_signal[idx_finite_signal]
+    output_signal = output_signal[idx_finite_signal]
+
+    idx_nan_signal = np.isnan(output_signal)
+    output_signal[idx_nan_signal] = 0
 
     noise_signal = output_signal - label_signal
 
@@ -437,10 +511,16 @@ def compute_snr_median(label_signal, output_signal):
 def compute_ks_metric(label_signal, output_signal):
     label_signal = np.asarray(label_signal)
     output_signal = np.asarray(output_signal)
-    assert(np.all(np.shape(label_signal) == np.shape(output_signal)))
 
-    label_signal[np.isnan(label_signal)] = 0
-    output_signal[np.isnan(output_signal)] = 0
+    assert(label_signal.ndim == output_signal.ndim == 1)
+    assert(np.size(label_signal) == np.size(output_signal))
+
+    idx_finite_signal = np.isfinite(label_signal)
+    label_signal = label_signal[idx_finite_signal]
+    output_signal = output_signal[idx_finite_signal]
+
+    idx_nan_signal = np.isnan(output_signal)
+    output_signal[idx_nan_signal] = 0
 
     label_signal_cdf = np.cumsum(np.abs(label_signal))
     output_signal_cdf = np.cumsum(np.abs(output_signal))
@@ -458,10 +538,16 @@ def compute_ks_metric(label_signal, output_signal):
 def compute_asci_metric(label_signal, output_signal, beta=0.05):
     label_signal = np.asarray(label_signal)
     output_signal = np.asarray(output_signal)
-    assert(np.all(np.shape(label_signal) == np.shape(output_signal)))
 
-    label_signal[np.isnan(label_signal)] = 0
-    output_signal[np.isnan(output_signal)] = 0
+    assert(label_signal.ndim == output_signal.ndim == 1)
+    assert(np.size(label_signal) == np.size(output_signal))
+
+    idx_finite_signal = np.isfinite(label_signal)
+    label_signal = label_signal[idx_finite_signal]
+    output_signal = output_signal[idx_finite_signal]
+
+    idx_nan_signal = np.isnan(output_signal)
+    output_signal[idx_nan_signal] = 0
 
     if beta <= 0 or beta > 1:
         raise ValueError('The beta value should be greater than 0 and less than or equal to 1.')
@@ -479,21 +565,27 @@ def compute_asci_metric(label_signal, output_signal, beta=0.05):
     return asci
 
 # Compute a weighted absolute difference metric.
-def compute_weighted_absolute_difference(label_signal, output_signal, fs):
+def compute_weighted_absolute_difference(label_signal, output_signal, sampling_frequency):
     label_signal = np.asarray(label_signal)
     output_signal = np.asarray(output_signal)
-    assert(label_signal.ndim == 1 and np.size(label_signal) == np.size(output_signal))
+
+    assert(label_signal.ndim == output_signal.ndim == 1)
+    assert(np.size(label_signal) == np.size(output_signal))
+
+    idx_finite_signal = np.isfinite(label_signal)
+    label_signal = label_signal[idx_finite_signal]
+    output_signal = output_signal[idx_finite_signal]
+
+    idx_nan_signal = np.isnan(output_signal)
+    output_signal[idx_nan_signal] = 0
 
     from scipy.signal import filtfilt
 
-    label_signal[np.isnan(label_signal)] = 0
-    output_signal[np.isnan(output_signal)] = 0
-
-    m = np.size(label_signal)
+    m = round(0.1 * sampling_frequency)
     w = filtfilt(np.ones(m), m, label_signal, method='gust')
     w = 1 - 0.5/np.max(w) * w
     n = np.sum(w)
-    
+
     weighted_absolute_difference_metric = np.sum(np.abs(label_signal-output_signal) * w)/n
 
     return weighted_absolute_difference_metric
