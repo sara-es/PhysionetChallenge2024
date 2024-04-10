@@ -227,7 +227,7 @@ def run_dx_model(dx_model, record, signal, verbose):
         model = dx_model['seresnet']
         # mutli_dx_threshold is probability above which secondary labels are returned positive in pred_dx
         pred_dx, probabilities = classification.seresnet18.predict_proba(
-                                        model, data, classes, verbose, abnormal_threshold=0.98)
+                                        model, data, classes, verbose, abnormal_threshold=0.95)
         labels = classes[np.where(pred_dx == 1)]
         if verbose:
             print(f"Classes: {classes}, probabilities: {probabilities}")
