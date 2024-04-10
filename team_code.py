@@ -115,8 +115,7 @@ def load_dx_model(model_folder, verbose):
 # Run your trained digitization model. This function is *required*. You should edit 
 # this function to add your code, but do *not* change the arguments of this function.
 def run_digitization_model(digitization_model, record, verbose):
-
-    image = helper_code.load_image(record)
+    image = helper_code.load_image(record) # list of images in PIL format ?
     header_file = helper_code.get_header_file(record)
     header = helper_code.load_text(header_file)
 
@@ -138,19 +137,19 @@ def run_digitization_model(digitization_model, record, verbose):
                                                             size=(num_samples, num_signals))
 
     if 'digit_clean_miner' in digitization_model.keys():
+        # potentially multiple images per file
         image_files = team_helper_code.load_image_paths(record)
         image_file = image_files[0]
         if len(image_files) > 1:
             if verbose:
                 print(f"Multiple images found, using image at {image_file}.")
-        try:
-            signal = reconstruction.image_cleaning.digitize(image_file)
-            signal = np.nan_to_num(signal)
-        except Exception as e: 
-            # FIXME for now, let the code continue if there's an error
-            if verbose:
-                print(f"Error digitizing image {image_file}: {e}")
-                # print(traceback.format_exc())
+
+        # clean and rotate the image
+        cleaned_image, gridsize = reconstruction.image_cleaning.clean_image(image_file)   
+
+        # digitize with ECG-miner
+        signal, _ = reconstruction.image_cleaning.digitize_image(cleaned_image, gridsize)
+        signal = np.nan_to_num(signal)
     
     if signal is not None:
         try:
@@ -177,7 +176,12 @@ def run_dx_model(dx_model, record, signal, verbose):
     ####### Example model ########
     if 'dx_example' in dx_model.keys():
         # Extract features.
-        features = preprocessing.demographics.extract_features(record) # for consistency with train
+        try:
+            age_gender = preprocessing.demographics.extract_features(record)
+        except ValueError as e:
+            if verbose:
+                print(f"No demographic data found for record {record}.")
+            age_gender = np.zeros(3)
         features = features.reshape(1, -1)
 
         # Get model probabilities.
@@ -292,9 +296,9 @@ def train_digitization_model_team(data_folder, records, verbose,
     features = list()
 
     for i in tqdm(range(num_records), disable=~verbose):
-        if verbose:
-            width = len(str(num_records))
-            print(f'- {i+1:>{width}}/{num_records}: {records[i]}...')
+        # if verbose:
+        #     width = len(str(num_records))
+        #     print(f'- {i+1:>{width}}/{num_records}: {records[i]}...')
     
         record = os.path.join(data_folder, records[i])
 

@@ -44,9 +44,12 @@ class PaperECG:
             DigitalECG: Digitized ECG.
         """
 
+        # returns image object
         ecg_crop, rect = self.preprocessor.preprocess(self.image)
 
+        # returns x and y coordinates of the traces in order
         raw_signals = self.signal_extractor.extract_signals(ecg_crop)
+
         digitised_signals, trace = self.postprocessor.postprocess(self.gridsize, raw_signals, ecg_crop)
         
         # plot the image trace and digitized signals
@@ -59,13 +62,5 @@ class PaperECG:
         # plt.savefig("digitized_signals.png")
         # plt.close()
 
+        return digitised_signals, trace
 
-        # TODO: may be faster as a np.array instead of pd.dataframe
-        return digitised_signals
-
-
-# if __name__ == "__main__":
-#     test_img = cv.imread("../tiny_testset/records100/00001_lr-0.png")
-#     test_img = Image(test_img)
-#     ecg = PaperECG(test_img)
-#     digital_ecg = ecg.digitise()

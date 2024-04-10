@@ -15,21 +15,6 @@ from reconstruction.Image import Image
 from reconstruction.ECGClass import PaperECG
 
 
-def digitize(image):
-    if type(image) == list:
-        #TODO: handle multiple images
-        print("Multiple images found, using the first one.")
-        image = image[0]
-        
-    cleaned_image, gridsize = clean_image(image)    
-    # convert greyscale to rgb
-    cleaned_image = cv2.merge([cleaned_image,cleaned_image,cleaned_image])
-    cleaned_image = np.uint8(cleaned_image)
-    cleaned_image = Image(cleaned_image) # cleaned_image = reconstruction.Image.Image(cleaned_image)
-    ECG_signals = digitize_image(cleaned_image, gridsize) # paper_ecg = reconstruction.image_cleaning.PaperECG(cleaned_image)
-    return (ECG_signals)
-
-
 # This function takes an input of a raw image in png (RGBA) and outputs the cleaned image.
 def clean_image(image):
     im = iio.imread(image)
@@ -56,12 +41,16 @@ def clean_image(image):
 
 
 def digitize_image(restored_image, gridsize):
-    ##### TODO - INCLUDE ECG-MINER CODE HERE ####
     # incoming: bad code~~~~~
-    paper_ecg = PaperECG(restored_image, gridsize)
-    ECG_signals = paper_ecg.digitise()
+    # convert greyscale to rgb
+    restored_image = cv2.merge([restored_image,restored_image,restored_image])
+    restored_image = np.uint8(restored_image)
+    restored_image = Image(restored_image) # cleaned_image = reconstruction.Image.Image(cleaned_image)
 
-    return ECG_signals
+    paper_ecg = PaperECG(restored_image, gridsize)
+    ECG_signals, trace = paper_ecg.digitise()
+
+    return ECG_signals, trace
 
 
 # Simple function to remove shadows - room for much improvement.
