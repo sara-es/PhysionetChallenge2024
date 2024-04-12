@@ -179,7 +179,7 @@ def format_wfdb_signal(header, signal, comments=list()):
 
 def plot_signal_reconstruction(label_signal, output_signal, output_fields, mean_snr, trace, image_file, output_folder=""):
     description_string = f"""{output_fields['sig_ID']} ({output_fields['fs']} Hz)
-    Reconstruction SNR: {mean_snr:.2f} dB"""
+    Reconstruction SNR: {mean_snr:.2f}"""
 
     # # plot original image, cleaned image with trace, ground truth signal, and reconstructed signal  
     mosaic = plt.figure(layout="tight", figsize=(18, 13))
