@@ -40,11 +40,11 @@ def train_digit_model(images_folder,
         print('Training the digitization model...')
 
     # Main function call. Pass in names of records here for cross-validation.
-    models = train_digitization_model_team(images_folder, record_ids, verbose,
+    models = team_code.train_digitization_model_team(images_folder, record_ids, verbose,
                                            models_to_train=models_to_train)
 
     # Save the model.
-    save_models(models, model_folder, verbose)
+    utils.save_models(models, model_folder, verbose)
 
     if verbose:
         print('Done.')

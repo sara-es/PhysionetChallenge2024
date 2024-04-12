@@ -71,6 +71,16 @@ class Image:
         """
         self.__data = data
 
+    @data.getter
+    def data(self) -> Iterable[Iterable[int | Iterable[int]]]:
+        """
+        Returns the image data.
+
+        Returns:
+            Iterable[Iterable[int | Iterable[int]]]: Copy of image data.
+        """
+        return self.__data
+
     @property
     def height(self) -> int:
         """
