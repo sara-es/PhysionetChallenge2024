@@ -40,14 +40,14 @@ def clean_image(image):
     return restored_image, gridsize
 
 
-def digitize_image(restored_image, gridsize):
+def digitize_image(restored_image, gridsize, sig_len=1000):
     # incoming: bad code~~~~~
     # convert greyscale to rgb
     restored_image = cv2.merge([restored_image,restored_image,restored_image])
     restored_image = np.uint8(restored_image)
     restored_image = Image(restored_image) # cleaned_image = reconstruction.Image.Image(cleaned_image)
 
-    paper_ecg = PaperECG(restored_image, gridsize)
+    paper_ecg = PaperECG(restored_image, gridsize, sig_len=sig_len)
     ECG_signals, trace = paper_ecg.digitise()
 
     return ECG_signals, trace
@@ -62,7 +62,7 @@ def remove_shadow(red_im, angle):
     sigmoid_std1 = 255 * sigmoid(std_rescale(output_im - 0.95 * output_im0, contrast=8))
 
     # feel like we can combine these somehow to be useful?
-    combo1 = -(sigmoid_norm1 - sigmoid_std1)  # I have no idea why this works, but it does
+    combo1 = -(sigmoid_norm1 - sigmoid_std1)  # this is really a hack - room for much improvement
 
     greyscale_out = zero_one_rescale(
         sp.ndimage.rotate(combo1, angle, axes=(1, 0), reshape=True, cval=combo1.mean()))
