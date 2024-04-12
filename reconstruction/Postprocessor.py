@@ -165,7 +165,7 @@ class Postprocessor:
         max_pad = 0 if max_diff == 0 else NCOLS - max_diff
 
         # hack to force correct sampling frequency
-        total_obs = sig_len
+        total_obs = int(sig_len)
         # Linear interpolation to get a certain number of observations
         interp_signals = np.empty((len(signals), total_obs))
         for i in range(len(signals)):
