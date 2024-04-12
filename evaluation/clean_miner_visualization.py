@@ -1,3 +1,13 @@
+"""
+A scipt to visualize the results of the digitization model pipeline on the Challenge data.
+
+Example usage follows the convention of the other Challenge scripts:
+python clean_miner_visualization.py -i [input_folder] -o [output_folder] -v
+
+Note that the input folder must have image files as well as ground truth signal files.
+"""
+
+
 import sys, os
 sys.path.append(os.path.join(sys.path[0], '..'))
 
@@ -14,13 +24,13 @@ from reconstruction import image_cleaning
 from utils import team_helper_code
 
 
-def run_digitization_model(image_file, verbose, allow_failures=False):
+def run_digitization_model(image_file, sig_len, verbose, allow_failures=False):
     # clean and rotate the image
     cleaned_image, gridsize = image_cleaning.clean_image(image_file)   
 
     # digitize with ECG-miner
     try:
-        signal, trace = image_cleaning.digitize_image(cleaned_image, gridsize)
+        signal, trace = image_cleaning.digitize_image(cleaned_image, gridsize, sig_len)
         signal = np.nan_to_num(signal)
     except Exception as e: 
         if allow_failures:
@@ -232,7 +242,9 @@ def main(data_folder, output_folder, verbose):
                 print(f"Multiple images found, using image at {image_file}.")
         
         # run the digitization model
-        trace, signal, gridsize = run_digitization_model(image_file, verbose=True)
+        frequency = helper_code.get_sampling_frequency(header)
+        longest_signal_length = frequency*num_samples
+        trace, signal, gridsize = run_digitization_model(image_file, longest_signal_length, verbose=True)
 
         # get digitization output
         signal = np.asarray(signal, dtype=np.int16)
