@@ -4,8 +4,10 @@ sys.path.append(os.path.join(sys.path[0], '..'))
 import numpy as np
 from datetime import datetime
 import matplotlib.pyplot as plt
-import traceback, tqdm, argparse, time
+import traceback, argparse, time
 import wfdb
+from tqdm import tqdm
+from PIL import Image
 
 import team_code, helper_code
 from reconstruction import image_cleaning
@@ -31,26 +33,16 @@ def run_digitization_model(image_file, verbose, allow_failures=False):
     return trace, signal, gridsize
 
 
-def single_signal_snr(output_signal, output_fields, label_signal, label_fields, extra_scores=False):
-    # lifted from evaluate_model.py
-    snr = dict()
-    snr_median = dict()
-    ks_metric = dict()
-    asci_metric = dict()
-    weighted_absolute_difference_metric = dict()
-
+def match_signal_lengths(output_signal, output_fields, label_signal, label_fields):
+    # make sure channel orders match, and trim/pad output signal to match label signal length
     if label_signal is not None:
-        record = output_fields['sig_ID']
         label_channels = label_fields['sig_name']
-        label_num_channels = label_signal.shape[1]
         label_num_samples = label_signal.shape[0]
         label_sampling_frequency = label_fields['fs']
         label_units = label_fields['units']
 
         if output_signal is not None:
             output_channels = output_fields['sig_name']
-            output_num_channels = output_signal.shape[1]
-            output_num_samples = output_signal.shape[0]
             output_sampling_frequency = output_fields['fs']
             output_units = output_fields['units']
 
@@ -69,28 +61,44 @@ def single_signal_snr(output_signal, output_fields, label_signal, label_fields, 
 
         else:
             output_signal = np.zeros(np.shape(label_signal), dtype=label_signal.dtype)
+    
+    return output_signal, output_fields, label_signal, label_fields
 
-        # Compute the signal reconstruction metrics.
-        channels = label_channels
-        num_channels = label_num_channels
-        sampling_frequency = label_sampling_frequency
 
-        for j, channel in enumerate(channels):
-            value = helper_code.compute_snr(label_signal[:, j], output_signal[:, j])
-            snr[(record, channel)] = value
+def single_signal_snr(output_signal, output_fields, label_signal, label_fields, extra_scores=False):
+    # lifted from evaluate_model.py with minor edits
+    snr = dict()
+    snr_median = dict()
+    ks_metric = dict()
+    asci_metric = dict()
+    weighted_absolute_difference_metric = dict()
 
-            if extra_scores:
-                value = helper_code.compute_snr_median(label_signal[:, j], output_signal[:, j])
-                snr_median[(record, channel)] = value
+    record = output_fields['sig_ID']
+    label_channels = label_fields['sig_name']
+    label_num_channels = label_signal.shape[1]
+    label_sampling_frequency = label_fields['fs']
 
-                value = helper_code.compute_ks_metric(label_signal[:, j], output_signal[:, j])
-                ks_metric[(record, channel)] = value
+    # Compute the signal reconstruction metrics.
+    channels = label_channels
+    num_channels = label_num_channels
+    sampling_frequency = label_sampling_frequency
 
-                value = helper_code.compute_asci_metric(label_signal[:, j], output_signal[:, j])
-                asci_metric[(record, channel)] = value
+    for j, channel in enumerate(channels):
+        value = helper_code.compute_snr(label_signal[:, j], output_signal[:, j])
+        snr[(record, channel)] = value
 
-                value = helper_code.compute_weighted_absolute_difference(label_signal[:, j], output_signal[:, j], sampling_frequency)
-                weighted_absolute_difference_metric[(record, channel)] = value
+        if extra_scores:
+            value = helper_code.compute_snr_median(label_signal[:, j], output_signal[:, j])
+            snr_median[(record, channel)] = value
+
+            value = helper_code.compute_ks_metric(label_signal[:, j], output_signal[:, j])
+            ks_metric[(record, channel)] = value
+
+            value = helper_code.compute_asci_metric(label_signal[:, j], output_signal[:, j])
+            asci_metric[(record, channel)] = value
+
+            value = helper_code.compute_weighted_absolute_difference(label_signal[:, j], output_signal[:, j], sampling_frequency)
+            weighted_absolute_difference_metric[(record, channel)] = value
     
     snr = np.array(list(snr.values()))
     if not np.all(np.isnan(snr)):
@@ -159,32 +167,54 @@ def format_wfdb_signal(header, signal, comments=list()):
     return signal, output_fields, record
 
 
-def plot_signal_reconstruction(label_signal, output_signal, output_fields, label_fields, trace, filename="", output_folder=""):
-    # trace.save("trace.png")
+def plot_signal_reconstruction(label_signal, output_signal, output_fields, mean_snr, trace, image_file, output_folder=""):
+    description_string = f"""{output_fields['sig_ID']} ({output_fields['fs']} Hz)
+    Reconstruction SNR: {mean_snr:.2f} dB"""
 
-    dsa = output_signal.to_numpy()
-    fig, axs = plt.subplots(dsa.shape[1], 1, figsize=(10, 10))
-    for i in range(dsa.shape[1]):
-        axs[i].plot(dsa[:, i])
+    # # plot original image, cleaned image with trace, ground truth signal, and reconstructed signal  
+    mosaic = plt.figure(layout="tight", figsize=(18, 13))
+    axd = mosaic.subplot_mosaic([
+                                    ['original_image', 'ecg_plots'],
+                                    ['trace', 'ecg_plots']
+                                ])
+    # plot original image
+    with Image.open(image_file) as img:
+        axd['original_image'].axis('off')
+        axd['original_image'].imshow(img, cmap='gray')
+        
+    # plot trace
+    axd['trace'].xaxis.set_visible(False)
+    axd['trace'].yaxis.set_visible(False)
+    axd['trace'].imshow(trace.data, cmap='gray')    
+
+    # plot ground truth and reconstructed signal
+    fig, axs = plt.subplots(output_signal.shape[1], 1, figsize=(9, 12.5), sharex=True)
+    fig.subplots_adjust(hspace=0.1)
+    fig.suptitle(description_string)
+    # fig.text(0.5, 0.95, description_string, ha='center')
+    for i in range(output_signal.shape[1]):
+        axs[i].plot(output_signal[:, i])
         axs[i].plot(label_signal[:, i])
-    
-    # combine this plot with original image and trace
-
+    fig.canvas.draw()
+    axd['ecg_plots'].axis('off')
+    axd['ecg_plots'].imshow(fig.canvas.renderer.buffer_rgba())
     # save everything in one image
-    # plt.savefig(os.path.join(output_folder, filename))
+    filename = f"{output_fields['sig_ID']}_reconstruction.png"
+    plt.figure(mosaic)
+    plt.savefig(os.path.join(output_folder, filename))
     plt.close()
 
 
-def main(data_folder, records, verbose):
-    # TODO: pass in list of record names
-    if verbose:
-        print('Extracting features and labels from the data...')
-        t1 = time.time()
+def main(data_folder, output_folder, verbose):
+    # Find data files.
+    records = helper_code.find_records(data_folder)
+    if len(records) == 0:
+        raise FileNotFoundError('No data was provided.')
 
-    num_records = len(records)
-    features = list()
+    # Create a folder for the model if it does not already exist.
+    os.makedirs(output_folder, exist_ok=True)
 
-    for i in tqdm(range(num_records), disable=~verbose):  
+    for i in tqdm(range(len(records)), disable=~verbose):  
         record = os.path.join(data_folder, records[i])
 
         # get ground truth signal and metadata
@@ -202,23 +232,36 @@ def main(data_folder, records, verbose):
                 print(f"Multiple images found, using image at {image_file}.")
         
         # run the digitization model
-        trace, signal, gridsize = run_digitization_model(image_file, verbose)
+        trace, signal, gridsize = run_digitization_model(image_file, verbose=True)
+
+        # get digitization output
+        signal = np.asarray(signal, dtype=np.int16)
+        # run_model.py just rewrites header file to output folder here, so we can skip that step
+        # also saves the signal as a wfdb signal
+        output_signal, output_fields, wfdb_signal = format_wfdb_signal(header, signal) # output_record is the filepath the output signal will be saved to
+
+        # get ground truth signal
+        label_signal, label_fields = helper_code.load_signal(record)
+        # match signal lengths: make sure channel orders match and trim output signal to match label signal length
+        output_signal, output_fields, label_signal, label_fields = match_signal_lengths(output_signal, output_fields, label_signal, label_fields)
 
         # compute SNR vs ground truth
-
-        # add SNR, image metadata, label, and image filename to dataframe
-
-        # plot original image, cleaned image with trace, ground truth signal, and reconstructed signal
-
-        # save plots to output folder
-    
-    # save dataframe to output folder
-
-
-    if verbose:
-        t2 = time.time()
-        print(f'Done. Time to extract features: {t2 - t1:.2f} seconds.')
+        mean_snr, mean_snr_median, mean_ks_metric, mean_asci_metric, mean_weighted_absolute_difference_metric = single_signal_snr(output_signal, output_fields, label_signal, label_fields, extra_scores=True)
         
-        pass
+        # save dataframe to output folder
+        #TODO
+
+        # plot signal reconstruction
+        plot_signal_reconstruction(label_signal, output_signal, output_fields, mean_snr, trace, image_file, output_folder)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Visualize the results of the digitization model pipeline on the Challenge data.')
+    parser.add_argument('-i', '--data_folder', type=str, help='The folder containing the Challenge images.')
+    parser.add_argument('-o', '--output_folder', type=str, help='The folder to save the output visualization.')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Print progress messages.')
+    args = parser.parse_args()
+
+    main(args.data_folder, args.output_folder, args.verbose)
 
 
