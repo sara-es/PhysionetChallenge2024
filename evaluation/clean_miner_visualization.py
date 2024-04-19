@@ -258,7 +258,6 @@ def main(data_folder, output_folder, verbose):
         
         # run the digitization model     
         trace, signal, gridsize = run_digitization_model(image_file, num_samples, verbose=True)
-        # breakpoint()
 
         # get digitization output
         signal = np.asarray(signal*1000, dtype=np.int16)
@@ -267,17 +266,16 @@ def main(data_folder, output_folder, verbose):
         # uncomment following line if we want to follow challenge save/load protocols exactly
         # output_signal, output_fields = save_and_load_wfdb(header, signal, output_folder=output_folder, record=record_name)        
         output_signal, output_fields = format_wfdb_signal(header, signal) # output_record is the filepath the output signal will be saved to
-
-        # breakpoint()
+        
         # get ground truth signal
         label_signal, label_fields = helper_code.load_signal(record)
-        # label_signal, _, _ = format_wfdb_signal(header, label_signal)
-        # breakpoint()
+
         # match signal lengths: make sure channel orders match and trim output signal to match label signal length
         output_signal, output_fields, label_signal, label_fields = match_signal_lengths(output_signal, output_fields, label_signal, label_fields)
-        # breakpoint()
+
         # compute SNR vs ground truth
         mean_snr, mean_snr_median, mean_ks_metric, mean_asci_metric, mean_weighted_absolute_difference_metric = single_signal_snr(output_signal, output_fields, label_signal, label_fields, record_name, extra_scores=True)
+        
         # save dataframe to output folder
         #TODO
 
