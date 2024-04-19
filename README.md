@@ -1,5 +1,5 @@
 # Code from team "The Easy Geese" for the George B. Moody PhysioNet Challenge 2024
-*Team members: Matti Kaisti, Tuija Leinonen, George Searle, Sara Summerton, Dave C. Wong*
+*Team members: Matti Kaisti, Tuija Leinonen, George Searle, Chris Shucksmith, Sara Summerton, Dave C. Wong*
 
 ## What's in this repository?
 
