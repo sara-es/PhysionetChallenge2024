@@ -148,14 +148,12 @@ def run_digitization_model(digitization_model, record, verbose):
         cleaned_image, gridsize = reconstruction.image_cleaning.clean_image(image_file)   
 
         # digitize with ECG-miner
-        frequency = helper_code.get_sampling_frequency(header)
-        longest_signal_length = frequency*num_samples
-        signal, _ = reconstruction.image_cleaning.digitize_image(cleaned_image, gridsize, longest_signal_length)
+        signal, _ = reconstruction.image_cleaning.digitize_image(cleaned_image, gridsize, num_samples)
         signal = np.nan_to_num(signal)
     
     if signal is not None:
         try:
-            signal = np.asarray(signal, dtype=np.int16)
+            signal = np.asarray(signal*1000, dtype=np.int16)
         except ValueError:
             raise ValueError("Could not digitalize signal. Check that you've loaded the right model(s).")
 

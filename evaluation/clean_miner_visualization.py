@@ -75,7 +75,7 @@ def match_signal_lengths(output_signal, output_fields, label_signal, label_field
     return output_signal, output_fields, label_signal, label_fields
 
 
-def single_signal_snr(output_signal, output_fields, label_signal, label_fields, extra_scores=False):
+def single_signal_snr(output_signal, output_fields, label_signal, label_fields, record, extra_scores=False):
     # lifted from evaluate_model.py with minor edits
     snr = dict()
     snr_median = dict()
@@ -83,7 +83,6 @@ def single_signal_snr(output_signal, output_fields, label_signal, label_fields, 
     asci_metric = dict()
     weighted_absolute_difference_metric = dict()
 
-    record = output_fields['sig_ID']
     label_channels = label_fields['sig_name']
     label_num_channels = label_signal.shape[1]
     label_sampling_frequency = label_fields['fs']
@@ -170,18 +169,29 @@ def format_wfdb_signal(header, signal, comments=list()):
     output_fields['fs'] = sampling_frequency
     output_fields['units'] = signal_units
     output_fields['comments'] = ""
-    record = wfdb.Record(fs=sampling_frequency, units=signal_units, sig_name=signal_names,
-                d_signal=signal, fmt=signal_formats, adc_gain=adc_gains, baseline=baselines, comments=comments,
-                )
-    signal = np.asarray(signal, dtype=float)/1000.0
+    signal = np.asarray(signal, dtype=float)/1000.
     
-    return signal, output_fields, record
+    return signal, output_fields
 
 
+def save_and_load_wfdb(data_header, signal, comments=list(), output_folder="", record=None):
+    output_record = os.path.join(output_folder, record)
+    helper_code.save_header(output_record, data_header)
+    if signal is not None:
+        helper_code.save_signal(output_record, signal)
+        print(data_header)
+        comment_lines = [l for l in data_header.split('\n') if l.startswith('#')]
+        signal_header = helper_code.load_header(output_record)
+        signal_header += '\n'.join(comment_lines) + '\n'
+        helper_code.save_header(output_record, signal_header)
+    
+    output_signal, output_fields = helper_code.load_signal(output_record)
+
+    return output_signal, output_fields
 
 
-def plot_signal_reconstruction(label_signal, output_signal, output_fields, mean_snr, trace, image_file, output_folder="", gridsize=None):
-    description_string = f"""{output_fields['sig_ID']} ({output_fields['fs']} Hz)
+def plot_signal_reconstruction(label_signal, output_signal, output_fields, mean_snr, trace, image_file, output_folder="", record_name=None, gridsize=None):
+    description_string = f"""{record_name} ({output_fields['fs']} Hz)
     Reconstruction SNR: {mean_snr:.2f}
     Gridsize: {gridsize}"""
 
@@ -213,7 +223,7 @@ def plot_signal_reconstruction(label_signal, output_signal, output_fields, mean_
     axd['ecg_plots'].axis('off')
     axd['ecg_plots'].imshow(fig.canvas.renderer.buffer_rgba())
     # save everything in one image
-    filename = f"{output_fields['sig_ID']}_reconstruction.png"
+    filename = f"{record_name}_reconstruction.png"
     plt.figure(mosaic)
     plt.savefig(os.path.join(output_folder, filename))
     plt.close()
@@ -230,6 +240,7 @@ def main(data_folder, output_folder, verbose):
 
     for i in tqdm(range(len(records)), disable=~verbose):  
         record = os.path.join(data_folder, records[i])
+        record_name = records[i]
 
         # get ground truth signal and metadata
         header_file = helper_code.get_header_file(record)
@@ -245,31 +256,33 @@ def main(data_folder, output_folder, verbose):
             if verbose:
                 print(f"Multiple images found, using image at {image_file}.")
         
-        # run the digitization model
-        frequency = helper_code.get_sampling_frequency(header)
-        longest_signal_length = frequency*num_samples
-        trace, signal, gridsize = run_digitization_model(image_file, longest_signal_length, verbose=True)
-        breakpoint()
-        
+        # run the digitization model     
+        trace, signal, gridsize = run_digitization_model(image_file, num_samples, verbose=True)
+        # breakpoint()
+
         # get digitization output
-        # signal = np.asarray(signal, dtype=np.int16)
+        signal = np.asarray(signal*1000, dtype=np.int16)
+        
         # run_model.py just rewrites header file to output folder here, so we can skip that step
-        # also saves the signal as a wfdb signal
-        output_signal, output_fields, wfdb_signal = format_wfdb_signal(header, signal) # output_record is the filepath the output signal will be saved to
-        breakpoint()
+        # uncomment following line if we want to follow challenge save/load protocols exactly
+        # output_signal, output_fields = save_and_load_wfdb(header, signal, output_folder=output_folder, record=record_name)        
+        output_signal, output_fields = format_wfdb_signal(header, signal) # output_record is the filepath the output signal will be saved to
+
+        # breakpoint()
         # get ground truth signal
         label_signal, label_fields = helper_code.load_signal(record)
+        # label_signal, _, _ = format_wfdb_signal(header, label_signal)
+        # breakpoint()
         # match signal lengths: make sure channel orders match and trim output signal to match label signal length
         output_signal, output_fields, label_signal, label_fields = match_signal_lengths(output_signal, output_fields, label_signal, label_fields)
         # breakpoint()
         # compute SNR vs ground truth
-        mean_snr, mean_snr_median, mean_ks_metric, mean_asci_metric, mean_weighted_absolute_difference_metric = single_signal_snr(output_signal, output_fields, label_signal, label_fields, extra_scores=True)
-        
+        mean_snr, mean_snr_median, mean_ks_metric, mean_asci_metric, mean_weighted_absolute_difference_metric = single_signal_snr(output_signal, output_fields, label_signal, label_fields, record_name, extra_scores=True)
         # save dataframe to output folder
         #TODO
 
         # plot signal reconstruction
-        plot_signal_reconstruction(label_signal, output_signal, output_fields, mean_snr, trace, image_file, output_folder, gridsize=gridsize)
+        plot_signal_reconstruction(label_signal, output_signal, output_fields, mean_snr, trace, image_file, output_folder, record_name=record_name, gridsize=gridsize)
 
 
 if __name__ == '__main__':
