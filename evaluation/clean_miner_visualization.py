@@ -173,13 +173,17 @@ def format_wfdb_signal(header, signal, comments=list()):
     record = wfdb.Record(fs=sampling_frequency, units=signal_units, sig_name=signal_names,
                 d_signal=signal, fmt=signal_formats, adc_gain=adc_gains, baseline=baselines, comments=comments,
                 )
+    signal = np.asarray(signal, dtype=float)/1000.0
     
     return signal, output_fields, record
 
 
-def plot_signal_reconstruction(label_signal, output_signal, output_fields, mean_snr, trace, image_file, output_folder=""):
+
+
+def plot_signal_reconstruction(label_signal, output_signal, output_fields, mean_snr, trace, image_file, output_folder="", gridsize=None):
     description_string = f"""{output_fields['sig_ID']} ({output_fields['fs']} Hz)
-    Reconstruction SNR: {mean_snr:.2f}"""
+    Reconstruction SNR: {mean_snr:.2f}
+    Gridsize: {gridsize}"""
 
     # # plot original image, cleaned image with trace, ground truth signal, and reconstructed signal  
     mosaic = plt.figure(layout="tight", figsize=(18, 13))
@@ -245,18 +249,19 @@ def main(data_folder, output_folder, verbose):
         frequency = helper_code.get_sampling_frequency(header)
         longest_signal_length = frequency*num_samples
         trace, signal, gridsize = run_digitization_model(image_file, longest_signal_length, verbose=True)
-
+        breakpoint()
+        
         # get digitization output
-        signal = np.asarray(signal, dtype=np.int16)
+        # signal = np.asarray(signal, dtype=np.int16)
         # run_model.py just rewrites header file to output folder here, so we can skip that step
         # also saves the signal as a wfdb signal
         output_signal, output_fields, wfdb_signal = format_wfdb_signal(header, signal) # output_record is the filepath the output signal will be saved to
-
+        breakpoint()
         # get ground truth signal
         label_signal, label_fields = helper_code.load_signal(record)
         # match signal lengths: make sure channel orders match and trim output signal to match label signal length
         output_signal, output_fields, label_signal, label_fields = match_signal_lengths(output_signal, output_fields, label_signal, label_fields)
-
+        # breakpoint()
         # compute SNR vs ground truth
         mean_snr, mean_snr_median, mean_ks_metric, mean_asci_metric, mean_weighted_absolute_difference_metric = single_signal_snr(output_signal, output_fields, label_signal, label_fields, extra_scores=True)
         
@@ -264,7 +269,7 @@ def main(data_folder, output_folder, verbose):
         #TODO
 
         # plot signal reconstruction
-        plot_signal_reconstruction(label_signal, output_signal, output_fields, mean_snr, trace, image_file, output_folder)
+        plot_signal_reconstruction(label_signal, output_signal, output_fields, mean_snr, trace, image_file, output_folder, gridsize=gridsize)
 
 
 if __name__ == '__main__':

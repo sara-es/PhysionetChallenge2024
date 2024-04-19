@@ -187,11 +187,12 @@ class Postprocessor:
             c = 0 if rhythm else i // NROWS
             # Reference pulses
             if ref_pulses:
+                print('ref_pulses', ref_pulses)
                 volt_0 = ref_pulses[r][0]
                 volt_1 = ref_pulses[r][1]
             else:
-                volt_0 = 2*gridsize ### place holder - the difference between v0 and v1 should be two square blocks ##
-                volt_1 = 0
+                volt_0 = 0 ### place holder - the difference between v0 and v1 should be two square blocks ##
+                volt_1 = 2*gridsize
             if volt_0 == volt_1:
                 raise DigitizationError(
                     f"Reference pulses have not been detected correctly"
@@ -205,16 +206,19 @@ class Postprocessor:
             signal = [(volt_0 - y) * (1 / (volt_0 - volt_1)) for y in signal]
             signal = signal-np.median(signal) # FUDGE TO GET ECGs CENTRED NEAR ZERO
             # Round voltages to 4 decimals
+            signal = signal*1000
             signal = np.round(signal, 4)
             # Cabrera format -aVR
             if self.__cabrera and lead == Lead.aVR:
                 signal = -signal
             # Save in correspondent dataframe location
+            # breakpoint()
             ecg_data.loc[
                 (ecg_data.index >= len(signal) * c)
                 & (ecg_data.index < len(signal) * (c + 1)),
                 lead.name,
             ] = signal
+        # breakpoint()
         return ecg_data
 
     def __get_trace(
