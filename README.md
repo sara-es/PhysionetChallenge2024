@@ -12,11 +12,11 @@ First, download this repository and install the requirements:
     
 A small subset of data and labels have been provided in the `tiny_testset` folder. If you simply want to test that your code runs on as few as 15 samples, run the following commands:
 
-    python train_model.py -d tiny_testset/records100 -m model -v
+    python train_model.py -d tiny_testset/lr_gt -m model -v
 
-    python run_model.py -d tiny_testset/records100_hidden -m model -o tiny_testset/test_outputs
+    python run_model.py -d tiny_testset/lr_hidden_clean -m model -o tiny_testset/test_outputs
 
-    python evaluate_model.py -d tiny_testset/records100 -o tiny_testset/test_outputs
+    python evaluate_model.py -d tiny_testset/lr_gt -o tiny_testset/test_outputs
 
 The full instructions, copied from the [Physionet python example code](https://github.com/physionetchallenges/python-example-2024) and [Physionet scoring code](https://github.com/physionetchallenges/evaluation-2024), have been copied below. 
 
