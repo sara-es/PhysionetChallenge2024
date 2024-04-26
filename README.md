@@ -3,7 +3,7 @@
 
 ## What's in this repository?
 
-This repository contains a Python entry for the [George B. Moody PhysioNet Challenge 2024](https://physionetchallenges.org/2024/), as well as two sets of 15 sample images, wfdb data and header files that can be used to quickly test the code.
+This repository contains a Python entry for the [George B. Moody PhysioNet Challenge 2024](https://physionetchallenges.org/2024/), as well as sets of 15 sample images, wfdb data and header files that can be used to quickly test the code.
 
 ## Quickstart guide
 First, download this repository and install the requirements:
@@ -18,6 +18,7 @@ A small subset of data and labels have been provided in the `tiny_testset` folde
 
     python evaluate_model.py -d tiny_testset/lr_gt -o tiny_testset/test_outputs
 
+## Example image sets
 `tiny_testset` contains a number of folders with images generated *from the same data source* but with different parameters:
 - `hr_gt`: clean images (500 Hz .dat files)
 - `lr_gt`: clean images (100 Hz .dat files)
