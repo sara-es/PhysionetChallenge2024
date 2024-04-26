@@ -12,25 +12,24 @@ import sys, os
 sys.path.append(os.path.join(sys.path[0], '..'))
 
 import numpy as np
-from datetime import datetime
 import matplotlib.pyplot as plt
-import traceback, argparse, time
-import wfdb
+import traceback, argparse
 from tqdm import tqdm
 from PIL import Image
 
-import team_code, helper_code
-from reconstruction import image_cleaning
+import helper_code
+from image_cleaning import hough_grid_detection
+from reconstruction import digitize_image
 from utils import team_helper_code
 
 
 def run_digitization_model(image_file, sig_len, verbose, allow_failures=False):
     # clean and rotate the image
-    cleaned_image, gridsize = image_cleaning.clean_image(image_file)   
+    cleaned_image, gridsize = hough_grid_detection.clean_image(image_file)   
 
     # digitize with ECG-miner
     try:
-        signal, trace = image_cleaning.digitize_image(cleaned_image, gridsize, sig_len)
+        signal, trace = digitize_image.digitize_image(cleaned_image, gridsize, sig_len)
         signal = np.nan_to_num(signal)
     except Exception as e: 
         if allow_failures:
