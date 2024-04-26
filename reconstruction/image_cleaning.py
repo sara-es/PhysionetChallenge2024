@@ -124,7 +124,6 @@ def get_rotation_angle(blue_im, red_im):
     offsets = lines[:,0,0]
     gaps = np.diff(np.sort(offsets)) # sort the offsets first in increasing order -> gaps are positive
     density = sp.stats.gaussian_kde(gaps, bw_method=0.01)
-    import matplotlib.pyplot as plt
     
     gap_hist = density(list(range(100)))
     # take *second* biggest peak (note: this is sometimes still 0, 1, or 2) 
