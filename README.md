@@ -1,9 +1,9 @@
-# Code from team "" for the George B. Moody PhysioNet Challenge 2024
-*Team members: Antti Airola, Matti Kaisti, Tuija Leinonen, George Searle, Sara Summerton, Dave C. Wong*
+# Code from team "The Easy Geese" for the George B. Moody PhysioNet Challenge 2024
+*Team members: Matti Kaisti, Tuija Leinonen, George Searle, Chris Shucksmith, Sara Summerton, Dave C. Wong*
 
 ## What's in this repository?
 
-This repository contains a Python entry for the [George B. Moody PhysioNet Challenge 2024](https://physionetchallenges.org/2024/), as well as 15 sample images, wfdb data and header files that can be used to quickly test the code.
+This repository contains a Python entry for the [George B. Moody PhysioNet Challenge 2024](https://physionetchallenges.org/2024/), as well as sets of 15 sample images, wfdb data and header files that can be used to quickly test the code.
 
 ## Quickstart guide
 First, download this repository and install the requirements:
@@ -12,11 +12,22 @@ First, download this repository and install the requirements:
     
 A small subset of data and labels have been provided in the `tiny_testset` folder. If you simply want to test that your code runs on as few as 15 samples, run the following commands:
 
-    python train_model.py -d tiny_testset/records500 -m models -v
+    python train_model.py -d tiny_testset/lr_gt -m model -v
 
-    python run_model.py -d tiny_testset/records500 -m models -o tiny_testset/test_outputs
+    python run_model.py -d tiny_testset/lr_hidden_clean -m model -o tiny_testset/test_outputs
 
-    python evaluate_model.py -d tiny_testset/records500 -o tiny_testset/test_outputs
+    python evaluate_model.py -d tiny_testset/lr_gt -o tiny_testset/test_outputs
+
+## Example image sets
+`tiny_testset` contains a number of folders with images generated *from the same data source* but with different parameters:
+- `hr_gt`: clean images (500 Hz .dat files)
+- `lr_gt`: clean images (100 Hz .dat files)
+- `lr_gt_noisy`: some distortions (rotations, shadow) (100 Hz .dat files)
+- `lr_gt_noisy_bw`: distortions plus random grid color, some black and white images (100 Hz .dat files)
+- `lr_gt_refpulse`: clean but with reference pulses on all images (100 Hz .dat files)
+All of these include the ground truth signal .dat files so we can check model performance.
+
+To make sure that the model actually runs inference directly from generated images, there's `lr_hidden_clean` (100 Hz .hea files) and `hr_hidden_clean` (500 Hz .hea files) with labels removed.
 
 The full instructions, copied from the [Physionet python example code](https://github.com/physionetchallenges/python-example-2024) and [Physionet scoring code](https://github.com/physionetchallenges/evaluation-2024), have been copied below. 
 

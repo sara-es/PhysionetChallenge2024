@@ -106,15 +106,12 @@ class SignalExtractor:
             stds[i + SHIFT] = std
         # Find peaks
         min_distance = int(ecg.height * 0.1)
-        print(min_distance)
         peaks, _ = find_peaks(stds, distance=min_distance)
-        print(peaks)
         rois = sorted(peaks, key=lambda x: stds[x], reverse=True)
         if len(rois) < self.__n:
             raise DigitizationError("The indicated number of rois could not be detected.")
         rois = rois[0: self.__n]
         rois = sorted(rois)
-        print(rois)
         return rois
 
     def __get_clusters(

@@ -1,0 +1,1 @@
+--print_header --store_text_bounding_box --bbox --store_config

@@ -42,7 +42,7 @@ class Postprocessor:
         self.__rhythm = [Lead.II]
 
     def postprocess(
-        self, gridsize, raw_signals: Iterable[Iterable[Point]], ecg_crop: Image
+        self, gridsize, raw_signals: Iterable[Iterable[Point]], ecg_crop: Image, sig_len : int
     ) -> Tuple[pd.DataFrame, Image]:
         """
         Post process the raw signals, getting a matrix with the signals of 12 leads
@@ -56,7 +56,7 @@ class Postprocessor:
             Tuple[pd.DataFrame,Image]: Dataframe with the signals and image of the trace.
         """
         signals, ref_pulses = self.__segment(raw_signals)
-        data = self.__vectorize(gridsize, signals, ref_pulses)
+        data = self.__vectorize(gridsize, signals, ref_pulses, sig_len)
         trace = self.__get_trace(ecg_crop, signals, ref_pulses)
         return (data, trace)
 
@@ -140,6 +140,7 @@ class Postprocessor:
         gridsize,
         signals: Iterable[Iterable[Point]],
         ref_pulses: Iterable[Tuple[int, int]],
+        sig_len : int
     ) -> pd.DataFrame:
         """
         Vectorize the signals, normalizing them and storing them in a dataframe.
@@ -162,11 +163,9 @@ class Postprocessor:
         max_len = max(map(lambda signal: len(signal), signals))
         max_diff = max_len % NCOLS
         max_pad = 0 if max_diff == 0 else NCOLS - max_diff
-        total_obs = (
-            max_len + max_pad
-            if self.__interpolation is None
-            else self.__interpolation
-        )
+
+        # hack to force correct sampling frequency
+        total_obs = int(sig_len)
         # Linear interpolation to get a certain number of observations
         interp_signals = np.empty((len(signals), total_obs))
         for i in range(len(signals)):
@@ -188,10 +187,11 @@ class Postprocessor:
             c = 0 if rhythm else i // NROWS
             # Reference pulses
             if ref_pulses:
+                # print('ref_pulses', ref_pulses)
                 volt_0 = ref_pulses[r][0]
                 volt_1 = ref_pulses[r][1]
             else:
-                volt_0 = gridsize ### place holder - the difference between v0 and v1 should be two square blocks ##
+                volt_0 = 2*gridsize ### place holder - the difference between v0 and v1 should be two square blocks ##
                 volt_1 = 0
             if volt_0 == volt_1:
                 raise DigitizationError(
@@ -211,11 +211,13 @@ class Postprocessor:
             if self.__cabrera and lead == Lead.aVR:
                 signal = -signal
             # Save in correspondent dataframe location
+            # breakpoint()
             ecg_data.loc[
                 (ecg_data.index >= len(signal) * c)
                 & (ecg_data.index < len(signal) * (c + 1)),
                 lead.name,
             ] = signal
+        # breakpoint()
         return ecg_data
 
     def __get_trace(

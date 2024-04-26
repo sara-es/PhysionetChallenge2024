@@ -62,7 +62,7 @@ def train(model, train_loader, device, loss_fct, sigmoid, optimizer, epoch, uniq
 
     if verbose: # only need to keep track of this if we're printing it out
         running_loss = 0.0
-        batches_per_printout = 100
+        batches_per_printout = 200
         labels_all = torch.tensor((), device=device)
         logits_prob_all = torch.tensor((), device=device)
 
@@ -70,7 +70,8 @@ def train(model, train_loader, device, loss_fct, sigmoid, optimizer, epoch, uniq
         for batch_idx, (ecgs, ag, labels) in enumerate(train_loader):
             ecgs = ecgs.float().to(device) # ECGs
             ag = ag.float().to(device) # age and gender
-            labels = labels.float().to(device) # diagnoses in SNOMED CT codes  
+            labels = labels.float().to(device) # diagnoses in SNOMED CT codes 
+            # TODO we should check the above - labels are not CT codes, but one-hot encoded corresponding to uniq_labels
         
             # Core training loop
             optimizer.zero_grad()
@@ -93,7 +94,7 @@ def train(model, train_loader, device, loss_fct, sigmoid, optimizer, epoch, uniq
                                     labels_all, logits_prob_all, uniq_labels, threshold=0.5)
                     
                     # Print
-                    print(f'Epoch {epoch} [{batch_idx+1 * len(ecgs)}/{len(train_loader.dataset)}] \
+                    print(f'Epoch {epoch} [{(batch_idx+1) * len(ecgs)}/{len(train_loader.dataset)}] \
                           loss: {avg_loss:.4f}, F-measure: {f_measure:.4f}')
                     
                     # Reset accumulated loss and outputs
@@ -243,18 +244,23 @@ def train_model(data, multilabels, uniq_labels, verbose, epochs=5, validate=True
         train_dl = initialise_train_only(data, multilabels, device, batch_size=5)
         
         for epoch in range(1, epochs+1):
-            train(model, train_dl, device, criterion, sigmoid, optimizer, epoch, verbose)
+            train(model, train_dl, device, criterion, sigmoid, optimizer, epoch, uniq_labels, verbose)
 
     return model.state_dict()
 
 
-def predict_proba(saved_model, data, classes, verbose, multi_dx_threshold=0.5):
+def predict_proba(saved_model, data, classes, verbose, abnormal_threshold=0.5):
     """
+    NOTE: As opposed to the train function, this function takes in a signal 
+    (numpy array) directly, instead of a path to a signal.
+
     Parameters:
         saved_model (pytorch state dict): trained model
-        data (list): [path (str), fs (int), age and gender features (np.array)]
+        data (list): [signal (np.array), fs (int), age and gender features (np.array)]
         classes (list): List of possible unique labels
         verbose (bool): printouts?
+        abnormal_threshold (float): threshold for 'Abnormal' class
+            (Used to be multi_dx_threshold for additional multiclass labels)
 
     Returns:
         probabilities (np.array): predicted probabilities for each class
@@ -288,7 +294,7 @@ def predict_proba(saved_model, data, classes, verbose, multi_dx_threshold=0.5):
     
     # Choose the class(es) with the highest probability as the label(s).
     # Set the threshold for additional labels here
-    pred_dx = team_helper_code.multiclass_predict_from_logits(
-                classes, probabilities, threshold=0.5
+    pred_dx = team_helper_code.threshold_predict_from_logits(
+                classes, probabilities, threshold=abnormal_threshold
             )
     return pred_dx, probabilities

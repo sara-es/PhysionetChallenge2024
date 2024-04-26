@@ -15,29 +15,15 @@ from reconstruction.Image import Image
 from reconstruction.ECGClass import PaperECG
 
 
-def digitize(image):
-    if type(image) == list:
-        #TODO: handle multiple images
-        print("Multiple images found, using the first one.")
-        image = image[0]
-        
-    cleaned_image, gridsize = clean_image(image)    
-    # convert greyscale to rgb
-    cleaned_image = cv2.merge([cleaned_image,cleaned_image,cleaned_image])
-    cleaned_image = np.uint8(cleaned_image)
-    cleaned_image = Image(cleaned_image) # cleaned_image = reconstruction.Image.Image(cleaned_image)
-    ECG_signals = digitize_image(cleaned_image, gridsize) # paper_ecg = reconstruction.image_cleaning.PaperECG(cleaned_image)
-    return (ECG_signals)
-
-
 # This function takes an input of a raw image in png (RGBA) and outputs the cleaned image.
-def clean_image(image):
+def clean_image(image, return_modified_image=True):
     im = iio.imread(image)
 
     # files are png, in RGBa format. The alpha channel is 255 for all pixels (opaque) and therefore totally uniformative.
     im = np.delete(im, np.s_[-1:], axis=2)
 
     # plot to view the raw image, and the RGB channels individually
+    # note: these might be backwards - I think cv2 uses BGR, not RGB
     red_im = im[:, :, 0].astype(np.float32)  # this channel doesn't show up the grid very much
     blue_im = im[:, :, 2].astype(np.float32)
 
@@ -54,13 +40,17 @@ def clean_image(image):
     return restored_image, gridsize
 
 
-def digitize_image(restored_image, gridsize):
-    ##### TODO - INCLUDE ECG-MINER CODE HERE ####
+def digitize_image(restored_image, gridsize, sig_len=1000):
     # incoming: bad code~~~~~
-    paper_ecg = PaperECG(restored_image, gridsize)
-    ECG_signals = paper_ecg.digitise()
+    # convert greyscale to rgb
+    restored_image = cv2.merge([restored_image,restored_image,restored_image])
+    restored_image = np.uint8(restored_image)
+    restored_image = Image(restored_image) # cleaned_image = reconstruction.Image.Image(cleaned_image)
 
-    return ECG_signals
+    paper_ecg = PaperECG(restored_image, gridsize, sig_len=sig_len)
+    ECG_signals, trace = paper_ecg.digitise()
+
+    return ECG_signals, trace
 
 
 # Simple function to remove shadows - room for much improvement.
@@ -72,11 +62,11 @@ def remove_shadow(red_im, angle):
     sigmoid_std1 = 255 * sigmoid(std_rescale(output_im - 0.95 * output_im0, contrast=8))
 
     # feel like we can combine these somehow to be useful?
-    combo1 = -(sigmoid_norm1 - sigmoid_std1)  # I have no idea why this works, but it does
+    combo1 = -(sigmoid_norm1 - sigmoid_std1)  # this is really a hack - room for much improvement
 
-    greyscale_out = 255 * zero_one_rescale(
+    greyscale_out = zero_one_rescale(
         sp.ndimage.rotate(combo1, angle, axes=(1, 0), reshape=True, cval=combo1.mean()))
-    cleaned_image = sigmoid_gen(greyscale_out, 10, 100)
+    cleaned_image = sigmoid_gen(greyscale_out, 10/255, 100/255)
     cleaned_image = 255 * zero_one_rescale(cleaned_image)
     return cleaned_image
 
@@ -117,8 +107,8 @@ def get_rotation_angle(blue_im, red_im):
     # extract the angles of the lines - if all is well, we should find two main angles corresponding
     # to the horizontal and vertical lines
     angles = lines[:, 0, 1] * 180 / np.pi  # angles in degrees
-    angles = angles[angles < 90]
-    rot_angle = mode(angles, keepdims=False)
+    # angles = angles[angles < 90]
+    rot_angle = mode((angles%90).astype(int), keepdims=False)
     if rot_angle[0] > 45:
         rot_angle = rot_angle[0] - 90
     else:
@@ -132,15 +122,20 @@ def get_rotation_angle(blue_im, red_im):
     # # find the biggest peak
     # # find the mode of the biggest peak
     offsets = lines[:,0,0]
-    gaps = np.diff(offsets)
+    gaps = np.diff(np.sort(offsets)) # sort the offsets first in increasing order -> gaps are positive
     density = sp.stats.gaussian_kde(gaps, bw_method=0.01)
-    gap_hist = density(list(range(100)))
-    gap = np.argmax(gap_hist)
     
-    #this is the gap in the y axis direction, so need to do a 1/cos(theta)
-    #gap = ave_gap * (np.cos(rot_angle*np.pi/180))
-
-    return rot_angle, gap
+    gap_hist = density(list(range(100)))
+    # take *second* biggest peak (note: this is sometimes still 0, 1, or 2) 
+    # ave_gap = np.argsort(gap_hist)[-2]
+    # instead of taking second biggest, we can set a minimum gap size in pixels)
+    min_gap = 30
+    gap_peaks = np.argsort(gap_hist)
+    ave_gap = gap_peaks[gap_peaks > min_gap][-1]
+    # fallback to stop reference pulse error in case gridline detection fails
+    if ave_gap == 0:
+        ave_gap = 1
+    return rot_angle, ave_gap
 
 
 def close_filter(image, fp):

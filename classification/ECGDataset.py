@@ -1,10 +1,11 @@
-import sys, os
+import sys, os, numpy as np
 sys.path.append(os.path.join(sys.path[0], '..'))
 
 import torch
 from torch.utils.data import Dataset
 from preprocessing.transforms import Compose, RandomClip, Normalize, ValClip, Retype
 from helper_code import load_signal
+import numpy as np
 
 
 def get_transforms(dataset_type):
@@ -63,11 +64,16 @@ class ECGDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, item):
-        file_name = self.data[item]
+        file = self.data[item]
+        if type(file) == np.ndarray: # in training, the signal is passed in directly
+            ecg = file
+        else:
+            ecg, _ = load_signal(file) # shape (samples, channels)
         fs = self.fs[item]
-        ecg, _ = load_signal(file_name) # shape (samples, channels)
         ecg = ecg.T # shape (channels, samples)
         ag = self.ag[item]
+
+        ecg = np.nan_to_num(ecg, nan=0) # HANDLING THE NAN VALUES IN SIGNAL DATA
 
         if self.training:
             label_torch = self.labels[item]

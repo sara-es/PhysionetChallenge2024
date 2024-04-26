@@ -25,7 +25,8 @@ class PaperECG:
 
     def __init__(self,
                  image: Image,
-                 gridsize) -> None:  # this image: Image thing is bad but fits w/ challenge function structure for now
+                 gridsize,
+                 sig_len : int) -> None:  # this image: Image thing is bad but fits w/ challenge function structure for now
         """
         Initialization of the ECG.
 
@@ -35,6 +36,7 @@ class PaperECG:
 
         self.image = image
         self.gridsize = gridsize
+        self.sig_len = sig_len
 
     def digitise(self) -> pd.DataFrame:
         """
@@ -44,17 +46,14 @@ class PaperECG:
             DigitalECG: Digitized ECG.
         """
 
+        # returns image object
         ecg_crop, rect = self.preprocessor.preprocess(self.image)
 
+        # returns x and y coordinates of the traces in order
         raw_signals = self.signal_extractor.extract_signals(ecg_crop)
-        digitised_signals, trace = self.postprocessor.postprocess(self.gridsize, raw_signals, ecg_crop)
-        trace.save("trace.png")
 
-        return digitised_signals
+        # returns array of digitized signals and trace of cleaned image
+        digitised_signals, trace = self.postprocessor.postprocess(self.gridsize, raw_signals, ecg_crop, self.sig_len)
 
+        return digitised_signals, trace
 
-# if __name__ == "__main__":
-#     test_img = cv.imread("../tiny_testset/records100/00001_lr-0.png")
-#     test_img = Image(test_img)
-#     ecg = PaperECG(test_img)
-#     digital_ecg = ecg.digitise()

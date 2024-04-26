@@ -70,6 +70,25 @@ def multiclass_predict_from_logits(dx_labels, pre_logits, threshold=0.5):
     return pred_labels
 
 
+def threshold_predict_from_logits(classes, pre_logits, threshold=0.5):
+    """
+    Takes logits from a BINARY classifier and returns the predicted labels, but only if the 
+    probability of 'abnormal' is above the threshold.
+    Hard-coded 'Abnormal' for now...
+    """
+    # define an empty array to store the predicted labels
+    abnormal_index = np.where(classes == 'Abnormal')[0]
+    pred_labels = np.zeros(len(classes))
+
+    # Only return 1 if the probability of 'abnormal' is above the threshold
+    if pre_logits[abnormal_index] >= threshold:
+        pred_labels[abnormal_index] = 1
+    else:
+        pred_labels[~abnormal_index] = 1
+
+    return pred_labels
+
+
 def compute_f_measure_from_onehot(labels, outputs, unique_classes):
     """
     Takes in labels and pre_logits as one-hot encoded arrays.
