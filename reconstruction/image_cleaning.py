@@ -16,7 +16,7 @@ from reconstruction.ECGClass import PaperECG
 
 
 # This function takes an input of a raw image in png (RGBA) and outputs the cleaned image.
-def clean_image(image):
+def clean_image(image, return_modified_image=True):
     im = iio.imread(image)
 
     # files are png, in RGBa format. The alpha channel is 255 for all pixels (opaque) and therefore totally uniformative.
@@ -130,7 +130,7 @@ def get_rotation_angle(blue_im, red_im):
     # take *second* biggest peak (note: this is sometimes still 0, 1, or 2) 
     # ave_gap = np.argsort(gap_hist)[-2]
     # instead of taking second biggest, we can set a minimum gap size in pixels)
-    min_gap = 6
+    min_gap = 30
     gap_peaks = np.argsort(gap_hist)
     ave_gap = gap_peaks[gap_peaks > min_gap][-1]
     # fallback to stop reference pulse error in case gridline detection fails

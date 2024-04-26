@@ -187,6 +187,7 @@ class Postprocessor:
             c = 0 if rhythm else i // NROWS
             # Reference pulses
             if ref_pulses:
+                # print('ref_pulses', ref_pulses)
                 volt_0 = ref_pulses[r][0]
                 volt_1 = ref_pulses[r][1]
             else:
@@ -210,11 +211,13 @@ class Postprocessor:
             if self.__cabrera and lead == Lead.aVR:
                 signal = -signal
             # Save in correspondent dataframe location
+            # breakpoint()
             ecg_data.loc[
                 (ecg_data.index >= len(signal) * c)
                 & (ecg_data.index < len(signal) * (c + 1)),
                 lead.name,
             ] = signal
+        # breakpoint()
         return ecg_data
 
     def __get_trace(
