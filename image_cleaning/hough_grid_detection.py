@@ -6,13 +6,11 @@ Created on Thu Feb 29 15:51:53 2024
 """
 import imageio.v3 as iio
 import numpy as np
-#from matplotlib import pyplot as plt
 import scipy as sp
 import cv2
-from skimage.morphology import closing, opening
+from skimage.morphology import opening
 from scipy.stats import mode
-from reconstruction.Image import Image
-from reconstruction.ECGClass import PaperECG
+from image_cleaning import remove_shadow
 
 
 # This function takes an input of a raw image in png (RGBA) and outputs the cleaned image.
@@ -31,43 +29,12 @@ def clean_image(image, return_modified_image=True):
     angle, gridsize = get_rotation_angle(blue_im, red_im)
 
     # 1. remove the shadows and grid
-    restored_image = remove_shadow(red_im, angle)
+    restored_image = remove_shadow.single_channel_sigmoid(red_im, angle)
     
     # Testing: hack to close up more of the gaps
     restored_image = opening(restored_image, footprint=[(np.ones((3, 1)), 1), (np.ones((1, 3)), 1)])
 
     return restored_image, gridsize
-
-
-def digitize_image(restored_image, gridsize, sig_len=1000):
-    # incoming: bad code~~~~~
-    # convert greyscale to rgb
-    restored_image = cv2.merge([restored_image,restored_image,restored_image])
-    restored_image = np.uint8(restored_image)
-    restored_image = Image(restored_image) # cleaned_image = reconstruction.Image.Image(cleaned_image)
-
-    paper_ecg = PaperECG(restored_image, gridsize, sig_len=sig_len)
-    ECG_signals, trace = paper_ecg.digitise()
-
-    return ECG_signals, trace
-
-
-# Simple function to remove shadows - room for much improvement.
-def remove_shadow(red_im, angle):
-    output_im = close_filter(red_im, 8)  # this removes the shadows
-    output_im0 = close_filter(red_im, 2)  # this removes the filter artifacts
-
-    sigmoid_norm1 = 255 * sigmoid(norm_rescale(output_im - 0.95 * output_im0, contrast=8))
-    sigmoid_std1 = 255 * sigmoid(std_rescale(output_im - 0.95 * output_im0, contrast=8))
-
-    # feel like we can combine these somehow to be useful?
-    combo1 = -(sigmoid_norm1 - sigmoid_std1)  # this is really a hack - room for much improvement
-
-    greyscale_out = zero_one_rescale(
-        sp.ndimage.rotate(combo1, angle, axes=(1, 0), reshape=True, cval=combo1.mean()))
-    cleaned_image = sigmoid_gen(greyscale_out, 10/255, 100/255)
-    cleaned_image = 255 * zero_one_rescale(cleaned_image)
-    return cleaned_image
 
 
 # returns the rotation angle, assuming an angle of up to +/- 45 degrees. Tested on 10 images so far.
@@ -121,48 +88,4 @@ def get_rotation_angle(blue_im, red_im):
     return rot_angle, ave_gap
 
 
-def close_filter(image, fp):
-    # morphological filter on red channel? (closing?)
-    aa = footprint=[(np.ones((fp, 1)), 1), (np.ones((1, fp)), 1)]
 
-    test = closing(image, footprint=[(np.ones((fp, 1)), 1), (np.ones((1, fp)), 1)])
-    output_im = image - test
-    return output_im
-
-
-def std_rescale(image, contrast=1):
-    """
-    Standardizes to between [-contrast, contrast] regardless of range of input
-    """
-    ptp_ratio = contrast / np.ptp(image)
-    shift = (np.max(image) + np.min(image)) / contrast  # works with negative values
-    return ptp_ratio * (image - shift)
-
-
-def norm_rescale(image, contrast=1):
-    """
-    Normalizes to zero mean and scales to have one of (abs(max), abs(min)) = contrast
-    """
-    scale = np.max(np.abs([np.max(image), np.min(image)]))
-    return contrast * (image - np.mean(image)) / scale
-
-
-def zero_one_rescale(image):
-    """
-    Rescales to between 0 and 1
-    """
-    return (image - np.min(image)) / np.ptp(image)
-
-
-def sigmoid(x):
-    """
-    logistic sigmoid function
-    """
-    return 1. / (1. + np.exp(-x))
-
-
-def sigmoid_gen(x, k, x_0):
-    """
-    sigmoid function with slope (k) and midpoint (x_0) adjustments
-    """
-    return 1. / (1. + np.exp(-k * (x - x_0)))

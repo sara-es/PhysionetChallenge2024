@@ -16,7 +16,8 @@ from tqdm import tqdm
 import traceback
 
 import helper_code
-import preprocessing, reconstruction, classification, reconstruction.image_cleaning
+import preprocessing, reconstruction, classification, image_cleaning.hough_grid_detection
+import reconstruction.digitize_image
 from utils import default_models, utils, team_helper_code
 from sklearn.preprocessing import OneHotEncoder, MultiLabelBinarizer
 
@@ -136,7 +137,7 @@ def run_digitization_model(digitization_model, record, verbose):
                                                             high=1000, 
                                                             size=(num_samples, num_signals))
 
-    if 'digit_clean_miner' in digitization_model.keys():
+    if 'ecg_miner' in digitization_model.keys():
         # potentially multiple images per file
         image_files = team_helper_code.load_image_paths(record)
         image_file = image_files[0]
@@ -145,10 +146,10 @@ def run_digitization_model(digitization_model, record, verbose):
                 print(f"Multiple images found, using image at {image_file}.")
 
         # clean and rotate the image
-        cleaned_image, gridsize = reconstruction.image_cleaning.clean_image(image_file)   
+        cleaned_image, gridsize = image_cleaning.hough_grid_detection.clean_image(image_file)   
 
         # digitize with ECG-miner
-        signal, _ = reconstruction.image_cleaning.digitize_image(cleaned_image, gridsize, num_samples)
+        signal, _ = reconstruction.digitize_image.digitize_image(cleaned_image, gridsize, num_samples)
         signal = np.nan_to_num(signal)
     
     if signal is not None:
@@ -271,9 +272,9 @@ def train_digitization_model_team(data_folder, records, verbose,
     """
     models = {} 
 
-    if 'digit_clean_miner' in models_to_train:
+    if 'ecg_miner' in models_to_train:
         # put this at the top since we don't train anything in this case
-        models['digit_clean_miner'] = -1 # return a dummy value
+        models['ecg_miner'] = -1 # return a dummy value
         if len(models_to_train) == 1: # if this is the only model we're using
             if verbose: 
                 print("Performing algorithmic digitization only (no training); a dummy model will be returned.")
