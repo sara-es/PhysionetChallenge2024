@@ -35,7 +35,6 @@ def clean_image(image, return_modified_image=True):
     
     # Testing: hack to close up more of the gaps
     restored_image = opening(restored_image, footprint=[(np.ones((3, 1)), 1), (np.ones((1, 3)), 1)])
-    #restored_image = opening(restored_image, footprint=[(np.ones((5, 1)), 1), (np.ones((1, 1)), 1)])
 
     return restored_image, gridsize
 
@@ -92,43 +91,27 @@ def get_rotation_angle(blue_im, red_im):
     # output of hough transform is array of lines, with 2nd column as angle in radians. I *think* the
     # starting angle of zero points west, and this is clockwise rotation.
     lines = cv2.HoughLines(edges, 1, np.pi / 180, 800)
-    for rho, theta in lines[0]:
-        a = np.cos(theta)
-        b = np.sin(theta)
-        x0 = a * rho
-        y0 = b * rho
-        x1 = int(x0 + 1000 * (-b))
-        y1 = int(y0 + 1000 * (a))
-        x2 = int(x0 - 1000 * (-b))
-        y2 = int(y0 - 1000 * (a))
-
-        cv2.line(dev_im, (x1, y1), (x2, y2), (0, 0, 255), 2)
-
     # extract the angles of the lines - if all is well, we should find two main angles corresponding
     # to the horizontal and vertical lines
     angles = lines[:, 0, 1] * 180 / np.pi  # angles in degrees
-    # angles = angles[angles < 90]
+
+    # main rotation angles are going to be multiples of 90 degrees
     rot_angle = mode((angles%90).astype(int), keepdims=False)
     if rot_angle[0] > 45:
         rot_angle = rot_angle[0] - 90
     else:
         rot_angle = rot_angle[0]
         
-    # # ------ Work out the size of the ECG grid (in pixels) by finding distance between grid lines
-    # # for the moment: --------------------------------------------------------------------------
-    # #   assume that aspect ratio is always 1:1
-    # #   assume that we can get this from the hough lines (hough lines are a bit flaky, so might need another way)
-
-    # # find the biggest peak
-    # # find the mode of the biggest peak
+    # ------ Work out the size of the ECG grid (in pixels) by finding distance between grid lines
+    # for the moment: --------------------------------------------------------------------------
+    #   assume that aspect ratio is always 1:1
+    #   assume that we can get this from the hough lines (hough lines are a bit flaky, so might need another way)
     offsets = lines[:,0,0]
     gaps = np.diff(np.sort(offsets)) # sort the offsets first in increasing order -> gaps are positive
     density = sp.stats.gaussian_kde(gaps, bw_method=0.01)
     
     gap_hist = density(list(range(100)))
-    # take *second* biggest peak (note: this is sometimes still 0, 1, or 2) 
-    # ave_gap = np.argsort(gap_hist)[-2]
-    # instead of taking second biggest, we can set a minimum gap size in pixels)
+    # instead of taking biggest peak, we can set a minimum gap size in pixels
     min_gap = 30
     gap_peaks = np.argsort(gap_hist)
     ave_gap = gap_peaks[gap_peaks > min_gap][-1]
@@ -173,13 +156,13 @@ def zero_one_rescale(image):
 
 def sigmoid(x):
     """
-    tanh sigmoid function
+    logistic sigmoid function
     """
     return 1. / (1. + np.exp(-x))
 
 
 def sigmoid_gen(x, k, x_0):
     """
-    tanh sigmoid function
+    sigmoid function with slope (k) and midpoint (x_0) adjustments
     """
     return 1. / (1. + np.exp(-k * (x - x_0)))
