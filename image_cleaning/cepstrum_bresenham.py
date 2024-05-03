@@ -53,9 +53,10 @@ def get_rotation_angle(greyscale_image):
     max_grid_space = 50
 
     # cutoff determined by max rotation angle: width of image * tan(max_angle)
-    # this breaks if angle is too large
+    # FIXME this breaks if angle is too large
     max_rot = np.max((abs(min_angle), abs(max_angle)))
     cutoff_pixels = int(greyscale_image.shape[1] * np.tan(np.radians(max_rot)))
+    
 
     # get coords for first (left) column of image, cropped
     # assume top left corner is (1, 1)
@@ -77,10 +78,11 @@ def get_rotation_angle(greyscale_image):
         sklines = np.zeros((left_col_y.shape[0], 2, greyscale_image.shape[1]))
         image_lines = np.zeros((left_col_y.shape[0], greyscale_image.shape[1]))
 
+        # using skimge.line in a loop here, but this could probably be faster if vectorized
         for j in range(left_col_y.shape[0]):
             rr, cc = line(left_col_y[j], left_col_x[j], right_col_clip[j], right_col_x[j])
             sklines[j] = np.array([rr, cc])
-            image_lines[j] = greyscale_image[rr-1, cc-1]
+            image_lines[j] = greyscale_image[rr-1, cc-1] # index greyscale image by line coords
 
         col_hist = np.sum(image_lines, axis=1)
         ceps = compute_cepstrum(col_hist)
@@ -93,6 +95,10 @@ def get_rotation_angle(greyscale_image):
         
     rot_idx = np.argmax(cep_max)
     print(rot_idx)
+    # this is the point at which I got stuck - figure out how to go from rot_idx to rot_angle
+    # rot_idx should be the number of pixels the right column moved down from starting position
+    percent_drop = rot_idx / cutoff_pixels
+    rot_angle = np.degrees(np.arctan(percent_drop))
     rot_angle = rot_idx #+ min_angle
     grid_length = cep_idx[rot_idx] + 1 #add one to compensate for removing dc component earlier
 
