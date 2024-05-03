@@ -1,11 +1,15 @@
 """
-Implements a cepstrum-based grid detection algorithm from Dave's test2.py script.
+Implements a cepstrum-based grid detection algorithm from Dave's test2.py script. Uses Bresenham's line algorithm
+to speed up the rotation of the image.
 """
 import imageio.v3 as iio
 import numpy as np
 import scipy as sp
 from skimage.morphology import opening
-from image_cleaning import remove_shadow
+from skimage.draw import line
+from image_cleaning import remove_shadow, transforms
+
+import matplotlib.pyplot as plt
 
 
 # This function takes an input of a raw image in png (RGBA) and outputs the cleaned image.
@@ -39,23 +43,48 @@ def get_rotation_angle(greyscale_image):
     # Idea: grid search a bunch of rotations. Find the rotation that gives the most prominent
     # cepstrum peak
     # n.b. ndimage.rotate is super slow - can speed this up a tonne using Bresenham's line algorithm
-    # We assume that grid spacing is under 50 pixels
+    # attempt at this: angle for start and end of lines is just going to be y-coord offset. Fix one column 
+    # (left one) in the middle and move the other (right col) up and down
 
     cep_max = []
     cep_idx = []
     min_angle = -10
     max_angle = 10
     max_grid_space = 50
-    for angle in range(min_angle, max_angle): 
-        rot_image = sp.ndimage.rotate(greyscale_image, angle, axes=(1, 0), reshape=True)
-        col_hist = np.sum(rot_image, axis = 1) #sum each row. It shouldn't matter if this is rows or columns... but it does
-        
+
+    # cutoff determined by max rotation angle: width of image * tan(max_angle)
+    # this breaks if angle is too large
+    max_rot = np.max((abs(min_angle), abs(max_angle)))
+    cutoff_pixels = int(greyscale_image.shape[1] * np.tan(np.radians(max_rot)))
+
+    # get coords for first (left) column of image, cropped
+    # assume top left corner is (1, 1)
+    img_height = greyscale_image.shape[0]
+    y_coords = np.arange(1, img_height+1)
+
+    left_col_y = y_coords[cutoff_pixels//2:-cutoff_pixels//2]
+    left_col_x = np.ones(img_height-cutoff_pixels).astype(np.int32)
+    right_col_x = np.ones(img_height-cutoff_pixels).astype(np.int32) * (greyscale_image.shape[1])
+    
+    cep_max = []
+    cep_idx = []
+
+    for i in range(cutoff_pixels):
+        # get last (right) column of image: this moves down by one pixel each iteration
+        right_col_clip = y_coords[i:-(cutoff_pixels-i)]
+
+        # arrays to store the lines and the image values along the lines
+        sklines = np.zeros((left_col_y.shape[0], 2, greyscale_image.shape[1]))
+        image_lines = np.zeros((left_col_y.shape[0], greyscale_image.shape[1]))
+
+        for j in range(left_col_y.shape[0]):
+            rr, cc = line(left_col_y[j], left_col_x[j], right_col_clip[j], right_col_x[j])
+            sklines[j] = np.array([rr, cc])
+            image_lines[j] = greyscale_image[rr-1, cc-1]
+
+        col_hist = np.sum(image_lines, axis=1)
         ceps = compute_cepstrum(col_hist)
         ceps = ceps[1:] # remove DC component
-        
-        # get height and index of the most prominent cepstrum peak
-        # plt.figure()
-        # plt.plot(ceps[1:max_grid_space]) 
         peaks, _ = sp.signal.find_peaks(ceps[1:max_grid_space])
         prominences = sp.signal.peak_prominences(ceps[1:max_grid_space], peaks)
         idx = np.argmax(prominences[0])
@@ -63,7 +92,8 @@ def get_rotation_angle(greyscale_image):
         cep_idx.append(peaks[idx])
         
     rot_idx = np.argmax(cep_max)
-    rot_angle = rot_idx + min_angle
+    print(rot_idx)
+    rot_angle = rot_idx #+ min_angle
     grid_length = cep_idx[rot_idx] + 1 #add one to compensate for removing dc component earlier
 
     return rot_angle, grid_length

@@ -50,3 +50,42 @@ def sigmoid_gen(x, k, x_0):
     sigmoid function with slope (k) and midpoint (x_0) adjustments
     """
     return 1. / (1. + np.exp(-k * (x - x_0)))
+
+
+def bresenham_line(x1, x2, y1, y2):
+    """
+    Bresenham's line algorithm
+    Currently has same behavior as skimage.draw.line (returns (2, N) instead of (N, 2)
+    For single sets of pixel coordinates atm - probably could be vectorized
+    """
+
+    # if slope is greater than 1, swap x and y coordinates
+    rotate = abs(y2 - y1) > abs(x2 - x1)
+    if rotate:
+        x1, y1 = y1, x1
+        x2, y2 = y2, x2
+
+    reverse_x = False
+    if x1 > x2:
+        x1, x2 = x2, x1
+        y1, y2 = y2, y1
+        reverse_x = True
+
+    dx = x2 - x1
+    dy = abs(y2 - y1)
+    error = dx / 2
+    ystep = 1 if y1 < y2 else -1
+
+    y = y1
+    line = np.zeros((dx + 1, 2))
+    for i, x in enumerate(range(x1, x2)):
+        line[i] = (np.array([y, x]) if rotate else np.array([x, y]))
+        error -= dy
+        if error < 0:
+            y += ystep
+            error += dx
+
+    if reverse_x:
+        line.reverse()
+
+    return line

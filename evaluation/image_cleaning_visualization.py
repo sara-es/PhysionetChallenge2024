@@ -13,9 +13,9 @@ import argparse
 from dataclasses import dataclass
 import numpy as np
 import matplotlib.pyplot as plt 
-import imageio.v3 as iio
+import imageio.v3 as iio # may be faster to use PIL, check this
 
-from image_cleaning import hough_grid_detection, cepstrum_grid_detection
+from image_cleaning import hough_grid_detection, cepstrum_grid_detection, cepstrum_bresenham
 import helper_code
 from utils import team_helper_code
 
@@ -53,6 +53,7 @@ def plot_cleaned_images(original_image, cleaned_images, record_name, output_fold
 
 
 def main(data_folder, output_folder, verbose):
+    print(verbose)
     # Find data files.
     records = helper_code.find_records(data_folder)
     if len(records) == 0:
@@ -71,12 +72,15 @@ def main(data_folder, output_folder, verbose):
         original_image = im = iio.imread(image_file)
 
         # clean and rotate image using hough transform method
-        hough_image, hough_gridsize = hough_grid_detection.clean_image(image_file)  
+        # hough_image, hough_gridsize = hough_grid_detection.clean_image(image_file)  
+        cep2_image, cep2_gridsize = cepstrum_bresenham.clean_image(image_file) 
         cep_image, cep_gridsize = cepstrum_grid_detection.clean_image(image_file) 
+        
 
         images = [
-            CleanedImage('Hough', hough_image, hough_gridsize), 
-            CleanedImage('Cepstrum', cep_image, cep_gridsize)
+            # CleanedImage('Hough', hough_image, hough_gridsize), 
+            CleanedImage('Cepstrum', cep_image, cep_gridsize),
+            CleanedImage('Cepstrum w/ Bresenham', cep2_image, cep2_gridsize)
         ]
 
         # plot signal reconstruction
