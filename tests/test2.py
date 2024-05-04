@@ -64,10 +64,14 @@ max_angle = 5
 max_grid_space = 50
 for angle in range(min_angle, max_angle): # for debugging, this is only searching -5 to +4 degrees
     rot_image = sp.ndimage.rotate(im_bw, angle, axes=(1, 0), reshape=True)
-    col_hist = np.sum(rot_image, axis = 1) #sum each row. It shouldn't matter if this is rows or columns... but it does
+    # only take central portion of image to avoid edge effects
+    col_hist = np.sum(rot_image[700:1500,700:1500], axis = 1) #sum each row. It shouldn't matter if this is rows or columns... but it does
     
     ceps = compute_cepstrum(col_hist)
-    ceps = ceps[1:] # remove DC component
+    ceps = ceps[5:] # remove DC component
+    
+    #TODO: instead of using just prominence, get peak height as fraction of total power in spectrum
+    #
     
     # get height and index of the most prominent cepstrum peak
     plt.figure()
@@ -76,9 +80,32 @@ for angle in range(min_angle, max_angle): # for debugging, this is only searchin
     prominences = sp.signal.peak_prominences(ceps[1:max_grid_space], peaks)
     idx = np.argmax(prominences[0])
     cep_max.append(prominences[0][idx])
+    
     cep_idx.append(peaks[idx])
     
 rot_idx = np.argmax(cep_max)
 rot_angle = rot_idx + min_angle
-grid_length = cep_idx[rot_idx] + 1 #add one to compensate for removing dc component earlier
+grid_length = cep_idx[rot_idx] + 5 #add one to compensate for removing dc component earlier
+
+#final rotation
+rot_image = sp.ndimage.rotate(im_bw, rot_angle, axes=(1, 0), reshape=True)
+col_hist = np.sum(rot_image, axis = 0)
+
+#refine grid-spacing
+# 1.) find initial peak - start in the middle to avoid edge effects
+init_idx = 1000
+x = init_idx
+steps = 10
+# 2.) repeat for 10:
+for i in range(steps):
+    x = x + grid_length
+    y = col_hist[x-1, x, x+1]
+    # - check left and right to see if there's a higher peak
+    if np.argmax(y) == 0:
+        x = x-1
+    elif np.argmax(y) == 0:
+        x = x+1
+
+grid_length_adj = (x-init_idx)/steps
+
 

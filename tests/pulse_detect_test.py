@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 # for each digitized line (usually 4 rows)
 
 # loop across left, middle and right of signal
-def find_pulse(signal, start_idx, tol = 3, min_height = 25, min_width = 25, max_width = 100):
+def find_pulse(xdiff, start_idx, max_width, tol = 3, min_height = 25, min_width = 25):
     idx = start_idx
     up = -1
     down = -1
@@ -43,29 +43,26 @@ def find_pulse(signal, start_idx, tol = 3, min_height = 25, min_width = 25, max_
     return up, down
     
 
+def find_ref_pulse(signal, max_width = 100):
+    xdiff = np.diff(signal)
+    # check for square wave on left, middle and right of signal
+    l_up, l_down = find_pulse(xdiff,0, max_width) #check left
+    m_up, m_down = find_pulse(xdiff,len(xdiff)//2-max_width//2, max_width) #check middle
+    r_up, r_down = find_pulse(xdiff,len(xdiff)-max_width, max_width)
+
+    # todo - add sanity checking here - square wave should only exist in one place
+
+    # return the non -1 indices
+    up = max([l_up, m_up, r_up])
+    down = max([l_down, m_down, r_down])
+    baseline = x[up] # TODO - check that this is the right index
+    return baseline, up, down
 
 ## ----  generate synthetic signal for debugging ----#
 x = np.zeros(500)
-#x[50:60] = 30 # this should not return a pulse
 x[50:80] = 30 # this sohuld return a pulse
+baseline, up, down = find_ref_pulse(x)
 
-
-# --- find square waves -------#
-xdiff = np.diff(x) # diff signal
-plt.plot(xdiff)
-
-# check for square wave on left, middle and right of signal
-max_width = 100
-l_up, l_down = find_pulse(xdiff,0) #check left
-m_up, m_down = find_pulse(xdiff,len(xdiff)//2-max_width//2) #check middle
-r_up, r_down = find_pulse(xdiff,len(xdiff)-max_width)
-
-# todo - add sanity checking here - square wave should only exist in one place
-
-# return the non -1 indices
-up = max([l_up, m_up, r_up])
-down = max([l_down, m_down, r_down])
-baseline = x[up] # TODO - check that this is the right index
 #RETURN: the pixel value of the bottom of the pulse (to get 0mV), start of pulse, end of pulse
                 
 
