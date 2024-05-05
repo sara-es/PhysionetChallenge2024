@@ -45,13 +45,19 @@ class LayoutDetector:
 
         signal_slice = slice(0, None)
         signals = [rs[signal_slice] for rs in raw_signals]
+        # assume length (independent axis) is difference between first and last x coordinate
         max_len = max(map(lambda signal: len(signal), signals))
-
         raw_signals = np.zeros((len(signals), max_len))
+
         for i in range(len(signals)):
-            signal = [p.y for p in signals[i]]
-            raw_signals[i, :len(signal)] = signal
-   
+            signal = [-p.y for p in signals[i]] # invert y coords (coords *down* from top)
+            x_coords = [p.x for p in signals[i]]
+            max_obs = x_coords[-1] - x_coords[0] 
+            # interpolate to linear x coords
+            interpolator = interpolate.interp1d(np.arange(len(signal)), signal) # current x, y
+            raw_signals[i, :] = interpolator(
+                np.linspace(0, max_len-1, max_len) # xnew, returns ynew
+            )  
         return raw_signals
     
     def __find_pulse(
@@ -96,6 +102,8 @@ class LayoutDetector:
         """
         Detect reference pulses in the ECG signals.
         Can use this to allow for Postprocessor() to look for reference pulses.
+        Assumes signals are in format (2, 4, N) where the first dimension corresponds to 
+        (x, y) coordinates, 4 is the number of rows, and N is the length of the signal (number of samples)
         """
         ups = []
         downs = []
@@ -125,7 +133,6 @@ class LayoutDetector:
             downs.append(down)
 
         ## ---- each row will return an up and down index. Check for consistency ----
-        print(ups, downs)
         if np.array(ups).mean() == -1 and np.array(downs).mean() == -1:
             # no reference pulse found
             return False
@@ -136,6 +143,9 @@ class LayoutDetector:
 
             print(nonzero_ups, nonzero_downs)
             # consensus agreement - if at least two sets of indices are within tol, then accept the pulse
+            if len(nonzero_ups) > 1 and len(nonzero_downs) > 1:
+                if (np.max(nonzero_ups) - np.min(nonzero_ups)) < tol & (np.max(nonzero_downs) - np.min(nonzero_downs)) < tol:
+                    return True
             # pulse index might be slightly different (if rotation isn't perfect), so take average if needed
 
         return False
