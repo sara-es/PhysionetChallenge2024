@@ -58,7 +58,9 @@ class PaperECG:
         raw_signals, ref_pulse_present = self.layout_detector.detect_reference_pulses(signal_coords)
 
         # returns array of digitized signals and trace of cleaned image
-        digitised_signals, trace = self.postprocessor.postprocess(self.gridsize, signal_coords, ecg_crop, self.sig_len)
+        digitised_signals, trace = self.postprocessor.postprocess(
+                self.gridsize, signal_coords, ecg_crop, self.sig_len, ref_pulse_present
+            )
 
         return digitised_signals, trace, raw_signals
 
