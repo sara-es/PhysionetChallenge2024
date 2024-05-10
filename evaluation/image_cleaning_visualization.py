@@ -53,7 +53,6 @@ def plot_cleaned_images(original_image, cleaned_images, record_name, output_fold
 
 
 def main(data_folder, output_folder, verbose):
-    print(verbose)
     # Find data files.
     records = helper_code.find_records(data_folder)
     if len(records) == 0:
@@ -62,7 +61,7 @@ def main(data_folder, output_folder, verbose):
     # Create a folder for the model if it does not already exist.
     os.makedirs(output_folder, exist_ok=True)
 
-    for i in tqdm(range(len(records)), disable=~verbose):  
+    for i in tqdm(range(len(records))):  
         record = os.path.join(data_folder, records[i])
         record_name = records[i]
 
@@ -72,13 +71,13 @@ def main(data_folder, output_folder, verbose):
         original_image = iio.imread(image_file)
 
         # clean and rotate image using hough transform method
-        # hough_image, hough_gridsize = hough_grid_detection.clean_image(image_file)  
+        hough_image, hough_gridsize = hough_grid_detection.clean_image(image_file)  
         # cep2_image, cep2_gridsize = cepstrum_bresenham.clean_image(image_file) 
         cep_image, cep_gridsize = cepstrum_grid_detection.clean_image(image_file) 
         
 
         images = [
-            # CleanedImage('Hough', hough_image, hough_gridsize), 
+            CleanedImage('Hough', hough_image, hough_gridsize), 
             CleanedImage('Cepstrum', cep_image, cep_gridsize),
             # CleanedImage('Cepstrum w/ Bresenham', cep2_image, cep2_gridsize)
         ]

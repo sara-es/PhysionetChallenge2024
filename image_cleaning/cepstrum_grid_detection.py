@@ -43,12 +43,17 @@ def get_rotation_angle(greyscale_image):
 
     cep_max = []
     cep_idx = []
-    min_angle = -10
-    max_angle = 10
-    max_grid_space = 50
+    min_angle = -40
+    max_angle = 40
+    max_grid_space = 50 # CAREFUL, hard coded for now
+
+    box_width = greyscale_image.shape[1]//3
+
     for angle in range(min_angle, max_angle): 
         rot_image = sp.ndimage.rotate(greyscale_image, angle, axes=(1, 0), reshape=True)
-        col_hist = np.sum(rot_image, axis = 1) #sum each row. It shouldn't matter if this is rows or columns... but it does
+        # check only the centre of the image, then
+        # sum each row. It shouldn't matter if this is rows or columns... but it does
+        col_hist = np.sum(rot_image[box_width:2*box_width, box_width:2*box_width], axis = 1) 
         
         ceps = compute_cepstrum(col_hist)
         ceps = ceps[1:] # remove DC component

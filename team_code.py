@@ -16,7 +16,8 @@ from tqdm import tqdm
 import traceback
 
 import helper_code
-import preprocessing, reconstruction, classification, image_cleaning.hough_grid_detection
+import preprocessing, reconstruction, classification 
+from image_cleaning import hough_grid_detection, cepstrum_grid_detection
 import reconstruction.digitize_image
 from utils import default_models, utils, team_helper_code
 from sklearn.preprocessing import OneHotEncoder, MultiLabelBinarizer
@@ -146,7 +147,8 @@ def run_digitization_model(digitization_model, record, verbose):
                 print(f"Multiple images found, using image at {image_file}.")
 
         # clean and rotate the image
-        cleaned_image, gridsize = image_cleaning.hough_grid_detection.clean_image(image_file)   
+        # TODO: separate out image cleaning and digitization
+        cleaned_image, gridsize = cepstrum_grid_detection.clean_image(image_file)   
 
         # digitize with ECG-miner
         signal, _ = reconstruction.digitize_image.digitize_image(cleaned_image, gridsize, num_samples)

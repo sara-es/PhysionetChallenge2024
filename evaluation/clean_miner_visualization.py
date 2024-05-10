@@ -18,14 +18,14 @@ from tqdm import tqdm
 from PIL import Image
 
 import helper_code
-from image_cleaning import hough_grid_detection
+from image_cleaning import cepstrum_grid_detection
 from reconstruction import digitize_image
 from utils import team_helper_code
 
 
 def run_digitization_model(image_file, sig_len, verbose, allow_failures=False):
     # clean and rotate the image
-    cleaned_image, gridsize = hough_grid_detection.clean_image(image_file)   
+    cleaned_image, gridsize = cepstrum_grid_detection.clean_image(image_file) 
 
     # digitize with ECG-miner
     try:
@@ -194,7 +194,7 @@ def plot_signal_reconstruction(label_signal, output_signal, output_fields, mean_
     Reconstruction SNR: {mean_snr:.2f}
     Gridsize: {gridsize}"""
 
-    # # plot original image, cleaned image with trace, ground truth signal, and reconstructed signal  
+    # set up mosaic for original image, cleaned image with trace, ground truth signal, and reconstructed signal  
     mosaic = plt.figure(layout="tight", figsize=(18, 13))
     axd = mosaic.subplot_mosaic([
                                     ['original_image', 'ecg_plots'],
@@ -234,8 +234,10 @@ def main(data_folder, output_folder, verbose):
     if len(records) == 0:
         raise FileNotFoundError('No data was provided.')
 
-    # Create a folder for the model if it does not already exist.
+    # Create a folder for the images if it does not already exist.
     os.makedirs(output_folder, exist_ok=True)
+
+    mean_snrs = np.zeros(len(records))
 
     for i in tqdm(range(len(records)), disable=~verbose):  
         record = os.path.join(data_folder, records[i])
@@ -273,12 +275,16 @@ def main(data_folder, output_folder, verbose):
         # compute SNR vs ground truth
         mean_snr, mean_snr_median, mean_ks_metric, mean_asci_metric, mean_weighted_absolute_difference_metric = single_signal_snr(output_signal, output_fields, label_signal, label_fields, record_name, extra_scores=True)
         
-        # save dataframe to output folder
+        # add metrics to dataframe to save later
+        mean_snrs[i] = mean_snr
         #TODO
 
         # plot signal reconstruction
         plot_signal_reconstruction(label_signal, output_signal, output_fields, mean_snr, trace, image_file, output_folder, record_name=record_name, gridsize=gridsize)
 
+    print(f"Finished. Overall mean SNR: {np.nanmean(mean_snrs):.2f} over {len(records)} records.")
+    # save metrics to csv
+    #TODO
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Visualize the results of the digitization model pipeline on the Challenge data.')
