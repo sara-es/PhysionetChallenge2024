@@ -29,7 +29,7 @@ class LayoutDetector:
         pass
 
     def detect_reference_pulses(
-        self, raw_signals: Iterable[Iterable[Point]]
+        self, raw_signals: Iterable[Iterable[Point]],
     ) -> Tuple[np.array, bool]:
         signals, ref_pulse_present = self.__vectorize(raw_signals)
         return signals, ref_pulse_present
@@ -37,7 +37,7 @@ class LayoutDetector:
     def __vectorize(
         self,
         raw_signals: Iterable[Iterable[Point]],
-    ) -> np.array:
+    ) -> Tuple[np.array, int]:
         """
         Vectorize the signals, returning only raw coordinate (pixel) values, then check if reference 
         pulses are present in the ECG signals. Based on pulse_pos from Dave's work in pulse_detect.py.

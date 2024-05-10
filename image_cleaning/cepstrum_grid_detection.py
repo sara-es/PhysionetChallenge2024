@@ -57,21 +57,57 @@ def get_rotation_angle(greyscale_image):
         
         ceps = compute_cepstrum(col_hist)
         ceps = ceps[1:] # remove DC component
+        # breakpoint()
         
         # get height and index of the most prominent cepstrum peak
-        # plt.figure()
-        # plt.plot(ceps[1:max_grid_space]) 
         peaks, _ = sp.signal.find_peaks(ceps[1:max_grid_space])
         prominences = sp.signal.peak_prominences(ceps[1:max_grid_space], peaks)
         idx = np.argmax(prominences[0])
-        cep_max.append(prominences[0][idx])
+        # ratio of peak height to total power in spectrum
+        peak_energy = prominences[0][idx] / np.sqrt(np.sum(ceps[1:max_grid_space]**2))
+        cep_max.append(peak_energy)
         cep_idx.append(peaks[idx])
+
+        # import matplotlib.pyplot as plt
+        # plt.figure()
+        # plt.plot(ceps[1:max_grid_space]) 
+        # plt.title('energy:' + str(peak_energy))
+        # plt.show()
+        # plt.close()
         
     rot_idx = np.argmax(cep_max)
     rot_angle = rot_idx + min_angle
     grid_length = cep_idx[rot_idx] + 1 #add one to compensate for removing dc component earlier
 
-    return rot_angle, grid_length
+    # If the image_width:grid ratio is too small, we've picked up the small grid
+    # On generated images, this ratio is reliably about 60 or 350+
+    # so 150 is rather arbitrary but should be fine
+    if greyscale_image.shape[1]/grid_length > 150: 
+        print('small grid detected ' + str(greyscale_image.shape[1]/grid_length))
+        grid_length *= 6
+        rot_idx = np.argsort(cep_max)[-2] # second highest peak
+        rot_angle = rot_idx + min_angle
+
+    # sub-pixel interpolation to further refine gridsize
+    rot_image = sp.ndimage.rotate(greyscale_image, rot_angle, axes=(1, 0), reshape=True)
+    col_hist = np.sum(rot_image, axis=0)
+    # 1.) find initial peak - start 1/5 way through to avoid edge effects
+    init_idx = np.argmax(col_hist[len(col_hist)//5:len(col_hist)//5+grid_length]) + len(col_hist)//5 # very low chance of ties
+    x = init_idx
+    steps = 10
+    search_pix_radius = 2
+
+    # 2.) repeat for 10:
+    for i in range(steps):
+        x += grid_length
+        y = col_hist[x-search_pix_radius: x+search_pix_radius]
+        # check left and right to see if there's a higher peak
+        x = x + np.argmin(y) - search_pix_radius
+
+    grid_length_adj = (x-init_idx)/steps
+    print(f' grid length {grid_length} adjusted: {grid_length_adj}')
+
+    return rot_angle, grid_length_adj
 
 
 def compute_cepstrum(xs):

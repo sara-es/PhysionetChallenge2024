@@ -239,7 +239,7 @@ def main(data_folder, output_folder, verbose):
 
     mean_snrs = np.zeros(len(records))
 
-    for i in tqdm(range(len(records)), disable=~verbose):  
+    for i in tqdm(range(len(records))):  
         record = os.path.join(data_folder, records[i])
         record_name = records[i]
 

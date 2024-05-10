@@ -54,7 +54,7 @@ class PaperECG:
         # returns x and y coordinates of the traces in order
         signal_coords = self.signal_extractor.extract_signals(ecg_crop)
 
-        # 
+        # check if reference pulses are present and where
         raw_signals, ref_pulse_present = self.layout_detector.detect_reference_pulses(signal_coords)
 
         # returns array of digitized signals and trace of cleaned image

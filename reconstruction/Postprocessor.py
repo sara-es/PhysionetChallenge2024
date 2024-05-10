@@ -127,23 +127,32 @@ class Postprocessor:
                     ini_count -= 1
                 elif pulse_pos == END:
                     ini_count -= 1
-            # Slice signal
-            signal_slice = (
-                slice(0, cut + 1) if rp_at_right else slice(cut, None)
-            )
-            signals = [rs[signal_slice] for rs in raw_signals]
-            # Slice pulses
-            pulse_slice = (
-                slice(cut + 1, None) if rp_at_right else slice(0, cut + 1)
-            )
-            ref_pulses = [
-                sorted(map(lambda p: p.y, rs[pulse_slice]), reverse=True)
-                for rs in raw_signals
-            ]
-            ref_pulses = [
-                (first_pixels[i], ref_pulses[i][-1])
-                for i in range(len(raw_signals))
-            ]
+            try:
+                # Slice signal
+                signal_slice = (
+                    slice(0, cut + 1) if rp_at_right else slice(cut, None)
+                )
+                signals = [rs[signal_slice] for rs in raw_signals]
+                # Slice pulses
+                pulse_slice = (
+                    slice(cut + 1, None) if rp_at_right else slice(0, cut + 1)
+                )
+                ref_pulses = [
+                    sorted(map(lambda p: p.y, rs[pulse_slice]), reverse=True)
+                    for rs in raw_signals
+                ]
+                ref_pulses = [
+                    (first_pixels[i], ref_pulses[i][-1])
+                    for i in range(len(raw_signals))
+                ]
+            except TypeError:
+                # unable to detect reference pulses, though they should be present
+                signal_slice = (
+                slice(None, None)
+                )
+                signals = [rs[signal_slice] for rs in raw_signals]
+
+                ref_pulses = []
 
         else:    
             # Slice signal
