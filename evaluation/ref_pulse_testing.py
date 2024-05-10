@@ -14,8 +14,11 @@ from dataclasses import dataclass
 import numpy as np
 import matplotlib.pyplot as plt 
 import imageio.v3 as iio # may be faster to use PIL, check this
+import cv2
 
 from image_cleaning import hough_grid_detection, cepstrum_grid_detection, cepstrum_bresenham
+from reconstruction.Image import Image
+from reconstruction.ECGClass import PaperECG
 import helper_code
 from utils import team_helper_code
 
@@ -53,7 +56,6 @@ def plot_cleaned_images(original_image, cleaned_images, record_name, output_fold
 
 
 def main(data_folder, output_folder, verbose):
-    print(verbose)
     # Find data files.
     records = helper_code.find_records(data_folder)
     if len(records) == 0:
@@ -71,20 +73,55 @@ def main(data_folder, output_folder, verbose):
         image_file = image_files[0]
         original_image = iio.imread(image_file)
 
-        # clean and rotate image using hough transform method
-        # hough_image, hough_gridsize = hough_grid_detection.clean_image(image_file)  
-        # cep2_image, cep2_gridsize = cepstrum_bresenham.clean_image(image_file) 
-        cep_image, cep_gridsize = cepstrum_grid_detection.clean_image(image_file) 
-        
+        # get ground truth signal and metadata
+        header_file = helper_code.get_header_file(record)
+        header = helper_code.load_text(header_file)
 
-        images = [
-            # CleanedImage('Hough', hough_image, hough_gridsize), 
-            CleanedImage('Cepstrum', cep_image, cep_gridsize),
-            # CleanedImage('Cepstrum w/ Bresenham', cep2_image, cep2_gridsize)
-        ]
+        # clean image
+        cleaned_image, gridsize = hough_grid_detection.clean_image(image_file) 
 
-        # plot signal reconstruction
-        plot_cleaned_images(original_image, images, record_name, output_folder)
+        # digitize with ECG-miner
+        num_samples = helper_code.get_num_samples(header)
+        # signal, trace = digitize_image.digitize_image(cleaned_image, gridsize, num_samples)
+        restored_image = cv2.merge([cleaned_image,cleaned_image,cleaned_image])
+        restored_image = np.uint8(restored_image)
+        restored_image = Image(restored_image) # cleaned_image = reconstruction.Image.Image(cleaned_image)
+
+        paper_ecg = PaperECG(restored_image, gridsize, sig_len=num_samples)
+        ECG_signals, trace, raw_signals = paper_ecg.digitise()
+        signal = np.nan_to_num(ECG_signals)
+
+        fig = plt.figure(layout="tight")
+        rows, cols = 1, 2
+
+        # plot original image
+        ax = fig.add_subplot(rows, cols, 1)
+        ax.imshow(original_image, cmap='gray')
+        ax.set_title('Original Image: ' + record_name)
+        ax.axis('off')
+
+        # plot cleaned images
+        ax = fig.add_subplot(rows, cols, 2)
+        ax.imshow(trace.data, cmap='gray')
+        ax.set_title(f'Trace, gridsize: {gridsize}')
+        ax.axis('off')
+
+        plt.savefig(os.path.join(output_folder, record_name + '_trace.png'))
+        plt.close()
+
+        # plot raw signals
+        fig, ax = plt.subplots(4, 1)
+        for i in range(4):
+            ax[i].plot(raw_signals[i])
+            ax[i].set_title(f'Row {i+1}')
+
+        plt.savefig(os.path.join(output_folder, record_name + '_raw_signals.png'))
+        plt.close()
+
+        # export signals for Dave
+        # import pickle
+        # with open(os.path.join(output_folder, record_name + '_raw_signal.pkl'), 'wb') as f:
+        #     pickle.dump(raw_signals, f)
 
 
 if __name__ == '__main__':

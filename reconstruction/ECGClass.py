@@ -8,6 +8,7 @@ from reconstruction.Lead import Lead
 from reconstruction.Postprocessor import Postprocessor
 from reconstruction.Preprocessor import Preprocessor
 from reconstruction.SignalExtractor import SignalExtractor
+from reconstruction.LayoutDetector import LayoutDetector 
 from reconstruction.Image import Image
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -21,6 +22,7 @@ class PaperECG:
     image: Image
     preprocessor = Preprocessor()
     signal_extractor = SignalExtractor(n=4) #hardcoded n=4 for now because constant layout+rhythm
+    layout_detector = LayoutDetector()
     postprocessor = Postprocessor()
 
     def __init__(self,
@@ -50,10 +52,13 @@ class PaperECG:
         ecg_crop, rect = self.preprocessor.preprocess(self.image)
 
         # returns x and y coordinates of the traces in order
-        raw_signals = self.signal_extractor.extract_signals(ecg_crop)
+        signal_coords = self.signal_extractor.extract_signals(ecg_crop)
+
+        # 
+        raw_signals, ref_pulse_present = self.layout_detector.detect_reference_pulses(signal_coords)
 
         # returns array of digitized signals and trace of cleaned image
-        digitised_signals, trace = self.postprocessor.postprocess(self.gridsize, raw_signals, ecg_crop, self.sig_len)
+        digitised_signals, trace = self.postprocessor.postprocess(self.gridsize, signal_coords, ecg_crop, self.sig_len)
 
-        return digitised_signals, trace
+        return digitised_signals, trace, raw_signals
 

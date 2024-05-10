@@ -244,9 +244,7 @@ def main(data_folder, output_folder, verbose):
         # get ground truth signal and metadata
         header_file = helper_code.get_header_file(record)
         header = helper_code.load_text(header_file)
-
         num_samples = helper_code.get_num_samples(header)
-        num_signals = helper_code.get_num_signals(header)
 
         # get filenames/paths of all records to be reconstructed
         image_files = team_helper_code.load_image_paths(record)
