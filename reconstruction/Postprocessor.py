@@ -148,7 +148,7 @@ class Postprocessor:
             except TypeError:
                 # unable to detect reference pulses, though they should be present
                 signal_slice = (
-                slice(None, None)
+                    slice(None, None)
                 )
                 signals = [rs[signal_slice] for rs in raw_signals]
 
