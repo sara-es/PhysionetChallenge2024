@@ -15,7 +15,7 @@ import numpy as np
 import matplotlib.pyplot as plt 
 import imageio.v3 as iio # may be faster to use PIL, check this
 
-from image_cleaning import hough_grid_detection, cepstrum_grid_detection, cepstrum_bresenham
+from preprocessing import hough_grid_detection, cepstrum_grid_detection, cepstrum_bresenham
 import helper_code
 from utils import team_helper_code
 

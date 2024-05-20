@@ -17,8 +17,7 @@ import imageio.v3 as iio # may be faster to use PIL, check this
 import cv2
 
 from image_cleaning import hough_grid_detection, cepstrum_grid_detection, cepstrum_bresenham
-from reconstruction.Image import Image
-from reconstruction.ECGClass import PaperECG
+from digitization import Image, ECGClass
 import helper_code
 from utils import team_helper_code
 
@@ -78,6 +77,7 @@ def main(data_folder, output_folder, verbose):
         header = helper_code.load_text(header_file)
 
         # clean image
+        # ATTN: uses hough grid detection
         cleaned_image, gridsize = hough_grid_detection.clean_image(image_file) 
 
         # digitize with ECG-miner
@@ -87,7 +87,7 @@ def main(data_folder, output_folder, verbose):
         restored_image = np.uint8(restored_image)
         restored_image = Image(restored_image) # cleaned_image = reconstruction.Image.Image(cleaned_image)
 
-        paper_ecg = PaperECG(restored_image, gridsize, sig_len=num_samples)
+        paper_ecg = ECGClass.PaperECG(restored_image, gridsize, sig_len=num_samples)
         ECG_signals, trace, raw_signals = paper_ecg.digitise()
         signal = np.nan_to_num(ECG_signals)
 

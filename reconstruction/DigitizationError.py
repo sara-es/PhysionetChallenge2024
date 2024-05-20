@@ -1,2 +1,0 @@
-class DigitizationError(Exception):
-    pass

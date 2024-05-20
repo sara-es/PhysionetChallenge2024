@@ -10,7 +10,7 @@ from sklearn.preprocessing import OneHotEncoder
 from iterstrat.ml_stratifiers import MultilabelStratifiedShuffleSplit, MultilabelStratifiedKFold # For multilabel stratification
 
 from utils import default_models
-from utils.utils import save_models
+from utils.model_persistence import save_models
 from team_code import train_dx_model_team, train_digitization_model_team, \
                         run_dx_model, run_digitization_model
 

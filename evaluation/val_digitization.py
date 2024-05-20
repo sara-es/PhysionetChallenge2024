@@ -9,7 +9,7 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import OneHotEncoder
 from iterstrat.ml_stratifiers import MultilabelStratifiedKFold # For multilabel stratification
 
-from utils import default_models, utils
+from utils import default_models, model_persistence
 import team_code
 
 import helper_code
@@ -44,7 +44,7 @@ def train_digit_model(images_folder,
                                            models_to_train=models_to_train)
 
     # Save the model.
-    utils.save_models(models, model_folder, verbose)
+    model_persistence.save_models(models, model_folder, verbose)
 
     if verbose:
         print('Done.')

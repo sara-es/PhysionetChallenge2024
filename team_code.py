@@ -16,10 +16,10 @@ from tqdm import tqdm
 import traceback
 
 import helper_code
-import preprocessing, reconstruction, classification 
-from image_cleaning import hough_grid_detection, cepstrum_grid_detection
-import reconstruction.digitize_image
-from utils import default_models, utils, team_helper_code
+import preprocessing, digitization, classification 
+from preprocessing import hough_grid_detection, cepstrum_grid_detection
+from digitization import ECGminer
+from utils import default_models, model_persistence, team_helper_code
 from sklearn.preprocessing import OneHotEncoder, MultiLabelBinarizer
 
 
@@ -55,7 +55,7 @@ def train_digitization_model(data_folder, model_folder, verbose):
     models = train_digitization_model_team(data_folder, records, verbose)
 
     # Save the model.
-    utils.save_models(models, model_folder, verbose)
+    model_persistence.save_models(models, model_folder, verbose)
 
     if verbose:
         print('Done.')
@@ -90,7 +90,7 @@ def train_dx_model(data_folder, model_folder, verbose):
                                  )
 
     # Save the model.
-    utils.save_models(models, model_folder, verbose)
+    model_persistence.save_models(models, model_folder, verbose)
 
     if verbose:
         print('Done.')
@@ -101,7 +101,7 @@ def train_dx_model(data_folder, model_folder, verbose):
 # this function to add your code, but do *not* change the arguments of this function.
 # If you do not train a digitization model, then you can return None.
 def load_digitization_model(model_folder, verbose):
-    models = utils.load_models(model_folder, verbose, default_models.DIGITIZATION_MODELS)
+    models = model_persistence.load_models(model_folder, verbose, default_models.DIGITIZATION_MODELS)
     return models
 
 
@@ -110,7 +110,7 @@ def load_digitization_model(model_folder, verbose):
 # function. If you do not train a dx classification model, then you can return None.
 def load_dx_model(model_folder, verbose):
     models_to_load = default_models.DX_MODELS + ['dx_classes']
-    models = utils.load_models(model_folder, verbose, models_to_load)
+    models = model_persistence.load_models(model_folder, verbose, models_to_load)
     return models
 
 
@@ -151,7 +151,7 @@ def run_digitization_model(digitization_model, record, verbose):
         cleaned_image, gridsize = cepstrum_grid_detection.clean_image(image_file)   
 
         # digitize with ECG-miner
-        signal, _ = reconstruction.digitize_image.digitize_image(cleaned_image, gridsize, num_samples)
+        signal, _ = ECGminer.digitize_image(cleaned_image, gridsize, num_samples)
         signal = np.nan_to_num(signal)
     
     if signal is not None:
@@ -318,7 +318,7 @@ def train_digitization_model_team(data_folder, records, verbose,
         print('Training the model on the data...')
 
     if 'digit_example' in models_to_train:
-        models['digit_example'] = reconstruction.example.train(features)
+        models['digit_example'] = ECGminer.example.train(features)
 
     if verbose:
         print(f'Done. Time to train individual models: {time.time() - t2:.2f} seconds.')

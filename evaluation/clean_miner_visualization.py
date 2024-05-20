@@ -18,8 +18,8 @@ from tqdm import tqdm
 from PIL import Image
 
 import helper_code
-from image_cleaning import cepstrum_grid_detection
-from reconstruction import digitize_image
+from preprocessing import cepstrum_grid_detection
+from digitization.ECGminer import digitize_image
 from utils import team_helper_code
 
 
