@@ -23,25 +23,6 @@ from digitization.ECGminer import digitize_image
 from utils import team_helper_code
 
 
-def run_digitization_model(image_file, sig_len, verbose, allow_failures=False):
-    # clean and rotate the image
-    cleaned_image, gridsize = cepstrum_grid_detection.clean_image(image_file) 
-
-    # digitize with ECG-miner
-    try:
-        signal, trace = digitize_image.digitize_image(cleaned_image, gridsize, sig_len)
-        signal = np.nan_to_num(signal)
-    except Exception as e: 
-        if allow_failures:
-            signal = None
-            if verbose:
-                print(f"Error digitizing image {image_file}: {e}")
-                print(traceback.format_exc())
-        else: raise e
-
-    return trace, signal, gridsize
-
-
 def match_signal_lengths(output_signal, output_fields, label_signal, label_fields):
     # make sure channel orders match, and trim/pad output signal to match label signal length
     if label_signal is not None:
@@ -66,6 +47,8 @@ def match_signal_lengths(output_signal, output_fields, label_signal, label_field
             output_signal = helper_code.trim_signal(output_signal, label_num_samples)
 
             # Replace the samples with NaN values in the output signal with zeros.
+            # do the same for the label signal, so we can see what's plotted
+            label_signal[np.isnan(output_signal)] = 0
             output_signal[np.isnan(output_signal)] = 0
 
         else:
@@ -204,6 +187,10 @@ def plot_signal_reconstruction(label_signal, output_signal, output_fields, mean_
     with Image.open(image_file) as img:
         axd['original_image'].axis('off')
         axd['original_image'].imshow(img, cmap='gray')
+
+    # to plot u-net output (numpy array)
+    # axd['original_image'].axis('off')
+    # axd['original_image'].imshow(image_file, cmap='gray')
         
     # plot trace
     axd['trace'].xaxis.set_visible(False)
@@ -255,8 +242,20 @@ def main(data_folder, output_folder, verbose):
             if verbose:
                 print(f"Multiple images found, using image at {image_file}.")
         
-        # run the digitization model     
-        trace, signal, gridsize = run_digitization_model(image_file, num_samples, verbose=True)
+        # get the gridsize from the image   
+        cleaned_image, gridsize = cepstrum_grid_detection.clean_image(image_file)
+
+        # use the u-net output as the clean image input to ecg-miner
+        # numpy_record = record_name.split('_')[0] + '.npy'
+        # cleaned_image = np.load(os.path.join(data_folder, numpy_record))
+        # cleaned_image = np.where(cleaned_image > 0.5, 1, 0)
+
+        # digitize with ecg-miner
+        # Invert the colours if using the U-Net output as the cleaned image
+        # restored_image = abs(restored_image - 1)*255
+
+        signal, trace = digitize_image.digitize_image(cleaned_image, gridsize, num_samples)
+        signal = np.nan_to_num(signal)
 
         # get digitization output
         signal = np.asarray(signal*1000, dtype=np.int16)
@@ -281,16 +280,21 @@ def main(data_folder, output_folder, verbose):
 
         # plot signal reconstruction
         plot_signal_reconstruction(label_signal, output_signal, output_fields, mean_snr, trace, image_file, output_folder, record_name=record_name, gridsize=gridsize)
+        # plot_signal_reconstruction(label_signal, output_signal, output_fields, mean_snr, trace, cleaned_image, output_folder, record_name=record_name, gridsize=gridsize)
 
     print(f"Finished. Overall mean SNR: {np.nanmean(mean_snrs):.2f} over {len(records)} records.")
     # save metrics to csv
     #TODO
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Visualize the results of the digitization model pipeline on the Challenge data.')
-    parser.add_argument('-i', '--data_folder', type=str, help='The folder containing the Challenge images.')
-    parser.add_argument('-o', '--output_folder', type=str, help='The folder to save the output visualization.')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Print progress messages.')
-    args = parser.parse_args()
+# if __name__ == '__main__':
+#     parser = argparse.ArgumentParser(description='Visualize the results of the digitization model pipeline on the Challenge data.')
+#     parser.add_argument('-i', '--data_folder', type=str, help='The folder containing the Challenge images.')
+#     parser.add_argument('-o', '--output_folder', type=str, help='The folder to save the output visualization.')
+#     parser.add_argument('-v', '--verbose', action='store_true', help='Print progress messages.')
+#     args = parser.parse_args()
 
-    main(args.data_folder, args.output_folder, args.verbose)
+#     main(args.data_folder, args.output_folder, args.verbose)
+
+# data_folder = 'G:\\PhysionetChallenge2024\\ptb-xl\\img1_output'
+# output_folder = 'G:\\PhysionetChallenge2024\\evaluation\\viz\\unet'
+# main(data_folder, output_folder, verbose=True)

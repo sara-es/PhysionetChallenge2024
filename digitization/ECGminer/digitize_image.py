@@ -7,8 +7,6 @@ from digitization.ECGminer.assets.Image import Image
 from digitization.ECGminer.ECGClass import PaperECG
 
 def digitize_image(restored_image, gridsize, sig_len=1000):
-    # Invert the colours
-    restored_image = abs(restored_image - 1)*255
     # convert greyscale to rgb
     restored_image = cv2.merge([restored_image,restored_image,restored_image])
     restored_image = np.uint8(restored_image)

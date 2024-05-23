@@ -60,8 +60,8 @@ def val_normal(args, model, val_loader, criterion):
             x = model(data)
             loss = criterion(x, target)
             total_loss  += loss
-            example = x[0:5].detach().cpu().numpy()
-            np.save('G:\\PhysionetChallenge2024\\evaluation\\viz\\unet\\', example)
+            # example = x[0:5].detach().cpu().numpy()
+            # np.save('G:\\PhysionetChallenge2024\\evaluation\\viz\\unet\\example_', example)
     av_loss = total_loss / batches
     av_loss_copy = np.copy(av_loss.detach().cpu().numpy())
     del av_loss
