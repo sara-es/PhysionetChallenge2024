@@ -25,9 +25,9 @@ def save_patches(image_path, label_path, patch_size, patch_save_path, max_sample
     os.makedirs(lab_patch_path, exist_ok=True)
 
     for id in tqdm(ids):
-        lab_pth = label_path + id
+        lab_pth = os.path.join(label_path, id)
         id = id.split('.')[0]
-        img_pth = image_path + id + '.png'
+        img_pth = os.path.join(image_path, id + '.png')
 
         image = plt.imread(img_pth)
         with open(lab_pth, 'rb') as f:
@@ -260,29 +260,10 @@ def predict_full_images(ids, im_patch_dir, label_patch_dir, args, model_path, sa
             # import matplotlib.pyplot as plt
             # plt.imshow(predicted_im)
             # plt.show()
-            np.save(save_pth + image_id, predicted_im)
-
-    # print(results.shape)
-    # print(np.unique(results))
-    # print(np.unique(true))
-
-    results = results.squeeze()
-    true = true.squeeze()
-
-    results = np.argmax(results, axis=1)
-    true = np.argmax(true, axis=1)
-
-    d_store = []
-    for i in range(0, len(results)):
-        d = Unet.dice(results[i], true[i])
-        # print(d)
-        if d != 0:
-            d_store.append(d)
-    d_store = np.array(d_store)
-    print('Mean Dice = ', d_store.mean())
+            np.save(os.path.join(save_pth, image_id), predicted_im)
 
 
-def main(image_path, labels_path, model_path, output_path):
+def main(image_path, labels_path, model_path, output_path, patch_path, train=True, make_patches=True):
     args = Unet.utils.Args()       # This is just a class to pass values efficiently to the training loops
     args.epochs = 50
     args.batch_size = 32
@@ -297,38 +278,41 @@ def main(image_path, labels_path, model_path, output_path):
 
     # Hard coded these values just to get something running for now
     LOAD_PATH_UNET = None # if we're loading a pretrained model
-    PATH_UNET = model_path + '_' + str(patchsize) # this is where the model will be saved
-    CHK_PATH_UNET = model_path + '_' + str(patchsize) + '_checkpoint' # this is where the model checkpoints will be saved, used with early stopping
-    LOSS_PATH = model_path + '_' + str(patchsize) + '_losses' # this is where the loss values will be saved, used with early stopping
-    PATCH_PATH = 'F:\\ptb-xl-indiv'
+    PATH_UNET = model_path + 'UNET_' + str(patchsize) # this is where the model will be saved
+    CHK_PATH_UNET = model_path + 'UNET_' + str(patchsize) + '_checkpoint' # this is where the model checkpoints will be saved, used with early stopping
+    LOSS_PATH = model_path + 'UNET_' + str(patchsize) + '_losses' # this is where the loss values will be saved, used with early stopping
 
     # reduce the max number of samples because more samples than I have RAM for, 
     # set to False if you have more RAM than me
     # we bypass this by loading patches in dataloaders
-    max_samples = 50 # False
+    max_samples = False
 
-    # save_patches(image_path, labels_path, patchsize, PATCH_PATH, max_samples=max_samples)
-    print(f'Loading patches from {PATCH_PATH}...')
-    id_train, id_test, im_patch_dir, lab_patch_dir = get_data_split_ids(PATCH_PATH, patchsize, 0.8, max_samples=max_samples)
+    if make_patches:
+        save_patches(image_path, labels_path, patchsize, patch_path, max_samples=max_samples)
+    print(f'Loading patches from {patch_path}...')
 
-    # train_unet(id_train, im_patch_dir, lab_patch_dir, args,
-    #            PATH_UNET, CHK_PATH_UNET, LOSS_PATH, LOAD_PATH_UNET, 
-    #            max_samples=False, augmentation=augmentation, reduce_lr=reduce_lr
-    #            )
+    if train:
+        id_train, id_test, im_patch_dir, lab_patch_dir = get_data_split_ids(patch_path, patchsize, 0.8, max_samples=max_samples)
+        train_unet(id_train, im_patch_dir, lab_patch_dir, args,
+                PATH_UNET, CHK_PATH_UNET, LOSS_PATH, LOAD_PATH_UNET, 
+                max_samples=False, augmentation=augmentation, reduce_lr=reduce_lr
+                )
+    else:
+        im_patch_dir = os.path.join(patch_path, 'image_patches')
+        lab_patch_dir = os.path.join(patch_path, 'label_patches')
+        id_test = os.listdir(im_patch_dir)
     
     # predict_unet(id_test, im_patch_dir, lab_patch_dir, args,
     #              CHK_PATH_UNET, output_path, 
     #              save_all=True
     #              )
     
-    CHK_PATH_UNET = 'G:\\PhysionetChallenge2024\\model\\pretrained\\UNET_run1_256_checkpoint'
+    CHK_PATH_UNET = os.path.join('model', 'pretrained', 'UNET_run1_256_checkpoint')
     predict_full_images(id_test, im_patch_dir, lab_patch_dir, args,
                  CHK_PATH_UNET, output_path, 
                  save_all=True
                  )
     
-
-
 
 # if __name__ == '__main__':
 #     parser = argparse.ArgumentParser(description='Visualize the results of the digitization model pipeline on the Challenge data.')
@@ -339,9 +323,10 @@ def main(image_path, labels_path, model_path, output_path):
 
 #     main(args.data_folder, args.output_folder, args.verbose)
 
-image_path = 'G:\\PhysionetChallenge2024\\ptb-xl\\combined_records_img1\\'
-labels_path = 'G:\\PhysionetChallenge2024\\ptb-xl\\binary_masks\\'
-model_path = 'G:\\PhysionetChallenge2024\\model\\UNET' # no \ at the end of this one
-output_path = 'G:\\PhysionetChallenge2024\\ptb-xl\\img1_output\\'
+image_path = os.path.join('tiny_testset' , 'lr_unet_tests', 'data_images')
+labels_path = os.path.join('tiny_testset' , 'lr_unet_tests', 'binary_masks')
+model_path = os.path.join('model')
+output_path = os.path.join('tiny_testset' , 'lr_unet_tests')
+patch_path = os.path.join('tiny_testset', 'lr_unet_tests', 'unet_outputs') # this is base directory, patches and labels will make their own folders
 
-main(image_path, labels_path, model_path, output_path)
+main(image_path, labels_path, model_path, output_path, patch_path, train=False, make_patches=False)

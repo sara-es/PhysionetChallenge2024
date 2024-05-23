@@ -68,7 +68,7 @@ def plot_signal_reconstruction(label_signal, output_signal, output_fields, mean_
     plt.close()
 
 
-def main(data_folder, output_folder, verbose):
+def main(data_folder, unet_outputs_folder, output_folder, verbose):
     # Find data files.
     records = helper_code.find_records(data_folder)
     if len(records) == 0:
@@ -102,7 +102,7 @@ def main(data_folder, output_folder, verbose):
 
         # use the u-net output as the clean image input to ecg-miner
         numpy_record = record_name.split('_')[0] + '.npy'
-        restored_image = np.load(os.path.join(data_folder, numpy_record))
+        restored_image = np.load(os.path.join(unet_outputs_folder, numpy_record))
         restored_image = np.where(restored_image > 0.3, 1, 0)
 
         # digitize with ecg-miner
@@ -150,6 +150,7 @@ def main(data_folder, output_folder, verbose):
 
 #     main(args.data_folder, args.output_folder, args.verbose)
 
-data_folder = 'G:\\PhysionetChallenge2024\\ptb-xl\\img1_output'
-output_folder = 'G:\\PhysionetChallenge2024\\evaluation\\viz\\unet'
-main(data_folder, output_folder, verbose=True)
+data_folder = os.path.join('tiny_testset', 'lr_unet_tests', 'data_images')
+output_folder = os.path.join('evaluation', 'viz')
+unet_outputs_folder = os.path.join('tiny_testset', 'lr_unet_tests', 'unet_outputs')
+main(data_folder, unet_outputs_folder, output_folder, verbose=True)
