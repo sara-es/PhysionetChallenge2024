@@ -151,6 +151,6 @@ def main(data_folder, unet_outputs_folder, output_folder, verbose):
 #     main(args.data_folder, args.output_folder, args.verbose)
 
 data_folder = os.path.join('tiny_testset', 'lr_unet_tests', 'data_images')
-output_folder = os.path.join('evaluation', 'viz')
+output_folder = os.path.join('evaluation', 'viz', 'unet')
 unet_outputs_folder = os.path.join('tiny_testset', 'lr_unet_tests', 'unet_outputs')
 main(data_folder, unet_outputs_folder, output_folder, verbose=True)
