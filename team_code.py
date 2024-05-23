@@ -147,10 +147,11 @@ def run_digitization_model(digitization_model, record, verbose):
                 print(f"Multiple images found, using image at {image_file}.")
 
         # clean and rotate the image
-        # TODO: separate out image cleaning and digitization
+        # TODO: separate out image rotation and  U-net cleaning
         cleaned_image, gridsize = cepstrum_grid_detection.clean_image(image_file)   
 
-        # digitize with ECG-miner
+        # assume that output of u-net is cleaned_image
+        
         signal, _ = ECGminer.digitize_image(cleaned_image, gridsize, num_samples)
         signal = np.nan_to_num(signal)
     
