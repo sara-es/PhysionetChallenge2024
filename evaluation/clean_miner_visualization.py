@@ -47,8 +47,6 @@ def match_signal_lengths(output_signal, output_fields, label_signal, label_field
             output_signal = helper_code.trim_signal(output_signal, label_num_samples)
 
             # Replace the samples with NaN values in the output signal with zeros.
-            # do the same for the label signal, so we can see what's plotted
-            label_signal[np.isnan(output_signal)] = 0
             output_signal[np.isnan(output_signal)] = 0
 
         else:

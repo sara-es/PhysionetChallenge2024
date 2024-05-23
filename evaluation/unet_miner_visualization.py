@@ -22,6 +22,7 @@ from preprocessing import cepstrum_grid_detection
 from digitization.ECGminer import digitize_image
 from utils import team_helper_code
 import clean_miner_visualization 
+from skimage.morphology import opening
 
 
 def plot_signal_reconstruction(label_signal, output_signal, output_fields, mean_snr, trace, image_file, output_folder="", record_name=None, gridsize=None):
@@ -102,14 +103,15 @@ def main(data_folder, output_folder, verbose):
         # use the u-net output as the clean image input to ecg-miner
         numpy_record = record_name.split('_')[0] + '.npy'
         restored_image = np.load(os.path.join(data_folder, numpy_record))
-        restored_image = np.where(restored_image > 0.5, 1, 0)
+        restored_image = np.where(restored_image > 0.3, 1, 0)
 
         # digitize with ecg-miner
         # Invert the colours if using the U-Net output as the cleaned image
         restored_image = abs(restored_image - 1)*255
+        restored_image = opening(restored_image, footprint=[(np.ones((3, 1)), 1), (np.ones((1, 3)), 1)])
 
         signal, trace = digitize_image.digitize_image(restored_image, gridsize, num_samples)
-        # signal = np.nan_to_num(signal)
+        signal = np.nan_to_num(signal)
 
         # get digitization output
         signal = np.asarray(signal*1000, dtype=np.int16)
