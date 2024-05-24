@@ -53,10 +53,7 @@ file = "C:/Users/hssdwo/Downloads/images.pkl"
 with open(file, 'rb') as f:
     data = pickle.load(f)
 
-
-test_im = data[3]
-
-
+test_im = data[5]
 
 test_im = abs(test_im - 1)*255
 plt.imshow(test_im)
@@ -67,7 +64,7 @@ rois = get_roi(test_im)
 # assume that the starting point is somewhere close to the baseline
 roi_gap = int(np.max(np.diff(rois)) *0.75)
 # assume that starting point for a row is the closest black pixel to the roi centre
-#rois = [rois[2]]
+#rois = [rois[1]]
 
 for row in rois:
     #row = rois[0]
@@ -117,7 +114,6 @@ for row in rois:
             signal_col.append([x_idx,y])
             x_idx = x_idx+1
     
-        #TODO: order signal_col by y coordinate. n.b. this might mess some things up...
         signal_col = sorted(signal_col, key=lambda x: x[0], reverse=False)
         signal.append(signal_col)
         
@@ -132,8 +128,20 @@ for row in rois:
             dists = np.concatenate((candidates - top_line, candidates - bottom_line))
             candidates = np.concatenate((candidates, candidates))
             if np.min(abs(dists))<thresh:
-                dist_idx = np.argmin(abs(dists))
-                x = candidates[dist_idx]
+                #dist_idx = np.argmin(abs(dists))
+                #dist_idx = np.where(abs(dists))
+                #if y == 1614:
+                #    print(np.where(abs(dists) == min(abs(dists))))
+                
+                #bit of voodoo here to try to make sure that we favour returning towards baseline when there is a choice
+                dist_idx = np.where(abs(dists) == min(abs(dists)))[0]
+                if len(dist_idx)>1:
+                    #if there is more than one minimum, select the one that takes us closer to the baseline
+                    x = candidates[dist_idx]
+                    i = np.argmin(abs(x-row))
+                    x = x[i]
+                else:
+                    x = candidates[dist_idx]
                 signal_col = []
                 signal_col.append([x,y])
                 match = 1
