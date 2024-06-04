@@ -9,7 +9,10 @@ Note that the input folder must have image files as well as ground truth signal 
 
 
 import sys, os
-sys.path.append(os.path.join(sys.path[0], '..'))
+#print(sys.path)
+parent_directory = os.path.abspath('..')
+sys.path.append(parent_directory)
+#sys.path.append(os.path.join(sys.path[0], '..'))
 
 import numpy as np
 import matplotlib.pyplot as plt
