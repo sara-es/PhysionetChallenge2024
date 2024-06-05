@@ -2,6 +2,7 @@
 
 # Load libraries.
 import argparse
+import json
 import os
 import os.path
 import shutil
@@ -12,51 +13,56 @@ from helper_code import *
 
 # Parse arguments.
 def get_parser():
-    description = 'Add image filenames to header files.'
+    description = 'Prepare the ECG image data from ECG-Image-Kit for the Challenge.'
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('-i', '--input_folder', type=str, required=True)
     parser.add_argument('-o', '--output_folder', type=str, required=True)
     return parser
 
-# Find images.
-def find_images(folder, extensions):
-    images = set()
+# Find files.
+def find_files(folder, extensions, remove_extension=False, sort=False):
+    selected_files = set()
     for root, directories, files in os.walk(folder):
         for file in files:
             extension = os.path.splitext(file)[1]
             if extension in extensions:
-                image = os.path.relpath(os.path.join(root, file), folder)
-                images.add(image)
-    images = sorted(images)
-    return images
+                file = os.path.relpath(os.path.join(root, file), folder)
+                if remove_extension:
+                    file = os.path.splitext(file)[0]
+                selected_files.add(file)
+    if sort:
+        selected_files = sorted(selected_files)
+    return selected_files
 
 # Run script.
 def run(args):
+    # Define variables.
+    image_file_types = ['.png', '.jpg', '.jpeg']
+
     # Find the header files.
     records = find_records(args.input_folder)
 
     # Find the image files.
-    image_types = ['.png', '.jpg', '.jpeg']
-    images = find_images(args.input_folder, image_types)
-    record_to_images = defaultdict(set)
-    for image in images:
-        root, ext = os.path.splitext(image)
+    image_files = find_files(args.input_folder, image_file_types)
+    record_to_image_files = defaultdict(set)
+    for image_file in image_files:
+        root, ext = os.path.splitext(image_file)
         record = '-'.join(root.split('-')[:-1])
-        basename = os.path.basename(image)
-        record_to_images[record].add(basename)
+        basename = os.path.basename(image_file)
+        record_to_image_files[record].add(basename)
 
     # Update the header files and copy signal files.
     for record in records:
         record_path, record_basename = os.path.split(record)
-        record_images = record_to_images[record]
+        record_image_files = record_to_image_files[record]
 
         # Sort the images numerically if numerical and alphanumerically otherwise.
-        record_suffixes = [os.path.splitext(image)[0].split('-')[-1] for image in record_images]
+        record_suffixes = [os.path.splitext(image_file)[0].split('-')[-1] for image_file in record_image_files]
         if all(is_number(suffix) for suffix in record_suffixes):
-            record_images = sorted(record_images, key=lambda image: float(os.path.splitext(image)[0].split('-')[-1]))
+            record_image_files = sorted(record_image_files, key=lambda image_file: float(os.path.splitext(image_file)[0].split('-')[-1]))
         else:
-            record_images = sorted(record_images)
-
+            record_image_files = sorted(record_image_files)
+        
         # Update the header files.
         input_header_file = os.path.join(args.input_folder, record + '.hea')
         output_header_file = os.path.join(args.output_folder, record + '.hea')
@@ -64,11 +70,11 @@ def run(args):
         input_header = load_text(input_header_file)
         output_header = ''
         for l in input_header.split('\n'):
-            if not l.startswith('#Image:') and l:
+            if not l.startswith(substring_images) and l:
                 output_header += l + '\n'
 
-        record_image_string = ', '.join(record_images)
-        output_header += f'#Image: {record_image_string}\n'
+        record_image_string = ', '.join(record_image_files)
+        output_header += f'{substring_images} {record_image_string}\n'
 
         input_path = os.path.join(args.input_folder, record_path)
         output_path = os.path.join(args.output_folder, record_path)
