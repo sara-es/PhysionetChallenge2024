@@ -47,7 +47,35 @@ class PaperECG:
 
         # returns x and y coordinates of the traces in order
         signal_coords = self.signal_extractor.extract_signals(ecg_crop)
+        print(signal_coords)
+        
+        ## DW: replace extract_signals with our own version.
 
+        # check if reference pulses are present and where
+        raw_signals, ref_pulse_present = self.layout_detector.detect_reference_pulses(signal_coords)
+
+        # returns array of digitized signals and trace of cleaned image
+        digitised_signals, trace = self.postprocessor.postprocess(
+                self.gridsize, signal_coords, ecg_crop, self.sig_len, ref_pulse_present
+            )
+
+        return digitised_signals, trace, raw_signals
+    
+    def digitise_unet(self) -> pd.DataFrame:
+        """
+        Digitize the ECG in paper format.
+
+        Returns:
+            DigitalECG: Digitized ECG.
+        """
+
+        # returns image object
+        ecg_crop, rect = self.preprocessor.preprocess(self.image)
+        
+        ## DW: replace extract_signals with our own version.
+        # returns x and y coordinates of the traces in order
+        signal_coords = self.signal_extractor.get_signals_dw(ecg_crop)
+        
         # check if reference pulses are present and where
         raw_signals, ref_pulse_present = self.layout_detector.detect_reference_pulses(signal_coords)
 

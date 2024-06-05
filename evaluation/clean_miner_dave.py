@@ -1,9 +1,10 @@
 from clean_miner_visualization import *
-
 import os
 os.chdir('C:/Users/hssdwo/Documents/GitHub/PhysionetChallenge2024')
-data_folder = ''
-output_folder = ''
+#import helper_code
+
+data_folder = 'C:\\Users\\hssdwo\\Documents\\GitHub\\PhysionetChallenge2024\\tiny_testset\\hr_gt'
+output_folder = 'C:\\Users\\hssdwo\\Documents\\GitHub\\PhysionetChallenge2024\\tiny_testset\\test_outputs'
 verbose = True
 
 # Find data files.
