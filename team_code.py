@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-# Edit this script to add your team's code. Some functions are *required*, but you can edit most parts of the required functions,
+# Edit this script to add your team's code. Some functions are *required*, but you 
+# can edit most parts of the required functions,
 # change or remove non-required functions, and add your own functions.
 
 ################################################################################
@@ -9,22 +10,22 @@
 #
 ################################################################################
 
-import joblib
+import joblib, os, sys, time
 import numpy as np
-import os
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-import sys
+from tqdm import tqdm
 
-from helper_code import *
+import helper_code
 
 ################################################################################
 #
-# Required functions. Edit these functions to add your code, but do not change the arguments of the functions.
+# Required functions. Edit these functions to add your code, but do not change the 
+# arguments of the functions.
 #
 ################################################################################
 
-# Train your models. This function is *required*. You should edit this function to add your code, but do *not* change the arguments
-# of this function. If you do not train one of the models, then you can return None for the model.
+# Train your models. This function is *required*. You should edit this function to 
+# add your code, but do *not* change the arguments of this function. If you do not 
+# train one of the models, then you can return None for the model.
 
 # Train your digitization model.
 def train_models(data_folder, model_folder, verbose):
@@ -32,7 +33,7 @@ def train_models(data_folder, model_folder, verbose):
     if verbose:
         print('Finding the Challenge data...')
 
-    records = find_records(data_folder)
+    records = helper_code.find_records(data_folder)
     num_records = len(records)
 
     if num_records == 0:
@@ -64,7 +65,7 @@ def train_models(data_folder, model_folder, verbose):
         digitization_features.append(features)
 
         # Some images may not be labeled...
-        labels = load_labels(record)
+        labels = helper_code.load_labels(record)
         if labels:
             classification_features.append(features)
             classification_labels.append(labels)
@@ -85,7 +86,7 @@ def train_models(data_folder, model_folder, verbose):
 
     classification_features = np.vstack(classification_features)
     classes = sorted(set.union(*map(set, classification_labels)))
-    classification_labels = compute_one_hot_encoding(classification_labels, classes)
+    classification_labels = helper_code.compute_one_hot_encoding(classification_labels, classes)
 
     # Define parameters for random forest classifier and regressor.
     n_estimators   = 12  # Number of trees in the forest.
@@ -126,11 +127,11 @@ def run_models(record, digitization_model, classification_model, verbose):
     features = extract_features(record)
 
     # Load the dimensions of the signal.
-    header_file = get_header_file(record)
-    header = load_text(header_file)
+    header_file = helper_code.get_header_file(record)
+    header = helper_code.load_text(header_file)
 
-    num_samples = get_num_samples(header)
-    num_signals = get_num_signals(header)
+    num_samples = helper_code.get_num_samples(header)
+    num_signals = helper_code.get_num_signals(header)
 
     # Generate "random" waveforms using the a random seed from the feature.
     seed = int(round(model + np.mean(features)))
@@ -162,7 +163,7 @@ def run_models(record, digitization_model, classification_model, verbose):
 
 # Extract features.
 def extract_features(record):
-    images = load_images(record)
+    images = helper_code.load_images(record)
     mean = 0.0
     std = 0.0
     for image in images:
@@ -182,3 +183,58 @@ def save_models(model_folder, digitization_model=None, classification_model=None
         d = {'model': classification_model, 'classes': classes}
         filename = os.path.join(model_folder, 'classification_model.sav')
         joblib.dump(d, filename, protocol=0)
+
+
+def generate_images_from_wfdb(records_folder, images_folder, generation_params, verbose, 
+                              records_to_process=None):
+    """TODO
+    Use WFDB records found in records_folder to generate images and save them in images_folder.
+    Optionally provide a list of a subset of records to process (records_to_process).
+    """
+    pass
+
+def preprocess_images(raw_images_folder, processed_images_folder, verbose, 
+                      records_to_process=None):
+    """
+    Preprocess images found in raw_images_folder and save them in processed_images_folder.
+    Optionally provide a list of a subset of records to process (records_to_process).
+
+    Currently this method only determines the gridsize of the image; any other preprocessing steps
+    (fixing rotation, removing shadows if needed) should be added here. 
+    """
+    if not records_to_process:
+        records_to_process = os.listdir(raw_images_folder)
+
+    for i in tqdm(range(len(records_to_process)), desc='Preprocessing images', disable=~verbose):
+        record = records_to_process[i]
+        raw_image = os.path.join(raw_images_folder, record + '.png')
+        processed_image = os.path.join(processed_images_folder, record + '.png')
+        # Preprocess image
+        # Save image
+
+
+def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder, patches_folder, 
+                                verbose, records_to_process=None, delete_images=False):
+    """TODO
+    Call generate_images_from_wfdb to generate images and masks; then patchify the images and masks
+    for training the U-Net model. Save the patches in patches_folder. Option to delete images and 
+    masks (not the patches) after patchifying to save space.
+    """
+    pass
+
+
+def train_unet():
+    pass
+
+def unet_predict_from_image():
+    pass
+
+def reconstruct_signal():
+    pass
+
+def train_classifier():
+    pass
+
+def classify_signal():
+    pass
+

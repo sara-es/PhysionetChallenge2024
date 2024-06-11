@@ -96,8 +96,8 @@ def main(data_folder, unet_outputs_folder, output_folder, verbose):
                 print(f"Multiple images found, using image at {image_file}.")
         
         # get the gridsize from the image   
-        # cleaned_image, gridsize = cepstrum_grid_detection.clean_image(image_file)
-        gridsize = 37.5
+        cleaned_image, gridsize = cepstrum_grid_detection.clean_image(image_file)
+        # gridsize = 37.5
 
 
         # use the u-net output as the clean image input to ecg-miner
