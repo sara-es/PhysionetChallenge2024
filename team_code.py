@@ -13,7 +13,7 @@
 import joblib, os, sys, time
 import numpy as np
 from tqdm import tqdm
-
+import preprocessing.resize_images
 import helper_code
 
 ################################################################################
@@ -204,13 +204,16 @@ def preprocess_images(raw_images_folder, processed_images_folder, verbose,
     """
     if not records_to_process:
         records_to_process = os.listdir(raw_images_folder)
-
+    
     for i in tqdm(range(len(records_to_process)), desc='Preprocessing images', disable=~verbose):
         record = records_to_process[i]
         raw_image = os.path.join(raw_images_folder, record + '.png')
         processed_image = os.path.join(processed_images_folder, record + '.png')
-        # Preprocess image
-        # Save image
+        # load raw image
+        images = helper_code.load_images(raw_image)
+        images = preprocessing.resize_images(images)
+        
+        
 
 
 def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder, patches_folder, 
