@@ -15,6 +15,7 @@ import numpy as np
 from tqdm import tqdm
 
 import helper_code
+from digitization import Unet
 
 ################################################################################
 #
@@ -94,14 +95,14 @@ def train_models(data_folder, model_folder, verbose):
     random_state   = 56  # Random state; set for reproducibility.
 
     # Fit the model.
-    classification_model = RandomForestClassifier(
-        n_estimators=n_estimators, max_leaf_nodes=max_leaf_nodes, random_state=random_state).fit(classification_features, classification_labels)
+    # classification_model = RandomForestClassifier(
+    #     n_estimators=n_estimators, max_leaf_nodes=max_leaf_nodes, random_state=random_state).fit(classification_features, classification_labels)
 
     # Create a folder for the models if it does not already exist.
     os.makedirs(model_folder, exist_ok=True)
 
     # Save the models.
-    save_models(model_folder, digitization_model, classification_model, classes)
+    # save_models(model_folder, digitization_model, classification_model, classes)
 
     if verbose:
         print('Done.')
@@ -223,8 +224,37 @@ def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder
     pass
 
 
-def train_unet():
-    pass
+def train_unet(record_ids, image_patch_folder, mask_patch_folder, model_folder, verbose, 
+               args=None, max_train_samples=5000, warm_start=False):
+    """
+    Train the U-Net model from patches and save the resulting model. 
+    Note that no validation is done by default - during the challenge we will want to train
+    on all available data. Manually set args.train_val_prop to a value between 0 and 1 to
+    enforce validation.
+    """
+    if not args: # use default args if none are provided
+        args = Unet.utils.Args()
+
+    # where the model will be saved
+    PATH_UNET = os.path.join(model_folder, 'UNET_' + str(args.patchsize))
+    # path for model checkpoints, used with early stopping
+    CHK_PATH_UNET = os.path.join(model_folder, 'UNET_' + str(args.patchsize) + '_checkpoint')
+    # for saving the loss values, used with early stopping
+    LOSS_PATH = os.path.join(model_folder, 'UNET_' + str(args.patchsize) + '_losses')
+    # if we're loading a pretrained model - hardcoded for now
+    if warm_start:
+        LOAD_PATH_UNET = os.path.join('model', 'pretrained', 
+                                      'UNET_run1_'+ str(args.patchsize) + '_checkpoint')
+        if not os.path.exists(LOAD_PATH_UNET):
+            print(f"Warm start requested but no model found at {LOAD_PATH_UNET}, " +\
+                  "training U-net from scratch.")
+            
+    Unet.train_unet(record_ids, image_patch_folder, mask_patch_folder, args,
+            PATH_UNET, CHK_PATH_UNET, LOSS_PATH, LOAD_PATH_UNET, verbose,
+            max_samples=max_train_samples,
+            )
+    
+
 
 def unet_predict_from_image():
     pass

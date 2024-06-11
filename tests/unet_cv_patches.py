@@ -174,8 +174,8 @@ def train_unet(X_train, y_train, args, patchsize, PATH_UNET, CHK_PATH_UNET,
 
     for epoch in range(epoch_reached, args.epochs+1):
         print('Epoch ', epoch, '/', args.epochs, flush=True)
-        loss = Unet.train_normal(args, unet, train_dataloader, optimizer, crit, epoch)
-        val_loss = Unet.val_normal(args, unet, val_dataloader, crit)
+        loss = Unet.train_epoch(args, unet, train_dataloader, optimizer, crit, epoch)
+        val_loss = Unet.val_epoch(args, unet, val_dataloader, crit)
         loss_store.append([loss, val_loss])
         np.save(LOSS_PATH, np.array(loss_store))
 
