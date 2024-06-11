@@ -15,6 +15,7 @@ import numpy as np
 from tqdm import tqdm
 import preprocessing.resize_images
 import helper_code
+import ECG_miner.digitize_image.digitize_image_unet
 from digitization import Unet
 
 ################################################################################
@@ -267,8 +268,17 @@ def unet_predict_single_image():
     pass
 
 
-def reconstruct_signal():
-    pass
+def reconstruct_signal(unet_image, gridsize):
+    """Input - an image (mask) from the unet, where ECG = 1, background - 0
+       Output - 
+       
+       There are three stages:
+           1. convert unet image into a set of Point (ecg-miner) objects that correspond to each row of ECG, in pixels
+           2. identify and remove any reference pulses
+           3. convert into individual ECG channels and convert from pixels to mV
+    """
+    #TODO: adapt self.postprocessor.postprocess to work for different layouts
+    ECG_miner.digitize_image.digitize_image_unet(unet_image, gridsize, sig_len=1000)
 
 
 def reconstruct_signal_batch(data_folder, images_folder, mask_patch_folder, model_folder, verbose,
