@@ -72,22 +72,3 @@ def depatchify(patches, size=(256,256), image_shape=(1700, 2200)):
     image = image[:image_shape[0], :image_shape[1]]
     return image
 
-
-# def main(patch_path):
-#     import pickle
-#     ids = sorted(os.listdir(patch_path))
-#     images = []
-#     for id in ids:
-#         print(id)
-#         with open(os.path.join(patch_path, id), 'rb') as f:
-#             patches = np.load(f)
-#             print(patches.shape)
-#             image = depatchify(patches)
-#             # images.append(image)
-#             plt.imshow(image)
-#             plt.show()
-
-#     # pickle.dump(images, open('F:\\ptb-xl\\images.pkl', 'wb'))
-
-# patch_path = 'F:\\ptb-xl\\label_patches'
-# main(patch_path)
