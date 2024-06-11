@@ -194,12 +194,15 @@ def generate_images_from_wfdb(records_folder, images_folder, generation_params, 
     """
     pass
 
+
 def preprocess_images(raw_images_folder, processed_images_folder, verbose, 
                       records_to_process=None):
     """
     Preprocess images found in raw_images_folder and save them in processed_images_folder.
     Optionally provide a list of a subset of records to process (records_to_process).
 
+    Preprocessing steps currently implemented:
+        - 
     Currently this method only determines the gridsize of the image; any other preprocessing steps
     (fixing rotation, removing shadows if needed) should be added here. 
     """
@@ -208,12 +211,11 @@ def preprocess_images(raw_images_folder, processed_images_folder, verbose,
     
     for i in tqdm(range(len(records_to_process)), desc='Preprocessing images', disable=~verbose):
         record = records_to_process[i]
-        raw_image = os.path.join(raw_images_folder, record + '.png')
+        raw_image_path = os.path.join(raw_images_folder, record + '.png')
         processed_image = os.path.join(processed_images_folder, record + '.png')
         # load raw image
-        images = helper_code.load_images(raw_image)
+        images = helper_code.load_images(raw_image_path)
         images = preprocessing.resize_images(images)
-        
         
 
 
@@ -261,11 +263,22 @@ def train_unet(record_ids, image_patch_folder, mask_patch_folder, model_folder, 
             )
 
 
-def unet_predict_from_image():
+def unet_predict_single_image():
     pass
+
 
 def reconstruct_signal():
     pass
+
+
+def reconstruct_signal_batch(data_folder, images_folder, mask_patch_folder, model_folder, verbose,
+                             records_to_process=None):
+    """
+    An all-in-one to generate images from records, run them through the U-Net model, and reconstruct
+    the signal 
+    """
+    pass
+
 
 def train_classifier():
     pass
