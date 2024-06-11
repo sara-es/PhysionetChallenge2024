@@ -242,18 +242,20 @@ def train_unet(record_ids, image_patch_folder, mask_patch_folder, model_folder, 
     # for saving the loss values, used with early stopping
     LOSS_PATH = os.path.join(model_folder, 'UNET_' + str(args.patchsize) + '_losses')
     # if we're loading a pretrained model - hardcoded for now
+    LOAD_PATH_UNET = None
     if warm_start:
-        LOAD_PATH_UNET = os.path.join('model', 'pretrained', 
+        chkpt_path = os.path.join('model', 'pretrained', 
                                       'UNET_run1_'+ str(args.patchsize) + '_checkpoint')
-        if not os.path.exists(LOAD_PATH_UNET):
+        if not os.path.exists(chkpt_path):
             print(f"Warm start requested but no model found at {LOAD_PATH_UNET}, " +\
                   "training U-net from scratch.")
+        else:
+            LOAD_PATH_UNET = chkpt_path
             
     Unet.train_unet(record_ids, image_patch_folder, mask_patch_folder, args,
             PATH_UNET, CHK_PATH_UNET, LOSS_PATH, LOAD_PATH_UNET, verbose,
             max_samples=max_train_samples,
             )
-    
 
 
 def unet_predict_from_image():
