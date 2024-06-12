@@ -36,12 +36,14 @@ def train_models(data_folder, model_folder, verbose):
     val_records = records[10:]
     images_folder = os.path.join("tiny_testset", "lr_unet_tests", "data_images")
     masks_folder = os.path.join("tiny_testset", "lr_unet_tests", "binary_masks")
-    image_patch_folder = os.path.join("tiny_testset", "lr_unet_tests", "image_patches")
-    mask_patch_folder = os.path.join("tiny_testset", "lr_unet_tests", "label_patches") 
+    patch_folder = os.path.join("tiny_testset", "lr_unet_tests")
+    unet_output_folder = os.path.join("tiny_testset", "lr_unet_tests", "unet_outputs")
+    reconstructed_signals_folder = os.path.join("tiny_testset", "lr_unet_tests", "reconstructed_signals")
 
     print(train_records)
 
     # generate images and masks for training u-net; generate patches
+    # TODO generate_unet_training_data
     # images_folder = os.path.join("ptb-xl", "train_images")
     # masks_folder = os.path.join("ptb-xl", "train_masks")
     
@@ -53,14 +55,16 @@ def train_models(data_folder, model_folder, verbose):
     args = Unet.utils.Args()
     args.train_val_prop = 0.8
     args.epochs = 2
-    team_code.train_unet(train_records, image_patch_folder, mask_patch_folder, model_folder, verbose, 
+    team_code.train_unet(train_records, patch_folder, model_folder, verbose, 
                          args=args, warm_start=True)
 
     # save trained u-net
+    # included in train_unet step
 
-    # generate new images
-
-    # run u-net on new images
+    # generate new images, patch them, then run u-net
+    team_code.generate_resnet_training_data(data_folder, images_folder, masks_folder, patch_folder,
+                                  unet_output_folder, model_folder, reconstructed_signals_folder, 
+                                  verbose, records_to_process=None, delete_images=True)
 
     # reconstruct signals from u-net outputs
 

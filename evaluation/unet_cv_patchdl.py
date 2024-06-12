@@ -15,35 +15,6 @@ from digitization.Unet.datasets.PatchDataset import PatchDataset
 from tqdm import tqdm
 
 
-def save_patches(image_path, label_path, patch_size, patch_save_path, max_samples=False):
-    ids = sorted(os.listdir(label_path))
-    if max_samples:
-        ids = ids[:max_samples]
-    im_patch_path = os.path.join(patch_save_path, 'image_patches')
-    lab_patch_path = os.path.join(patch_save_path, 'label_patches')
-    os.makedirs(im_patch_path, exist_ok=True)
-    os.makedirs(lab_patch_path, exist_ok=True)
-
-    for id in tqdm(ids):
-        lab_pth = os.path.join(label_path, id)
-        id = id.split('.')[0]
-        img_pth = os.path.join(image_path, id + '.png')
-
-        image = plt.imread(img_pth)
-        with open(lab_pth, 'rb') as f:
-            label = np.load(f)
-
-        im_patches, label_patches = Unet.patchify(image, label, size=(patch_size,patch_size))
-        
-        for i in range(len(im_patches)):
-            im_patch = im_patches[i]
-            lab_patch = label_patches[i]
-            k = f'_{i:03d}'
-            np.save(os.path.join(im_patch_path, id + k), im_patch)
-            np.save(os.path.join(lab_patch_path, id + k), lab_patch)
-        # np.save(os.path.join(im_patch_path, id), im_patches)
-        # np.save(os.path.join(lab_patch_path, id), label_patches)
-
 
 def get_data_split_ids(patch_path, patch_size, train_prop, max_samples=False):
     im_patch_path = os.path.join(patch_path, 'image_patches')
@@ -109,48 +80,6 @@ def predict_unet(ids, im_patch_dir, label_patch_dir, args, model_path, save_pth,
         np.save(save_pth+'example_raw', orig)
 
 
-def predict_full_images(ids, im_patch_dir, label_patch_dir, args, model_path, save_pth, save_all=True):
-    cuda = torch.cuda.is_available()
-
-    # want to predict on one image at a time so we can reconstruct it
-    image_ids = set([f.split('_')[0] for f in ids]) # set = unique values
-    print(f"Testing on {len(image_ids)} images with {len(ids)} total patches.")
-
-    # Load the model
-    unet = BasicResUNet(3, 2, nbs=[1, 1, 1, 1], init_channels=16, cbam=False)
-    if cuda:
-        unet = unet.cuda()
-    if model_path:
-        print('Loading Weights')
-        encoder_dict = unet.state_dict()
-        pretrained_dict = torch.load(model_path)['model_state_dict']
-        pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in encoder_dict}
-        print('weights loaded unet = ', len(pretrained_dict), '/', len(encoder_dict))
-        unet.load_state_dict(torch.load(model_path)['model_state_dict'])
-
-    for image_id in tqdm(image_ids):
-        patch_ids = [f for f in ids if f.split('_')[0] == image_id]
-        patch_ids = sorted(patch_ids)
-        # train = True here because we want to load the labels for accuracy score
-        test_dataset = PatchDataset(patch_ids, im_patch_dir, label_patch_dir, train=True, transform=None)
-        test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=0)
-
-        results, true, orig = Unet.normal_predict(args, unet, test_dataloader)
-        results = results.squeeze()
-        results = np.argmax(results, axis=1)
-
-        if save_all:
-            save_chance = 1
-        else:
-            # randomly save some images
-            save_chance = np.random.rand()
-        if save_chance > 0.9:
-            predicted_im = Unet.depatchify(results, results.shape[1:])
-            # import matplotlib.pyplot as plt
-            # plt.imshow(predicted_im)
-            # plt.show()
-            np.save(os.path.join(save_pth, image_id), predicted_im)
-
 
 def main(image_path, labels_path, model_path, output_path, patch_path, train=True, make_patches=True):
     args = Unet.utils.Args()       # This is just a class to pass values efficiently to the training loops
@@ -177,7 +106,7 @@ def main(image_path, labels_path, model_path, output_path, patch_path, train=Tru
     max_samples = False
 
     if make_patches:
-        save_patches(image_path, labels_path, patchsize, patch_path, max_samples=max_samples)
+        Unet.patching.save_patches_batch(image_path, labels_path, patchsize, patch_path, max_samples=max_samples)
     print(f'Loading patches from {patch_path}...')
 
     if train:

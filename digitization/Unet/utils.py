@@ -8,6 +8,7 @@ import os
 import torch
 import numpy as np
 from sklearn.utils import shuffle
+from digitization.Unet.ECGunet import BasicResUNet
 
 class Args:
     # Store lots of the parameters that we might need to train the model
@@ -23,7 +24,6 @@ class Args:
         self.alpha = 1
         self.ref_dist=None
         self.reduce_lr = True # Decay the learning rate
-        self.patchsize = 256 # Size of the patches in pixels - assumes square patches
         self.augmentation = True # Augment the data (rotation, color temp, noise)
 
 
@@ -93,3 +93,24 @@ def patch_split_from_ids(ids, im_patch_path, lab_patch_path, train_prop, max_sam
         id_test = []
 
     return id_train, id_test
+
+
+def load_unet_from_state_dict(model_folder, model_name):
+    if model_name is None:
+        model_path = os.path.join("model", "pretrained", "UNET_run1_256_aug_checkpoint")
+        if not os.path.exists(model_path):
+            raise ValueError("Cannot load U-net state dict: model path does not exist.")
+    else: 
+        model_path = os.path.join(model_folder, model_name)
+
+    # Load the model
+    unet = BasicResUNet(3, 2, nbs=[1, 1, 1, 1], init_channels=16, cbam=False)
+    if torch.cuda.is_available():
+        unet = unet.cuda()
+
+    encoder_dict = unet.state_dict()
+    pretrained_dict = torch.load(model_path)['model_state_dict']
+    pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in encoder_dict}
+    unet.load_state_dict(torch.load(model_path)['model_state_dict'])
+
+    return unet

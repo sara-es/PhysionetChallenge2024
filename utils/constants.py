@@ -1,0 +1,1 @@
+PATCH_SIZE = 256 # Size of the u-net patches in pixels - assumes square patches
