@@ -325,7 +325,7 @@ def reconstruct_signal(unet_image, gridsize):
            3. convert into individual ECG channels and convert from pixels to mV
     """
     #TODO: adapt self.postprocessor.postprocess to work for different layouts
-    ECG_miner.digitize_image.digitize_image_unet(unet_image, gridsize, sig_len=1000)
+    ECGminer.digitize_image_unet(unet_image, gridsize, sig_len=1000)
 
 
 def generate_resnet_training_data(wfdb_records_folder, images_folder, mask_folder, patch_folder,
