@@ -111,7 +111,8 @@ def batch_predict_full_images(ids_to_predict, patch_dir, model_path, save_pth,
             # import matplotlib.pyplot as plt
             # plt.imshow(predicted_im)
             # plt.show()
-            np.save(os.path.join(save_pth, image_id), predicted_im)
+            with open(os.path.join(save_pth, image_id + '.npy'), 'wb') as f:
+                np.save(f , predicted_im)
 
 
     # TODO calculate DICE

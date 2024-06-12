@@ -45,7 +45,7 @@ class SignalExtractor:
     """
     def get_signals_dw(self, ecg: Image) -> Iterable[Iterable[Point]]:
         thresh = 50
-        test_im = ecg.__data
+        test_im = ecg.data
         # test_im = abs(image -1)*255 # invert colours - not required if colors already inverted
         rois = self.__get_roi(ecg)
         s = []
@@ -62,45 +62,45 @@ class SignalExtractor:
                 while test_im[x_idx, y] == 0:
                     signal_col.append([x_idx,y])
                     x_idx = x_idx-1
-                    # search down
-                    x_idx = x+1
+                # search down
+                x_idx = x+1
                 while test_im[x_idx, y] == 0:
                     signal_col.append([x_idx,y])
                     x_idx = x_idx+1
          
-            signal_col = sorted(signal_col, key=lambda x: x[0], reverse=False)
-            signal.append(signal_col)
-             
-            # go to next column and find nearest black pixels
-            top_line = signal_col[0][0] # y-coordinate of top of line in previous column 
-            bottom_line = signal_col[-1][0] # y-coordinate of bottom of line in previous column 
-            y = y+1
-            match = 0
-            while match == 0:
-                candidates = np.where(test_im[:,y] == 0)[0]
-                dists = np.concatenate((candidates - top_line, candidates - bottom_line))
-                candidates = np.concatenate((candidates, candidates))
-                if np.min(abs(dists))<thresh:                    
-                    #bit of voodoo here to try to make sure that we favour returning towards baseline when there is a choice
-                    dist_idx = np.where(abs(dists) == min(abs(dists)))[0]
-                    if len(dist_idx)>1:
-                        #if there is more than one minimum, select the one that takes us closer to the baseline
-                        x = candidates[dist_idx]
-                        i = np.argmin(abs(x-row))
-                        x = x[i]
-                    else:
-                        x = candidates[dist_idx][0]     
-                    signal_col = []
-                    signal_col.append([x,y])
-                    match = 1
-                elif y == endcol:
-                    match = 1
-                else: #skip a column and try again
-                    y = y+1
+                signal_col = sorted(signal_col, key=lambda x: x[0], reverse=False)
+                signal.append(signal_col)
+                
+                # go to next column and find nearest black pixels
+                top_line = signal_col[0][0] # y-coordinate of top of line in previous column 
+                bottom_line = signal_col[-1][0] # y-coordinate of bottom of line in previous column 
+                y = y+1
+                match = 0
+                while match == 0 and y < endcol:
+                    candidates = np.where(test_im[:,y] == 0)[0]
+                    dists = np.concatenate((candidates - top_line, candidates - bottom_line))
+                    candidates = np.concatenate((candidates, candidates))
+                    if np.min(abs(dists))<thresh:                    
+                        #bit of voodoo here to try to make sure that we favour returning towards baseline when there is a choice
+                        dist_idx = np.where(abs(dists) == min(abs(dists)))[0]
+                        if len(dist_idx)>1:
+                            #if there is more than one minimum, select the one that takes us closer to the baseline
+                            x = candidates[dist_idx]
+                            i = np.argmin(abs(x-row))
+                            x = x[i]
+                        else:
+                            x = candidates[dist_idx][0]     
+                        signal_col = []
+                        signal_col.append([x,y])
+                        match = 1
+                    elif y == endcol:
+                        match = 1
+                    else: #skip a column and try again
+                        y = y+1
                      
         #sanitise the list
-        signal_flat = [x for xs in signal for x in xs]
-        s.append(signal_flat)
+            signal_flat = [x for xs in signal for x in xs]
+            s.append(signal_flat)
         point_signal = self.__signal_to_miner(s, rois)
         return point_signal
             
@@ -190,7 +190,7 @@ class SignalExtractor:
     
     """Find the start position of the ECG signal for each row.
     N.B. This will fail if signal from an adjacent row gets close to the baseline for this row."""
-    def __find_start_coords(image, rois, row):
+    def __find_start_coords(self, image, rois, row):
         # assume that the starting point is within 0.75 * gap between lines. This may not be true if signal starts on a particularly high/low QRS complex
         roi_gap = int(np.max(np.diff(rois)) *0.75)
         height = image.shape[0]
@@ -216,7 +216,7 @@ class SignalExtractor:
         return startrow, startcol, endcol
     
     """convert ecg sparse matrices into ecg miner format"""
-    def signal_to_miner(self, signals, rois):
+    def __signal_to_miner(self, signals, rois):
         all_sigs = []
         for i, signal in enumerate(signals):
             start = signal[0][1]

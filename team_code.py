@@ -225,7 +225,6 @@ def preprocess_images(raw_images_folder, processed_images_folder, verbose,
         images = preprocessing.resize_images(images)
         
 
-
 def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder, patch_folder,
                                 verbose, patch_size=constants.PATCH_SIZE, records_to_process=None,
                                 delete_images=False):
@@ -366,7 +365,30 @@ def generate_resnet_training_data(wfdb_records_folder, images_folder, mask_folde
                                    unet_output_folder, verbose, save_all=True)
 
     # reconstruct_signals
-    print(records_to_process)
+    reconstructed_signals = []
+    for record in tqdm(records_to_process, desc='Reconstructing signals from U-net outputs', 
+                       disable=not verbose):
+        record_id = record.split('_')[0]
+
+        # get headers for labels and demographic info
+        # 'record' is the filepath - name used for consistency with Challenge code
+        record_path = os.path.join(wfdb_records_folder, record) 
+        header_file = helper_code.get_header_file(record_path)
+        labels = helper_code.load_labels(record_path)
+        if labels: # only process records with labels for training
+            # get demographic info
+            header = helper_code.load_text(header_file)
+            
+
+            # reconstruct signals from u-net outputs
+            unet_image_path = os.path.join(unet_output_folder, record_id + '.npy')
+            with open(unet_image_path, 'rb') as f:
+                unet_image = np.load(f)
+            ###### FIXME hardcoded gridsize for now ######
+            reconstructed_signal = reconstruct_signal(unet_image, gridsize=37.5)
+            reconstructed_signal = np.asarray(np.nan_to_num(reconstructed_signal)*1000, dtype=np.int16)
+
+        # save reconstructed signal
     # save reconstructed signals
     # delete image patches
     # optional: delete images and patches

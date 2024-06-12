@@ -47,16 +47,16 @@ def train_models(data_folder, model_folder, verbose):
     # images_folder = os.path.join("ptb-xl", "train_images")
     # masks_folder = os.path.join("ptb-xl", "train_masks")
     
-    team_code.generate_unet_training_data(data_folder, images_folder, 
-                                          masks_folder, patch_folder, 
-                                          verbose, records_to_process=records)
+    # team_code.generate_unet_training_data(data_folder, images_folder, 
+    #                                       masks_folder, patch_folder, 
+    #                                       verbose, records_to_process=records)
 
     # train u-net
-    args = Unet.utils.Args()
-    args.train_val_prop = 0.8
-    args.epochs = 1
-    team_code.train_unet(train_records, patch_folder, model_folder, verbose, 
-                         args=args, warm_start=True)
+    # args = Unet.utils.Args()
+    # args.train_val_prop = 0.8
+    # args.epochs = 1
+    # team_code.train_unet(train_records, patch_folder, model_folder, verbose, 
+    #                      args=args, warm_start=True)
 
     # save trained u-net
     # included in train_unet step
