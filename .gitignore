@@ -163,3 +163,4 @@ cython_debug/
 trace.png
 scratch_eval.ipynb
 u-net/
+/tests/data

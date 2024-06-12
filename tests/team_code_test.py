@@ -36,7 +36,7 @@ def train_models(data_folder, model_folder, verbose):
     val_records = records[10:]
     images_folder = os.path.join("tiny_testset", "lr_unet_tests", "data_images")
     masks_folder = os.path.join("tiny_testset", "lr_unet_tests", "binary_masks")
-    patch_folder = os.path.join("tiny_testset", "lr_unet_tests")
+    patch_folder = os.path.join("tests", "data", "patches")
     unet_output_folder = os.path.join("tiny_testset", "lr_unet_tests", "unet_outputs")
     reconstructed_signals_folder = os.path.join("tiny_testset", "lr_unet_tests", "reconstructed_signals")
 
@@ -47,14 +47,14 @@ def train_models(data_folder, model_folder, verbose):
     # images_folder = os.path.join("ptb-xl", "train_images")
     # masks_folder = os.path.join("ptb-xl", "train_masks")
     
-    # team_code.generate_unet_training_data(data_folder, images_folder, 
-    #                                       masks_folder, patches_folder, 
-    #                                       train_records, verbose)
+    team_code.generate_unet_training_data(data_folder, images_folder, 
+                                          masks_folder, patch_folder, 
+                                          verbose, records_to_process=records)
 
     # train u-net
     args = Unet.utils.Args()
     args.train_val_prop = 0.8
-    args.epochs = 2
+    args.epochs = 1
     team_code.train_unet(train_records, patch_folder, model_folder, verbose, 
                          args=args, warm_start=True)
 

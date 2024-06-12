@@ -20,18 +20,20 @@ class PatchDataset(Dataset):  # Inherit from Dataset class
 
     def __getitem__(self, index):
         im_path = os.path.join(self.im_patch_dir, self.ids[index])
-        im = np.load(im_path)
-        # reshape to (c, w, h)
-        x = torch.from_numpy(np.transpose(im, (2, 0, 1))).float()
+        with open(im_path, 'rb') as f:
+            im = np.load(f)
+            # reshape to (c, w, h)
+            x = torch.from_numpy(np.transpose(im, (2, 0, 1))).float()
         
         if self.train:
             lab_path = os.path.join(self.label_patch_dir, self.ids[index])
-            lab = np.load(lab_path)
-            # make the labels one hot
-            y_store = np.zeros((2, lab.shape[0], lab.shape[1]))
-            y_store[0][lab==0] = 1
-            y_store[1][lab==1] = 1
-            y = torch.from_numpy(y_store).float()
+            with open(lab_path, 'rb') as f:
+                lab = np.load(f)
+                # make the labels one hot
+                y_store = np.zeros((2, lab.shape[0], lab.shape[1]))
+                y_store[0][lab==0] = 1
+                y_store[1][lab==1] = 1
+                y = torch.from_numpy(y_store).float()
         else:
             y = torch.zeros(2, x.shape[1], x.shape[2])
 

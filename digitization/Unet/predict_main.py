@@ -70,14 +70,16 @@ def predict_single_image(image_id, im_patch_dir, unet):
     return predicted_im
 
 
-def batch_predict_full_images(ids, patch_dir, model_path, save_pth, 
+def batch_predict_full_images(ids_to_predict, patch_dir, model_path, save_pth, 
                               verbose, save_all=True):
     """
     Mostly for testing - assumes we have labels for accuracy score and have already generated patches
     """
 
     # want to predict on one image at a time so we can reconstruct it
+    ids = os.listdir(os.path.join(patch_dir, 'image_patches'))
     image_ids = set([f.split('_')[0] for f in ids]) # set = unique values
+    ids_to_predict = [f.split('_')[0] for f in ids_to_predict]
     if verbose:
         print(f"Testing on {len(image_ids)} images with {len(ids)} total patches.")
 
@@ -87,7 +89,7 @@ def batch_predict_full_images(ids, patch_dir, model_path, save_pth,
     im_patch_dir = os.path.join(patch_dir, 'image_patches')
     label_patch_dir = os.path.join(patch_dir, 'label_patches')
 
-    for image_id in tqdm(image_ids, desc='Running U-net on images', disable=~verbose):
+    for image_id in tqdm(ids_to_predict, desc='Running U-net on images', disable=not verbose):
         patch_ids = [f for f in ids if f.split('_')[0] == image_id]
         patch_ids = sorted(patch_ids)
         # train = True here because we want to load the labels for accuracy score

@@ -226,7 +226,7 @@ def preprocess_images(raw_images_folder, processed_images_folder, verbose,
         
 
 
-def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder, patches_folder,
+def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder, patch_folder,
                                 verbose, patch_size=constants.PATCH_SIZE, records_to_process=None,
                                 delete_images=False):
     """TODO
@@ -234,7 +234,17 @@ def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder
     for training the U-Net model. Save the patches in patches_folder. Option to delete images and 
     masks (not the patches) after patchifying to save space.
     """
-    pass
+    if not records_to_process:
+        records_to_process = os.listdir(wfdb_records_folder)
+
+    # TODO: generate images and masks
+
+    # generate patches
+    image_patch_folder = os.path.join(patch_folder, 'image_patches')
+    mask_patch_folder = os.path.join(patch_folder, 'label_patches')
+    Unet.patching.save_patches_batch(images_folder, masks_folder, constants.PATCH_SIZE, 
+                                     patch_folder, verbose, max_samples=False)
+
 
 
 def train_unet(record_ids, patch_folder, model_folder, verbose, 
@@ -274,7 +284,7 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
             max_samples=max_train_samples,
             )
     
-    if delete_patches:
+    if delete_patches: 
         for im in os.listdir(image_patch_folder):
             os.remove(os.path.join(image_patch_folder, im))
         for im in os.listdir(mask_patch_folder):
