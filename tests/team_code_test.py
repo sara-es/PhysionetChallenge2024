@@ -40,7 +40,7 @@ def train_models(data_folder, model_folder, verbose):
     unet_output_folder = os.path.join("tiny_testset", "lr_unet_tests", "unet_outputs")
     reconstructed_signals_folder = os.path.join("tiny_testset", "lr_unet_tests", "reconstructed_signals")
 
-    print(train_records)
+    # print(train_records)
 
     # generate images and masks for training u-net; generate patches
     # TODO generate_unet_training_data

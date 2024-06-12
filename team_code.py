@@ -357,9 +357,7 @@ def generate_resnet_training_data(wfdb_records_folder, images_folder, mask_folde
     #                           verbose, records_to_process)
     # preprocess_images(images_folder, images_folder, verbose, records_to_process)
     
-    # TODO: write load_model and move this code there
-    # Load the model
-    model = Unet.utils.load_unet_from_state_dict(model_folder)
+    # TODO: pass in model to predict images (right now it's hardcoded in batch_predict_full_images)
 
     # generate patches
     Unet.patching.save_patches_batch(images_folder, mask_folder, constants.PATCH_SIZE, 
@@ -368,6 +366,7 @@ def generate_resnet_training_data(wfdb_records_folder, images_folder, mask_folde
                                    unet_output_folder, verbose, save_all=True)
 
     # reconstruct_signals
+    print(records_to_process)
     # save reconstructed signals
     # delete image patches
     # optional: delete images and patches
