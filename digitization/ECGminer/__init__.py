@@ -1,2 +1,2 @@
-from digitization.ECGminer import ECGminer
+from digitization import ECGminer
 from digitization.ECGminer.digitize_image import digitize_image_unet

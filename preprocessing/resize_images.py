@@ -15,7 +15,7 @@ def resize_images(images, base_width = 4000, base_height = 1700, thresh = 0.8):
             wpercent = (base_width / float(image.size[0]))
             hsize = int((float(image.size[1]) * float(wpercent)))
             images[idx] = image.resize((base_width, hsize), Image.Resampling.LANCZOS)
-        elif (image.size[0] < (thresh * base_height)) | (image.size[0] < ((2-thresh) * base_height))
+        elif (image.size[0] < (thresh * base_height)) | (image.size[0] < ((2-thresh) * base_height)):
             wpercent = (base_height / float(image.size[1]))
             wsize = int((float(image.size[0]) * float(wpercent)))
             images[idx] = image.resize((wsize, base_height), Image.Resampling.LANCZOS)
