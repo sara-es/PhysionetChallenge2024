@@ -3,8 +3,8 @@ sys.path.append(os.path.join(sys.path[0], '..'))
 
 import torch
 from torch.utils.data import Dataset
-from preprocessing.transforms import Compose, RandomClip, Normalize, ValClip, Retype
-from helper_code import load_signal
+from classification.feature_extraction.transforms import Compose, RandomClip, Normalize, ValClip, Retype
+from helper_code import load_signals
 import numpy as np
 
 
@@ -68,7 +68,7 @@ class ECGDataset(Dataset):
         if type(file) == np.ndarray: # in training, the signal is passed in directly
             ecg = file
         else:
-            ecg, _ = load_signal(file) # shape (samples, channels)
+            ecg, _ = load_signals(file) # shape (samples, channels)
         fs = self.fs[item]
         ecg = ecg.T # shape (channels, samples)
         ag = self.ag[item]

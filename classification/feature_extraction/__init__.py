@@ -1,2 +1,2 @@
-import feature_extraction.demographics as demographics
-import preprocessing.transforms as transforms
+import classification.feature_extraction.demographics as demographics
+import classification.feature_extraction.transforms as transforms

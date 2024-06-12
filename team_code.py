@@ -13,10 +13,12 @@
 import joblib, os, sys, time
 import numpy as np
 from tqdm import tqdm
+from sklearn.preprocessing import MultiLabelBinarizer
 import preprocessing
 import helper_code
 from utils import team_helper_code, constants
 from digitization import Unet, ECGminer
+from classification import feature_extraction, seresnet18
 
 ################################################################################
 #
@@ -334,7 +336,8 @@ def reconstruct_signal(unet_image, gridsize):
            3. convert into individual ECG channels and convert from pixels to mV
     """
     #TODO: adapt self.postprocessor.postprocess to work for different layouts
-    ECGminer.digitize_image_unet(unet_image, gridsize, sig_len=1000)
+    ECG_signals, trace = ECGminer.digitize_image_unet(unet_image, gridsize, sig_len=1000)
+    return ECG_signals, trace
 
 
 def generate_resnet_training_data(wfdb_records_folder, images_folder, mask_folder, patch_folder,
@@ -365,38 +368,106 @@ def generate_resnet_training_data(wfdb_records_folder, images_folder, mask_folde
                                    unet_output_folder, verbose, save_all=True)
 
     # reconstruct_signals
-    reconstructed_signals = []
+    record_paths = [] 
+
     for record in tqdm(records_to_process, desc='Reconstructing signals from U-net outputs', 
                        disable=not verbose):
-        record_id = record.split('_')[0]
-
-        # get headers for labels and demographic info
+        # check headers for labels
         # 'record' is the filepath - name used for consistency with Challenge code
         record_path = os.path.join(wfdb_records_folder, record) 
-        header_file = helper_code.get_header_file(record_path)
-        labels = helper_code.load_labels(record_path)
-        if labels: # only process records with labels for training
-            # get demographic info
-            header = helper_code.load_text(header_file)
-            
-
+        header_txt = helper_code.load_header(record_path)
+        label = helper_code.load_labels(record_path)
+        if label: # only process records with labels for training
             # reconstruct signals from u-net outputs
+            record_id = record.split('_')[0]
             unet_image_path = os.path.join(unet_output_folder, record_id + '.npy')
             with open(unet_image_path, 'rb') as f:
                 unet_image = np.load(f)
             ###### FIXME hardcoded gridsize for now ######
-            reconstructed_signal = reconstruct_signal(unet_image, gridsize=37.5)
-            reconstructed_signal = np.asarray(np.nan_to_num(reconstructed_signal)*1000, dtype=np.int16)
+            reconstructed_signal, _ = reconstruct_signal(unet_image, gridsize=37.5)
+            reconstructed_signal = np.asarray(np.nan_to_num(reconstructed_signal)) # removed *1000 astype int16
 
-        # save reconstructed signal
-    # save reconstructed signals
-    # delete image patches
-    # optional: delete images and patches
+            # save reconstructed signal and header file with labels
+            output_record_path = os.path.join(reconstructed_signals_folder, record)
+            helper_code.save_header(output_record_path, header_txt)
+            comments = [l for l in header_txt.split('\n') if l.startswith('#')]
+            helper_code.save_signals(output_record_path, reconstructed_signal, comments)
+            # helper_code.save_labels(output_record_path, label) # not necessary if labels already present
+            record_paths.append(output_record_path)
+            # reconstructed_signals.append(reconstructed_signal)
+
+    if len(record_paths) == 0:
+        raise ValueError("No records with labels found in records_to_process.")
+
+    # delete patches (we have the full images/masks in images_folder)
+    im_patch_dir = os.path.join(patch_folder, 'image_patches')
+    label_patch_dir = os.path.join(patch_folder, 'label_patches')
+    for im in os.listdir(im_patch_dir):
+        os.remove(os.path.join(im_patch_dir, im))
+    for im in os.listdir(label_patch_dir):
+        os.remove(os.path.join(label_patch_dir, im))
+
+    # optional: delete training images and masks, and u-net outputs
+    if delete_images:
+        for im in os.listdir(images_folder):
+            os.remove(os.path.join(images_folder, im))
+        for im in os.listdir(mask_folder):
+            os.remove(os.path.join(mask_folder, im))
+        for im in os.listdir(unet_output_folder):
+            os.remove(os.path.join(unet_output_folder, im))
 
 
+def train_classifier(reconstructed_records_folder, model_folder, verbose, 
+                     records_to_process=None):
+    """
+    Extracts features from headers for resnet, then trains and saves resnet model and one-hot 
+    encoded labels.
+    """
+    if not records_to_process:
+        records_to_process = helper_code.find_records(reconstructed_records_folder)
 
-def train_classifier():
-    pass
+    # reconstruct_signals
+    reconstructed_signals = []
+    features = []
+    labels = []
+    freqs = []
+    record_paths = []
+
+    for record in tqdm(records_to_process, desc='Reconstructing signals from U-net outputs', 
+                       disable=not verbose):
+        # get headers for labels and demographic info
+        # 'record' is the filepath - name used for consistency with Challenge code
+        record_path = os.path.join(reconstructed_records_folder, record) 
+        header_txt = helper_code.load_header(record_path)
+        label = helper_code.load_labels(record_path)
+        if label: # only process records with labels for training
+            labels.append(label)
+            record_paths.append(record_path)
+
+            # get demographic info
+            # TODO: add missing flags
+            age_gender = feature_extraction.demographics.extract_features(record_path)
+            features.append(age_gender)
+            fs = helper_code.get_sampling_frequency(header_txt)
+            freqs.append(fs)
+    
+    # Combine data obtained
+    data = [list(ls) for ls in zip(record_paths, freqs, features)] 
+
+    # One-hot-encode labels 
+    mlb = MultiLabelBinarizer()
+    multilabels = mlb.fit_transform(labels)
+    uniq_labels = mlb.classes_
+
+    resnet_model = seresnet18.train_model(
+                                data, multilabels, uniq_labels, verbose, epochs=5, 
+                                validate=False
+                                )
+    
+    if verbose:
+        print("Finished training resenet model.")
+    
+    return resnet_model, uniq_labels
 
 def classify_signal():
     pass

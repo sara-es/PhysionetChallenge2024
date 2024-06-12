@@ -59,7 +59,7 @@ class LayoutDetector:
         for i in range(len(signals)):
             signal = [-p.y for p in signals[i]] # invert y coords (coords *down* from top)
             # interpolate to linear x coords
-            interpolator = interpolate.interp1d(np.arange(len(signal)), signal) # current x, y
+            interpolator = interpolate.interp1d(np.arange(len(signal)), signal, fill_value='extrapolate') # current x, y
             raw_signals[i, :] = interpolator(
                 np.linspace(0, max_len-1, max_len) # xnew, returns ynew
             ) 

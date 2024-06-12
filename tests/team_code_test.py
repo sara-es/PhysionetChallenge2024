@@ -38,7 +38,7 @@ def train_models(data_folder, model_folder, verbose):
     masks_folder = os.path.join("tiny_testset", "lr_unet_tests", "binary_masks")
     patch_folder = os.path.join("tests", "data", "patches")
     unet_output_folder = os.path.join("tiny_testset", "lr_unet_tests", "unet_outputs")
-    reconstructed_signals_folder = os.path.join("tiny_testset", "lr_unet_tests", "reconstructed_signals")
+    reconstructed_signals_folder = os.path.join("tiny_testset", "test_outputs")
 
     # print(train_records)
 
@@ -61,20 +61,20 @@ def train_models(data_folder, model_folder, verbose):
     # save trained u-net
     # included in train_unet step
 
-    # generate new images, patch them, then run u-net
+    # generate new images, patch them, then run u-net, then
+    # reconstruct signals from u-net outputs, then save reconstructed signals
     team_code.generate_resnet_training_data(data_folder, images_folder, masks_folder, patch_folder,
                                   unet_output_folder, model_folder, reconstructed_signals_folder, 
-                                  verbose, records_to_process=None, delete_images=True)
+                                  verbose, records_to_process=None, delete_images=False)
 
-    # reconstruct signals from u-net outputs
-
-    # train digitization model
+    # train classification model
+    resnet_model, uniq_labels = team_code.train_classifier(
+        data_folder, model_folder, verbose, records_to_process=None
+        )
 
     # save trained classification model
 
     # optionally display some results
-
-    # optionally delete generated images, masks, and patches
 
 
 
