@@ -29,6 +29,6 @@ def get_gridsize_from_header(string):
 def save_gridsize(record, gridsize):
     header_file = helper_code.get_header_file(record)
     header = helper_code.load_text(header_file)
-    header += '#Gridsize: ' + str(gridsize) + '\n'
+    header += '# Gridsize: ' + str(gridsize) + '\n'
     helper_code.save_text(header_file, header)
     return header

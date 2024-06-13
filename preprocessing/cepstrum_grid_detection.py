@@ -34,6 +34,14 @@ def clean_image(image, return_modified_image=True):
 
     return restored_image, gridsize
 
+def image_to_grayscale_array(image):
+    im = np.array(image[0])
+    blue_im = im[:, :, 0].astype(np.float32)  # this channel doesn't show up the grid very much
+    green_im = im[:,:,1].astype(np.float32)
+    red_im = im[:, :, 2].astype(np.float32)
+    im_bw = (0.299*red_im + 0.114*blue_im + 0.587*green_im) # conversion from RGB -> greyscale
+    im_bw[im_bw>80] = 255 # magic number to clean image a little bit
+    return im_bw
 
 def get_rotation_angle(greyscale_image):
     # Idea: grid search a bunch of rotations. Find the rotation that gives the most prominent

@@ -17,6 +17,7 @@ from sklearn.preprocessing import MultiLabelBinarizer
 import preprocessing
 import helper_code
 from utils import team_helper_code, constants
+from preprocessing.resize_images import resize_images
 from digitization import Unet, ECGminer
 from classification import seresnet18
 import classification
@@ -206,19 +207,31 @@ def preprocess_images(raw_images_folder, processed_images_folder, verbose,
         (will need to pass in the header file path, wfdb_records_folder) or a new file
     """
     if not records_to_process:
-        records_to_process = os.listdir(raw_images_folder)
+        records_to_process = helper_code.find_records(raw_images_folder)
     
     for i in tqdm(range(len(records_to_process)), desc='Preprocessing images', disable=~verbose):
         record = records_to_process[i] #FIXME this will break - need to get the record id from the record path
-        raw_image_path = os.path.join(raw_images_folder, record + '.png')
-        processed_image = os.path.join(processed_images_folder, record + '.png')
+        #raw_image_path = os.path.join(raw_images_folder, record + '.png')
+        
         # load raw image
-        images = helper_code.load_images(raw_image_path)
-        images = preprocessing.resize_images(images)
+        record_image = os.path.join(raw_images_folder, record)
+        image = helper_code.load_images(record_image)
+        # resize image if needed
+        image = resize_images(image)
+        
+        # get and save the gridsize
+        grayscale_image = preprocessing.cepstrum_grid_detection.image_to_grayscale_array(image)
+        
+        # TODO: fix get_rotation_angle - it breaks for tiny_test/hr_gt/01017_hr
+        rot_angle, gridsize = preprocessing.cepstrum_grid_detection.get_rotation_angle(grayscale_image)
+        team_helper_code.save_gridsize(record_image, gridsize)
+        
+        # TODO: decide if we want to do rotation now or after the u-net. If we do it now, set image to the rotated image
 
         # TODO save processed image
+        processed_image = os.path.join(processed_images_folder, record + '.png')
+        image[0].save(processed_image,"PNG")
         
-
 def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder, patch_folder,
                                 verbose, patch_size=constants.PATCH_SIZE, records_to_process=None,
                                 delete_images=False):
@@ -321,6 +334,7 @@ def reconstruct_signal(record, unet_output_folder, wfdb_headers_folder,
     # TODO: adapt self.postprocessor.postprocess to work for different layouts
 
     return reconstructed_signal, trace
+
 
 
 def generate_and_predict_unet_batch(wfdb_records_folder, images_folder, mask_folder, patch_folder,
