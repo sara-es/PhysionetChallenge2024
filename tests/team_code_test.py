@@ -11,6 +11,9 @@ from digitization import Unet
 def train_models(data_folder, model_folder, verbose):
     """
     Team code version
+    To quickly test that a function is working, comment out all irrelevant code. 
+    If the necessary data has already been generated (in tiny_testset, for example),
+    everything should run independently.
     """
     # Find the data files.
     if verbose:
@@ -63,13 +66,15 @@ def train_models(data_folder, model_folder, verbose):
 
     # generate new images, patch them, then run u-net, then
     # reconstruct signals from u-net outputs, then save reconstructed signals
-    team_code.generate_resnet_training_data(data_folder, images_folder, masks_folder, patch_folder,
-                                  unet_output_folder, model_folder, reconstructed_signals_folder, 
+    team_code.generate_and_predict_unet_batch(data_folder, images_folder, masks_folder, patch_folder,
+                                  unet_output_folder, model_folder, reconstructed_signals_folder,
                                   verbose, records_to_process=None, delete_images=False)
+
+    # team_code.reconstruct_signal_from_unet_output()
 
     # train classification model
     resnet_model, uniq_labels = team_code.train_classifier(
-        data_folder, model_folder, verbose, records_to_process=None
+        data_folder, verbose, records_to_process=None
         )
 
     # save trained classification model
