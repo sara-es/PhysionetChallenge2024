@@ -1,9 +1,6 @@
 import sys, os
 sys.path.append(os.path.join(sys.path[0], '..'))
 
-import numpy as np
-import joblib, time
-from tqdm import tqdm
 import team_code, helper_code
 from sklearn.utils import shuffle
 from digitization import Unet
@@ -47,19 +44,19 @@ def train_models(data_folder, model_folder, verbose):
 
     # generate images and masks for training u-net; generate patches
     # TODO generate_unet_training_data
-    # images_folder = os.path.join("ptb-xl", "train_images")
-    # masks_folder = os.path.join("ptb-xl", "train_masks")
+    images_folder = os.path.join("ptb-xl", "train_images")
+    masks_folder = os.path.join("ptb-xl", "train_masks")
     
-    # team_code.generate_unet_training_data(data_folder, images_folder, 
-    #                                       masks_folder, patch_folder, 
-    #                                       verbose, records_to_process=records)
+    team_code.generate_unet_training_data(data_folder, images_folder, 
+                                          masks_folder, patch_folder, 
+                                          verbose, records_to_process=records)
 
     # train u-net
-    # args = Unet.utils.Args()
-    # args.train_val_prop = 0.8
-    # args.epochs = 1
-    # team_code.train_unet(train_records, patch_folder, model_folder, verbose, 
-    #                      args=args, warm_start=True)
+    args = Unet.utils.Args()
+    args.train_val_prop = 0.8
+    args.epochs = 1
+    team_code.train_unet(train_records, patch_folder, model_folder, verbose, 
+                         args=args, warm_start=True)
 
     # save trained u-net
     # included in train_unet step
@@ -83,10 +80,9 @@ def train_models(data_folder, model_folder, verbose):
 
 
 
-
-data_folder = "G:\\PhysionetChallenge2024\\ptb-xl\\combined_records"
-model_folder = "G:\\PhysionetChallenge2024\\model"
-verbose = True
-
 if __name__ == "__main__":
+    data_folder = "G:\\PhysionetChallenge2024\\ptb-xl\\combined_records"
+    model_folder = "G:\\PhysionetChallenge2024\\model"
+    verbose = True
+    
     train_models(data_folder, model_folder, verbose)

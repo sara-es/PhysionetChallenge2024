@@ -241,7 +241,6 @@ def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder
                                      patch_folder, verbose, max_samples=False)
 
 
-
 def train_unet(record_ids, patch_folder, model_folder, verbose, 
                args=None, max_train_samples=5000, warm_start=False, delete_patches=True):
     """
@@ -274,6 +273,7 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
     image_patch_folder = os.path.join(patch_folder, 'image_patches')
     mask_patch_folder = os.path.join(patch_folder, 'label_patches')
 
+    # TODO train_unet should return trained model
     Unet.train_unet(record_ids, image_patch_folder, mask_patch_folder, args,
             PATH_UNET, CHK_PATH_UNET, LOSS_PATH, LOAD_PATH_UNET, verbose,
             max_samples=max_train_samples,
@@ -286,40 +286,6 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
             os.remove(os.path.join(mask_patch_folder, im))
 
 
-def unet_predict_single_image(record_id, image, patch_folder, model, reconstructed_signal_folder,
-                              verbose, delete_patches=True):
-    """
-    params
-        record_id: str, for saving
-        
-    """
-    # get image from image_path
-
-
-    # preprocess image
-
-    # patchify image
-    # TODO will need to save/load patch size for persistence
-
-    image_patches_array, _ = Unet.patching.save_patches_single_image(
-                                        record_id, image, None, 
-                                        patch_size=(constants.PATCH_SIZE, constants.PATCH_SIZE),
-                                        im_patch_save_path=patch_folder,
-                                        label_patch_save_path=None
-                                        )
-
-    # predict on patches
-    predicted_image = Unet.predict_single_image(record_id, patch_folder, model)
-
-    # reconstruct signal from patches
-
-    # optional: save reconstructed signal
-
-    # optional: delete patches
-
-    # return reconstructed signal
-
-
 def reconstruct_signal(record, unet_output_folder, wfdb_headers_folder, 
                        reconstructed_signals_folder):
     """
@@ -330,6 +296,8 @@ def reconstruct_signal(record, unet_output_folder, wfdb_headers_folder,
     header_txt = helper_code.load_header(record_path)
 
     # TODO: get gridsize from header file
+    # alternately can pass original image in as an argument to this function and extract
+    # gridsize from the image here
     ###### FIXME hardcoded gridsize for now ######
     gridsize = 37.5
 
@@ -349,7 +317,7 @@ def reconstruct_signal(record, unet_output_folder, wfdb_headers_folder,
     comments = [l for l in header_txt.split('\n') if l.startswith('#')]
     helper_code.save_signals(output_record_path, reconstructed_signal, comments)
 
-    #TODO: adapt self.postprocessor.postprocess to work for different layouts
+    # TODO: adapt self.postprocessor.postprocess to work for different layouts
 
     return reconstructed_signal, trace
 
@@ -389,6 +357,7 @@ def generate_and_predict_unet_batch(wfdb_records_folder, images_folder, mask_fol
         rec_signal, _ = reconstruct_signal(record, unet_output_folder, wfdb_records_folder, 
                        reconstructed_signals_folder)
         reconstructed_signals.append(rec_signal)     
+        # TODO: calculate and return DICE score
 
     # delete patches (we have the full images/masks in images_folder)
     im_patch_dir = os.path.join(patch_folder, 'image_patches')
@@ -424,7 +393,7 @@ def train_classifier(reconstructed_records_folder, verbose,
         data, label = classification.get_training_data(record, 
                                                     reconstructed_records_folder
                                                     )
-        if label is None:
+        if label is None: # don't use data without labels for training
             continue
 
         all_data.append(data)
@@ -453,6 +422,42 @@ def train_classifier(reconstructed_records_folder, verbose,
     return resnet_model, uniq_labels
 
 
-def classify_signal():
+def unet_predict_single_image(record_id, image, patch_folder, model, reconstructed_signal_folder,
+                              verbose, delete_patches=True):
+    """
+    params
+        record_id: str, for saving
+        
+    """
+    # get image from image_path
+
+
+    # preprocess image
+
+    # patchify image
+    # TODO will need to save/load patch size and original image size for persistence
+
+    image_patches_array, _ = Unet.patching.save_patches_single_image(
+                                        record_id, image, None, 
+                                        patch_size=(constants.PATCH_SIZE, constants.PATCH_SIZE),
+                                        im_patch_save_path=patch_folder,
+                                        label_patch_save_path=None
+                                        )
+
+    # predict on patches
+    predicted_image = Unet.predict_single_image(record_id, patch_folder, model)
+
+    # recover u-net output image from patches
+
+    # reconstruct signal from u-net output image
+
+    # optional: save reconstructed signal
+
+    # optional: delete patches
+
+    # return reconstructed signal
+
+
+def classify_signals():
     pass
 
