@@ -287,7 +287,7 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
 
 
 def reconstruct_signal(record, unet_output_folder, wfdb_headers_folder, 
-                       reconstructed_signals_folder):
+                       reconstructed_signals_folder, save_signal=True):
     """
     
     """
@@ -312,10 +312,11 @@ def reconstruct_signal(record, unet_output_folder, wfdb_headers_folder,
     reconstructed_signal = np.asarray(np.nan_to_num(reconstructed_signal)) # removed *1000 astype int16
 
     # save reconstructed signal and copied header file in the same folder
-    output_record_path = os.path.join(reconstructed_signals_folder, record)
-    helper_code.save_header(output_record_path, header_txt)
-    comments = [l for l in header_txt.split('\n') if l.startswith('#')]
-    helper_code.save_signals(output_record_path, reconstructed_signal, comments)
+    if save_signal:
+        output_record_path = os.path.join(reconstructed_signals_folder, record)
+        helper_code.save_header(output_record_path, header_txt)
+        comments = [l for l in header_txt.split('\n') if l.startswith('#')]
+        helper_code.save_signals(output_record_path, reconstructed_signal, comments)
 
     # TODO: adapt self.postprocessor.postprocess to work for different layouts
 

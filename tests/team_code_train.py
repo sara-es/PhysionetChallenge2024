@@ -5,6 +5,7 @@ import team_code, helper_code
 from sklearn.utils import shuffle
 from digitization import Unet
 
+
 def train_models(data_folder, model_folder, verbose):
     """
     Team code version
@@ -84,5 +85,5 @@ if __name__ == "__main__":
     data_folder = "G:\\PhysionetChallenge2024\\ptb-xl\\combined_records"
     model_folder = "G:\\PhysionetChallenge2024\\model"
     verbose = True
-    
+
     train_models(data_folder, model_folder, verbose)
