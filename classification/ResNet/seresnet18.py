@@ -12,7 +12,7 @@ from iterstrat.ml_stratifiers import MultilabelStratifiedShuffleSplit, Multilabe
 
 from classification.ResNet.SEResNet import ResNet, BasicBlock
 from classification.ResNet.datasets.ECGDataset import ECGDataset, get_transforms
-from utils import team_helper_code
+from classification import utils
 
 
 def split_data(data, labels, n_splits=1):
@@ -90,7 +90,7 @@ def train(model, train_loader, device, loss_fct, sigmoid, optimizer, epoch, uniq
                 if batch_idx % batches_per_printout == batches_per_printout-1:
                     # Approximate calculation of average loss per sample
                     avg_loss = running_loss / (batches_per_printout * len(ecgs))
-                    f_measure = team_helper_code.compute_classification_metrics(
+                    f_measure = utils.compute_classification_metrics(
                                     labels_all, logits_prob_all, uniq_labels, threshold=0.5)
                     
                     # Print
@@ -125,7 +125,7 @@ def eval(model, train_loader, device, loss_fct, sigmoid, epoch, uniq_labels, ver
 
     if verbose:
         epoch_loss = epoch_loss / len(train_loader.dataset)
-        f_measure = team_helper_code.compute_classification_metrics(
+        f_measure = utils.compute_classification_metrics(
                         labels_all, logits_prob_all, uniq_labels, threshold=0.5)
         print(f'Epoch {epoch}, val loss: {epoch_loss:.4f}, F-measure: {f_measure:.4f}')
 
@@ -294,7 +294,7 @@ def predict_proba(saved_model, data, classes, verbose, abnormal_threshold=0.5):
     
     # Choose the class(es) with the highest probability as the label(s).
     # Set the threshold for additional labels here
-    pred_dx = team_helper_code.threshold_predict_from_logits(
+    pred_dx = utils.threshold_predict_from_logits(
                 classes, probabilities, threshold=abnormal_threshold
             )
     return pred_dx, probabilities

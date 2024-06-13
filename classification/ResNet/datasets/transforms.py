@@ -1,11 +1,7 @@
 import numpy as np
 import random
 from scipy import interpolate
-import scipy.io as sio
 import scipy.signal as signal
-import os
-import matplotlib.pyplot as plt
-import sys
 
 # Data is expected to be in [channels, samples]
 # Notes: some methods apply randomly to channels and some same for all channels
