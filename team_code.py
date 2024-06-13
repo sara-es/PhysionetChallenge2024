@@ -241,7 +241,6 @@ def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder
                                      patch_folder, verbose, max_samples=False)
 
 
-
 def train_unet(record_ids, patch_folder, model_folder, verbose, 
                args=None, max_train_samples=5000, warm_start=False, delete_patches=True):
     """
@@ -287,40 +286,6 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
             os.remove(os.path.join(mask_patch_folder, im))
 
 
-def unet_predict_single_image(record_id, image, patch_folder, model, reconstructed_signal_folder,
-                              verbose, delete_patches=True):
-    """
-    params
-        record_id: str, for saving
-        
-    """
-    # get image from image_path
-
-
-    # preprocess image
-
-    # patchify image
-    # TODO will need to save/load patch size for persistence
-
-    image_patches_array, _ = Unet.patching.save_patches_single_image(
-                                        record_id, image, None, 
-                                        patch_size=(constants.PATCH_SIZE, constants.PATCH_SIZE),
-                                        im_patch_save_path=patch_folder,
-                                        label_patch_save_path=None
-                                        )
-
-    # predict on patches
-    predicted_image = Unet.predict_single_image(record_id, patch_folder, model)
-
-    # reconstruct signal from patches
-
-    # optional: save reconstructed signal
-
-    # optional: delete patches
-
-    # return reconstructed signal
-
-
 def reconstruct_signal(record, unet_output_folder, wfdb_headers_folder, 
                        reconstructed_signals_folder):
     """
@@ -331,6 +296,8 @@ def reconstruct_signal(record, unet_output_folder, wfdb_headers_folder,
     header_txt = helper_code.load_header(record_path)
 
     # TODO: get gridsize from header file
+    # alternately can pass original image in as an argument to this function and extract
+    # gridsize from the image here
     ###### FIXME hardcoded gridsize for now ######
     gridsize = 37.5
 
@@ -455,6 +422,42 @@ def train_classifier(reconstructed_records_folder, verbose,
     return resnet_model, uniq_labels
 
 
-def classify_signal():
+def unet_predict_single_image(record_id, image, patch_folder, model, reconstructed_signal_folder,
+                              verbose, delete_patches=True):
+    """
+    params
+        record_id: str, for saving
+        
+    """
+    # get image from image_path
+
+
+    # preprocess image
+
+    # patchify image
+    # TODO will need to save/load patch size and original image size for persistence
+
+    image_patches_array, _ = Unet.patching.save_patches_single_image(
+                                        record_id, image, None, 
+                                        patch_size=(constants.PATCH_SIZE, constants.PATCH_SIZE),
+                                        im_patch_save_path=patch_folder,
+                                        label_patch_save_path=None
+                                        )
+
+    # predict on patches
+    predicted_image = Unet.predict_single_image(record_id, patch_folder, model)
+
+    # recover u-net output image from patches
+
+    # reconstruct signal from u-net output image
+
+    # optional: save reconstructed signal
+
+    # optional: delete patches
+
+    # return reconstructed signal
+
+
+def classify_signals():
     pass
 
