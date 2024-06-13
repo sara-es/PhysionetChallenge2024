@@ -274,6 +274,7 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
     image_patch_folder = os.path.join(patch_folder, 'image_patches')
     mask_patch_folder = os.path.join(patch_folder, 'label_patches')
 
+    # TODO train_unet should return trained model
     Unet.train_unet(record_ids, image_patch_folder, mask_patch_folder, args,
             PATH_UNET, CHK_PATH_UNET, LOSS_PATH, LOAD_PATH_UNET, verbose,
             max_samples=max_train_samples,
@@ -349,7 +350,7 @@ def reconstruct_signal(record, unet_output_folder, wfdb_headers_folder,
     comments = [l for l in header_txt.split('\n') if l.startswith('#')]
     helper_code.save_signals(output_record_path, reconstructed_signal, comments)
 
-    #TODO: adapt self.postprocessor.postprocess to work for different layouts
+    # TODO: adapt self.postprocessor.postprocess to work for different layouts
 
     return reconstructed_signal, trace
 
@@ -389,6 +390,7 @@ def generate_and_predict_unet_batch(wfdb_records_folder, images_folder, mask_fol
         rec_signal, _ = reconstruct_signal(record, unet_output_folder, wfdb_records_folder, 
                        reconstructed_signals_folder)
         reconstructed_signals.append(rec_signal)     
+        # TODO: calculate and return DICE score
 
     # delete patches (we have the full images/masks in images_folder)
     im_patch_dir = os.path.join(patch_folder, 'image_patches')
@@ -424,7 +426,7 @@ def train_classifier(reconstructed_records_folder, verbose,
         data, label = classification.get_training_data(record, 
                                                     reconstructed_records_folder
                                                     )
-        if label is None:
+        if label is None: # don't use data without labels for training
             continue
 
         all_data.append(data)
