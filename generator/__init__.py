@@ -1,0 +1,1 @@
+from generator.ImageGenArgs import DefaultArgs

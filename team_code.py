@@ -21,6 +21,7 @@ from preprocessing.resize_images import resize_images
 from digitization import Unet, ECGminer
 from classification import seresnet18
 import classification
+import generator
 
 ################################################################################
 #
@@ -194,7 +195,7 @@ def generate_images_from_wfdb(records_folder, images_folder, generation_params, 
     Use WFDB records found in records_folder to generate images and save them in images_folder.
     Optionally provide a list of a subset of records to process (records_to_process).
     """
-    pass
+    
 
 
 def preprocess_images(raw_images_folder, processed_images_folder, verbose, 
@@ -249,8 +250,20 @@ def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder
         records_to_process = os.listdir(wfdb_records_folder)
 
     # TODO: generate images and masks
+    img_gen_params = generator.DefaultArgs()
+    img_gen_params.random_bw = 0.2
+    img_gen_params.wrinkles = True
+    img_gen_params.print_header = True
+    img_gen_params.output_directory = images_folder
 
     # TODO: preprocess images (if needed)
+    mask_gen_params = generator.DefaultArgs()
+    mask_gen_params.single_channel = True
+    img_gen_params.add_lead_names = False
+    mask_gen_params.random_bw = 1.0
+    mask_gen_params.random_grid_present = 0.0
+    mask_gen_params.output_directory = masks_folder
+
 
     # generate patches
     image_patch_folder = os.path.join(patch_folder, 'image_patches')

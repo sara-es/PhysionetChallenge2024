@@ -89,7 +89,8 @@ def ecg_plot(
         json_dict=dict(),
         start_index=-1,
         store_configs=0,
-        lead_length_in_seconds=10
+        lead_length_in_seconds=10,
+        single_channel=False
 ):
     #Inputs :
     #ecg - Dictionary of ecg signal with lead names as keys
@@ -520,7 +521,18 @@ def ecg_plot(
         result_image = Image.new(ecg_image.mode, (new_width, new_height), (255, 255, 255))
         result_image.paste(ecg_image, (left, top))
 
-        result_image.save(os.path.join(output_dir, tail + '.png'))
+        if single_channel: # save single channel as mask
+            img_arr = np.array(result_image)
+            result_image = img_arr[:, :, 0].astype(bool)
+            result_image = ~result_image
+            # get rid of borders
+            result_image[0, :] = False
+            result_image[-1, :] = False
+            result_image[:, 0] = False
+            result_image[:, -1] = False
+            np.save(os.path.join(output_dir, tail + '.npy'), result_image)
+        else:
+            result_image.save(os.path.join(output_dir, tail + '.png'))
 
         plt.close('all')
         plt.close(fig)
