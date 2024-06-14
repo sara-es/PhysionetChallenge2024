@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
-# Edit this script to add your team's code. Some functions are *required*, but you 
-# can edit most parts of the required functions,
-# change or remove non-required functions, and add your own functions.
+# Edit this script to add your team's code. Some functions are *required*, but you can edit most 
+# parts of the required functions, change or remove non-required functions, and add your own 
+# functions.
 
 ################################################################################
 #
@@ -24,14 +24,14 @@ import classification
 
 ################################################################################
 #
-# Required functions. Edit these functions to add your code, but do not change the 
-# arguments of the functions.
+# Required functions. Edit these functions to add your code, but do not change the  arguments of 
+# the functions.
 #
 ################################################################################
 
-# Train your models. This function is *required*. You should edit this function to 
-# add your code, but do *not* change the arguments of this function. If you do not 
-# train one of the models, then you can return None for the model.
+# Train your models. This function is *required*. You should edit this function to add your code,
+# but do *not* change the arguments of this function. If you do not train one of the models, then
+# you can return None for the model.
 
 # Train your digitization model.
 def train_models(data_folder, model_folder, verbose):
@@ -39,11 +39,14 @@ def train_models(data_folder, model_folder, verbose):
     if verbose:
         print('Finding the Challenge data...')
 
-    records = helper_code.find_records(data_folder)
+    records = find_records(data_folder)
     num_records = len(records)
 
     if num_records == 0:
         raise FileNotFoundError('No data were provided.')
+
+    # Train the digitization model. If you are not training a digitization model, then you can
+    # remove this part of the code.
 
     if verbose:
         print('Training the digitization model...')
@@ -64,15 +67,15 @@ def train_models(data_folder, model_folder, verbose):
 
         record = os.path.join(data_folder, records[i])
 
-        # Extract the features from the image; this simple example uses the same features for the digitization and classification
-        # tasks.
+        # Extract the features from the image; this simple example uses the same features for the
+        # digitization and classification tasks.
         features = extract_features(record)
         
         digitization_features.append(features)
 
         # Some images may not be labeled...
-        labels = helper_code.load_labels(record)
-        if labels:
+        labels = load_labels(record)
+        if any(label for label in labels):
             classification_features.append(features)
             classification_labels.append(labels)
 
@@ -84,15 +87,17 @@ def train_models(data_folder, model_folder, verbose):
     if verbose:
         print('Training the models on the data...')
 
-    # Train the digitization model. This very simple model uses the mean of these very simple features as a seed for a random number
-    # generator.
+    # Train the digitization model. This very simple model uses the mean of these very 
+    # simple features as a seed for a random number generator.
     digitization_model = np.mean(features)
 
-    # Train the classification model. This very simple model trains a random forest model with these very simple features.
-
+    # Train the classification model. If you are not training a classification model, then you can
+    # remove this part of the code.
+    
+    # This very simple model trains a random forest model with these very simple features.
     classification_features = np.vstack(classification_features)
     classes = sorted(set.union(*map(set, classification_labels)))
-    classification_labels = helper_code.compute_one_hot_encoding(classification_labels, classes)
+    classification_labels = compute_one_hot_encoding(classification_labels, classes)
 
     # Define parameters for random forest classifier and regressor.
     n_estimators   = 12  # Number of trees in the forest.
@@ -100,62 +105,61 @@ def train_models(data_folder, model_folder, verbose):
     random_state   = 56  # Random state; set for reproducibility.
 
     # Fit the model.
-    # classification_model = RandomForestClassifier(
-    #     n_estimators=n_estimators, max_leaf_nodes=max_leaf_nodes, random_state=random_state).fit(classification_features, classification_labels)
+    classification_model = RandomForestClassifier(
+        n_estimators=n_estimators, max_leaf_nodes=max_leaf_nodes, random_state=random_state).fit(classification_features, classification_labels)
 
     # Create a folder for the models if it does not already exist.
     os.makedirs(model_folder, exist_ok=True)
 
     # Save the models.
-    # save_models(model_folder, digitization_model, classification_model, classes)
+    save_models(model_folder, digitization_model, classification_model, classes)
 
     if verbose:
         print('Done.')
         print()
 
-# Load your trained models. This function is *required*. You should edit this function to add your code, but do *not* change the
-# arguments of this function. If you do not train one of the models, then you can return None for the model.
+# Load your trained models. This function is *required*. You should edit this function to add your
+# code, but do *not* change the arguments of this function. If you do not train one of the models,
+# then you can return None for the model.
 def load_models(model_folder, verbose):
-    digitization_model = dict()
-    # digitization_filename = os.path.join(model_folder, 'digitization_model.sav')
-    # TODO: make this robust to different saved unet models
-    # TODO: load patch size from file
-    digitization_model['unet'] = Unet.utils.load_unet_from_state_dict(model_folder, None)
+    digitization_filename = os.path.join(model_folder, 'digitization_model.sav')
+    digitization_model = joblib.load(digitization_filename)
 
-    classification_model = dict()
-    # classification_filename = os.path.join(model_folder, 'classification_model.sav')
-    # classification_model = joblib.load(classification_filename)
+    classification_filename = os.path.join(model_folder, 'classification_model.sav')
+    classification_model = joblib.load(classification_filename)
     return digitization_model, classification_model
 
-# Run your trained digitization model. This function is *required*. You should edit this function to add your code, but do *not*
-# change the arguments of this function. If you did not train one of the models, then you can return None for the model.
+# Run your trained digitization model. This function is *required*. You should edit this function
+# to add your code, but do *not* change the arguments of this function. If you did not train one of
+# the models, then you can return None for the model.
 def run_models(record, digitization_model, classification_model, verbose):
-    # Run the digitization model; if you did not train this model, then you can set signal = None.
+    # Run the digitization model; if you did not train this model, then you can set signal=None.
+
+    # Load the digitization model.
     model = digitization_model['model']
 
-    # Extract features.
-    features = extract_features(record)
-
     # Load the dimensions of the signal.
-    header_file = helper_code.get_header_file(record)
-    header = helper_code.load_text(header_file)
+    header_file = get_header_file(record)
+    header = load_text(header_file)
 
-    num_samples = helper_code.get_num_samples(header)
-    num_signals = helper_code.get_num_signals(header)
+    num_samples = get_num_samples(header)
+    num_signals = get_num_signals(header)
 
-    # Generate "random" waveforms using the a random seed from the feature.
-    seed = int(round(model + np.mean(features)))
-    signal = np.random.default_rng(seed=seed).uniform(low=-1, high=1, size=(num_samples, num_signals))
-    
-    # Run the classification model.
-    model = classification_model['model']
-    classes = classification_model['classes']
-
-    # Extract features.
+    # Extract the features.
     features = extract_features(record)
     features = features.reshape(1, -1)
 
-    # Get model probabilities.
+    # Generate "random" waveforms using the a random seed from the features.
+    seed = int(round(model + np.mean(features)))
+    signal = np.random.default_rng(seed=seed).uniform(low=-1, high=1, size=(num_samples, num_signals))
+    
+    # Run the classification model; if you did not train this model, then you can set labels=None.
+
+    # Load the classification model and classes.
+    model = classification_model['model']
+    classes = classification_model['classes']
+
+    # Get the model probabilities.
     probabilities = model.predict_proba(features)
     probabilities = np.asarray(probabilities, dtype=np.float32)[:, 0, 1]
 
