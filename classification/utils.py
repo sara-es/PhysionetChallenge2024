@@ -38,6 +38,15 @@ def get_training_data(record, data_folder):
     return data, labels
 
 
+def get_testing_data(record, data_folder):
+    record_path = os.path.join(data_folder, record)
+    header_txt = helper_code.load_header(record_path)
+    fs = helper_code.get_sampling_frequency(header_txt)
+    age_gender = get_demographic_features(record_path)
+    data = [record_path, fs, age_gender]
+    return data
+
+
 # Convert torch to numpy and encode the logits
 def preprocess_labels(true_labels, pre_logits, threshold):
 

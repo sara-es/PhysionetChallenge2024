@@ -16,7 +16,7 @@ from tqdm import tqdm
 from sklearn.preprocessing import MultiLabelBinarizer
 import preprocessing
 import helper_code
-from utils import team_helper_code, constants
+from utils import team_helper_code, constants, model_persistence
 from preprocessing.resize_images import resize_images
 from digitization import Unet, ECGminer
 from classification import seresnet18
@@ -24,7 +24,7 @@ import classification
 
 ################################################################################
 #
-# Required functions. Edit these functions to add your code, but do not change the  arguments of 
+# Required functions. Edit these functions to add your code, but do not change the arguments of 
 # the functions.
 #
 ################################################################################
@@ -475,6 +475,17 @@ def unet_predict_single_image(record_id, image, patch_folder, model, reconstruct
     # return reconstructed signal
 
 
-def classify_signals():
-    pass
+def classify_signals(record, data_folder, resnet_model, classes, verbose):
+    # wrap in list to match training data format
+    data = [classification.get_testing_data(record, data_folder)] 
+    pred_dx, probabilities = seresnet18.predict_proba(
+                                        resnet_model, data, classes, verbose)
+    labels = classes[np.where(pred_dx == 1)]
+    if verbose:
+        print(f"Classes: {classes}, probabilities: {probabilities}")
+        print(f"Predicted labels: {labels}")
+
+    return labels
+
+    
 

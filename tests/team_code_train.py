@@ -1,6 +1,6 @@
 import sys, os
 sys.path.append(os.path.join(sys.path[0], '..'))
-
+import joblib
 import team_code, helper_code
 from sklearn.utils import shuffle
 from digitization import Unet
@@ -76,6 +76,9 @@ def train_models(data_folder, model_folder, verbose):
         )
 
     # save trained classification model
+    d = {'model': resnet_model, 'classes': uniq_labels}
+    filename = os.path.join(model_folder, 'classification_model.sav')
+    joblib.dump(d, filename, protocol=0)
 
     # optionally display some results
 
