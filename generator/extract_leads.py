@@ -23,7 +23,7 @@ def get_paper_ecg(input_file, header_file, output_directory, seed, add_dc_pulse,
                   resolution=100, units='inches', papersize='', add_lead_names=True, pad_inches=1,
                   template_file=os.path.join('TemplateFiles', 'TextFile1.txt'),
                   font_type=os.path.join('Fonts', 'Times_New_Roman.ttf'), standard_colours=5, full_mode='II',
-                  bbox=False, columns=-1):
+                  bbox=False, columns=-1, single_channel=False):
     # Extract a reduced-lead set from each pair of full-lead header and recording files.
     full_header_file = header_file
     full_recording_file = input_file
@@ -286,7 +286,7 @@ def get_paper_ecg(input_file, header_file, output_directory, seed, add_dc_pulse,
                                   show_lead_name=add_lead_names, show_dc_pulse=dc, papersize=papersize,
                                   show_grid=(grid), standard_colours=standard_colours, bbox=bbox, print_txt=print_txt,
                                   json_dict=json_dict, start_index=start, store_configs=store_configs,
-                                  lead_length_in_seconds=lead_length_in_seconds)
+                                  lead_length_in_seconds=lead_length_in_seconds, single_channel=single_channel)
 
         rec_head, rec_tail = os.path.split(rec_file)
 
@@ -302,6 +302,7 @@ def get_paper_ecg(input_file, header_file, output_directory, seed, add_dc_pulse,
             json_dict["printed_text"] = bool(print_txt)
             json_dict["number_of_columns_in_image"] = columns
             json_dict["full_mode_lead"] = full_mode
+        
 
         outfile = os.path.join(output_directory, rec_tail + '.png')
 

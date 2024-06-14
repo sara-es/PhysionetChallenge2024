@@ -14,61 +14,6 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 warnings.filterwarnings("ignore")
 
 
-def get_parser():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--input_file', type=str, required=True)
-    parser.add_argument('-hea', '--header_file', type=str, required=True)
-    parser.add_argument('-o', '--output_directory', type=str, required=True)
-    parser.add_argument('-se', '--seed', type=int, required=False, default=-1)
-    parser.add_argument('-st', '--start_index', type=int, required=True, default=-1)
-    parser.add_argument('--num_leads', type=str, default='twelve')
-    parser.add_argument('--config_file', type=str, default='config.yaml')
-
-    parser.add_argument('-r', '--resolution', type=int, required=False, default=200)
-    parser.add_argument('--pad_inches', type=int, required=False, default=0)
-    parser.add_argument('-ph', '--print_header', action="store_true", default=False)
-    parser.add_argument('--num_columns', type=int, default=-1)
-    parser.add_argument('--full_mode', type=str, default='II')
-    parser.add_argument('--mask_unplotted_samples', action="store_true", default=False)
-
-    parser.add_argument('-ca', '--crease_angle', type=int, default=90)
-    parser.add_argument('-nv', '--num_creases_vertically', type=int, default=10)
-    parser.add_argument('-nh', '--num_creases_horizontally', type=int, default=10)
-
-    parser.add_argument('-rot', '--rotate', type=int, default=0)
-    parser.add_argument('-noise', '--noise', type=int, default=50)
-    parser.add_argument('-c', '--crop', type=float, default=0.01)
-    parser.add_argument('-t', '--temperature', type=int, default=40000)
-
-    parser.add_argument('--random_resolution', action="store_true", default=False)
-    parser.add_argument('--random_padding', action="store_true", default=False)
-    parser.add_argument('--random_grid_color', action="store_true", default=False)
-    parser.add_argument('--standard_grid_color', type=int, default=5)
-    parser.add_argument('--calibration_pulse', type=float, default=1)
-    parser.add_argument('--random_grid_present', type=float, default=1)
-    parser.add_argument('--random_print_header', type=float, default=0)
-    parser.add_argument('--random_bw', type=float, default=0)
-    parser.add_argument('--remove_lead_names', action="store_false", default=True)
-    parser.add_argument('--lead_name_bbox', action="store_true", default=False)
-    parser.add_argument('--store_config', type=int, const=1, default=0)
-
-    parser.add_argument('--deterministic_angle', action="store_true", default=False)
-    parser.add_argument('--deterministic_vertical', action="store_true", default=False)
-    parser.add_argument('--deterministic_horizontal', action="store_true", default=False)
-
-    parser.add_argument('--deterministic_rot', action="store_true", default=False)
-    parser.add_argument('--deterministic_noise', action="store_true", default=False)
-    parser.add_argument('--deterministic_crop', action="store_true", default=False)
-    parser.add_argument('--deterministic_temp', action="store_true", default=False)
-
-    parser.add_argument('--fully_random', action='store_true', default=False)
-    parser.add_argument('--wrinkles', action='store_true', default=False)
-    parser.add_argument('--augment', action='store_true', default=False)
-    parser.add_argument('--lead_bbox', action='store_true', default=False)
-
-    return parser
-
-
 def writeCSV(args):
     csv_file_path = os.path.join(args.output_directory, 'Coordinates.csv')
     if not os.path.isfile(csv_file_path):
@@ -96,7 +41,7 @@ def run_single_file(args):
     padding = random.choice(range(0, args.pad_inches + 1)) if args.random_padding else args.pad_inches
 
     papersize = ''
-    lead = args.remove_lead_names
+    lead = args.add_lead_names
 
     bernoulli_dc = bernoulli(args.calibration_pulse)
     bernoulli_bw = bernoulli(args.random_bw)
@@ -125,7 +70,8 @@ def run_single_file(args):
                               add_lead_names=lead, add_dc_pulse=bernoulli_dc, add_bw=bernoulli_bw,
                               show_grid=bernoulli_grid, add_print=bernoulli_add_print, pad_inches=padding,
                               font_type=font, standard_colours=standard_colours, full_mode=args.full_mode,
-                              bbox=args.lead_bbox, columns=args.num_columns, seed=args.seed)
+                              bbox=args.lead_bbox, columns=args.num_columns, seed=args.seed, 
+                              single_channel=args.single_channel)
 
     for out in out_array:
         if args.store_config:
@@ -207,8 +153,8 @@ def run_single_file(args):
     return len(out_array)
 
 
-if __name__ == '__main__':
-    path = os.path.join(os.getcwd(), sys.argv[0])
-    parentPath = os.path.dirname(path)
-    os.chdir(parentPath)
-    run_single_file(get_parser().parse_args(sys.argv[1:]))
+# if __name__ == '__main__':
+#     path = os.path.join(os.getcwd(), sys.argv[0])
+#     parentPath = os.path.dirname(path)
+#     os.chdir(parentPath)
+#     run_single_file(get_parser().parse_args(sys.argv[1:]))
