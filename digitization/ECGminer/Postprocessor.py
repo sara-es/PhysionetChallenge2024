@@ -203,6 +203,7 @@ class Postprocessor:
 
             # ATTENTION
             # HACK BELOW
+            # FIXME TODO
             # This adds a few pixels to the start of the signal, because the image-kit generator
             # overlaps the ecg and the reference pulses slightly. On real images, we should NOT do this!
             if ref_pulse_generated == 1: # ref pulses at left, pad start of signal

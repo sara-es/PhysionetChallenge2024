@@ -46,7 +46,7 @@ def dice(ground_truth, prediction):
     return dice3d_coeff
 
 
-def predict_single_image(image_id, im_patch_dir, unet):
+def predict_single_image(image_id, im_patch_dir, unet, original_image_size=(1700, 2200)):
     """
     Assumes labels are not present; patches already generated and in im_patch_dir
     MODEL MUST BE PRE-LOADED UNET + STATE DICT
@@ -66,7 +66,7 @@ def predict_single_image(image_id, im_patch_dir, unet):
     results = results.squeeze()
     results = np.argmax(results, axis=1)
 
-    predicted_im = patching.depatchify(results, results.shape[1:])
+    predicted_im = patching.depatchify(results, results.shape[1:], original_image_size)
     return predicted_im
 
 

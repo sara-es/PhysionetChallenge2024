@@ -232,6 +232,7 @@ def preprocess_images(raw_images_folder, processed_images_folder, verbose,
         processed_image = os.path.join(processed_images_folder, record + '.png')
         image[0].save(processed_image,"PNG")
         
+
 def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder, patch_folder,
                                 verbose, patch_size=constants.PATCH_SIZE, records_to_process=None,
                                 delete_images=False):
@@ -334,7 +335,6 @@ def reconstruct_signal(record, unet_output_folder, wfdb_headers_folder,
     # TODO: adapt self.postprocessor.postprocess to work for different layouts
 
     return reconstructed_signal, trace
-
 
 
 def generate_and_predict_unet_batch(wfdb_records_folder, images_folder, mask_folder, patch_folder,
@@ -452,12 +452,10 @@ def unet_predict_single_image(record_id, image, patch_folder, model, reconstruct
     # patchify image
     # TODO will need to save/load patch size and original image size for persistence
 
-    image_patches_array, _ = Unet.patching.save_patches_single_image(
-                                        record_id, image, None, 
-                                        patch_size=(constants.PATCH_SIZE, constants.PATCH_SIZE),
-                                        im_patch_save_path=patch_folder,
-                                        label_patch_save_path=None
-                                        )
+    Unet.patching.save_patches_single_image(record_id, image, None, 
+                                            patch_size=constants.PATCH_SIZE,
+                                            im_patch_save_path=patch_folder,
+                                            label_patch_save_path=None)
 
     # predict on patches
     predicted_image = Unet.predict_single_image(record_id, patch_folder, model)
