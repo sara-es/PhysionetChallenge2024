@@ -1,20 +1,12 @@
 #!/usr/bin/env python
 # Load libraries.
-import os, sys, argparse
+import os
 import json
 import numpy as np
-from scipy.io import savemat, loadmat
-import matplotlib.pyplot as plt
-from matplotlib.ticker import AutoMinorLocator
-from TemplateFiles.generate_template import generate_template
-from math import ceil
-from helper_functions import get_adc_gains, get_frequency, get_leads, load_recording, load_header, find_files, \
-    truncate_signal, create_signal_dictionary, standardize_leads, write_wfdb_file
-from ecg_plot import ecg_plot
-import wfdb
-from PIL import Image, ImageDraw, ImageFont
-from random import randint
-import random
+
+from generator.helper_functions import get_adc_gains, get_frequency, get_leads, load_recording, load_header, \
+    create_signal_dictionary, standardize_leads, write_wfdb_file
+from generator.ecg_plot import ecg_plot
 
 
 # Run script.

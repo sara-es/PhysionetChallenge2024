@@ -4,11 +4,11 @@ import csv
 from PIL import Image
 import numpy as np
 from scipy.stats import bernoulli
-from extract_leads import get_paper_ecg
-from CreasesWrinkles.creases import get_creased
-from augment import get_augment
+from generator.extract_leads import get_paper_ecg
+from generator.CreasesWrinkles.creases import get_creased
+from generator.augment import get_augment
 import warnings
-from helper_functions import read_config_file
+from generator.helper_functions import read_config_file
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 warnings.filterwarnings("ignore")

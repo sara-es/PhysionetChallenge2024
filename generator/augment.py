@@ -9,7 +9,7 @@ from PIL import Image
 from imgaug import augmenters as iaa
 from imgaug.augmentables.bbs import BoundingBoxesOnImage
 
-from helper_functions import read_leads, convert_bounding_boxes_to_dict, rotate_bounding_box, rotate_points
+from generator.helper_functions import read_leads, convert_bounding_boxes_to_dict, rotate_bounding_box, rotate_points
 
 
 def get_parser():

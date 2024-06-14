@@ -14,6 +14,7 @@ import joblib, os, sys, time
 import numpy as np
 from tqdm import tqdm
 from sklearn.preprocessing import MultiLabelBinarizer
+import generator.gen_ecg_images_from_data_batch
 import preprocessing
 import helper_code
 from utils import team_helper_code, constants, model_persistence
@@ -247,23 +248,26 @@ def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder
     masks (not the patches) after patchifying to save space.
     """
     if not records_to_process:
-        records_to_process = os.listdir(wfdb_records_folder)
+        records_to_process = helper_code.find_records(wfdb_records_folder)
 
-    # TODO: generate images and masks
+    # params for generating images
     img_gen_params = generator.DefaultArgs()
     img_gen_params.random_bw = 0.2
     img_gen_params.wrinkles = True
     img_gen_params.print_header = True
+    img_gen_params.input_directory = wfdb_records_folder
     img_gen_params.output_directory = images_folder
 
-    # TODO: preprocess images (if needed)
-    mask_gen_params = generator.DefaultArgs()
-    mask_gen_params.single_channel = True
-    img_gen_params.add_lead_names = False
-    mask_gen_params.random_bw = 1.0
-    mask_gen_params.random_grid_present = 0.0
+    # set params for generating masks
+    mask_gen_params = generator.MaskArgs()
+    img_gen_params.input_directory = wfdb_records_folder
     mask_gen_params.output_directory = masks_folder
 
+    # generate images and masks
+    generator.gen_ecg_images_from_data_batch.run(img_gen_params)
+    generator.gen_ecg_images_from_data_batch.run(mask_gen_params)
+
+    # TODO: preprocess images (if needed)
 
     # generate patches
     image_patch_folder = os.path.join(patch_folder, 'image_patches')

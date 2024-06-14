@@ -1,1 +1,1 @@
-from generator.ImageGenArgs import DefaultArgs
+from generator.ImageGenArgs import DefaultArgs, MaskArgs

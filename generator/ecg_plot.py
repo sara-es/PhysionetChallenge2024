@@ -4,10 +4,9 @@ import random
 import matplotlib.pyplot as plt
 import matplotlib
 from matplotlib.ticker import AutoMinorLocator
-from TemplateFiles.generate_template import generate_template
+from generator.TemplateFiles.generate_template import generate_template
 from math import ceil
 from PIL import Image
-import csv
 
 standard_values = {'y_grid_size': 0.5,
                    'x_grid_size': 0.2,
