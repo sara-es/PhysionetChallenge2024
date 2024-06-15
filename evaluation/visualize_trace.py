@@ -41,10 +41,9 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
     unet_ids = sorted(list(unet_ids))
 
     # load resnet for classification
-    models = model_persistence.load_models("model", verbose=True, 
-                                            models_to_load=["seresnet", "dx_classes"])
-    resnet_model = models["seresnet"]
-    dx_classes = models["dx_classes"]
+    # classification_model = model_persistence.load_model('model', 'classification_model')
+    # resnet_model = classification_model["model"]
+    # dx_classes = classification_model["dx_classes"]
     
     for i in range(len(image_filenames)):
         # set up mosaic for original image, u-net output with trace, ground truth signal, 
@@ -60,9 +59,15 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
             axd['original_image'].axis('off')
             axd['original_image'].imshow(img, cmap='gray')
 
+        # load u-net output
+        unet_image_path = os.path.join(unet_outputs_dir, unet_ids[i] + '.npy')
+        with open(unet_image_path, 'rb') as f:
+            unet_image = np.load(f)
         # digitize signal from u-net ouput
-        reconstructed_signal, trace = team_code.reconstruct_signal(records[i], unet_outputs_dir, 
-                                 wfdb_records_dir, reconstructed_signal_dir, save_signal=True)
+        record_path = os.path.join(wfdb_records_dir, records[i]) 
+        header_txt = helper_code.load_header(record_path)
+        reconstructed_signal, trace = team_code.reconstruct_signal(records[i], unet_image, 
+                                 header_txt, reconstructed_signal_dir, save_signal=True)
         reconstructed_signal = np.asarray(np.nan_to_num(reconstructed_signal))
         
         # plot trace of signal from u-net output
@@ -91,9 +96,10 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
                         output_fields, label_signal, label_fields, records[i], extra_scores=True)
         gridsize = '37.5 (hardcoded)'
 
-        # optional: cllassify signal
-        labels = team_code.classify_signals(records[i], reconstructed_signal_dir, resnet_model, 
-                                            dx_classes, verbose=True)
+        labels = None
+        # optional: classify signal
+        # labels = team_code.classify_signals(records[i], reconstructed_signal_dir, resnet_model, 
+        #                                     dx_classes, verbose=True)
         
         description_string = f"""{records[i]} ({label_fields['fs']} Hz)
     Reconstruction SNR: {mean_snr:.2f}
@@ -127,9 +133,9 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
 
 
 if __name__ == "__main__":
-    test_images_folder = os.path.join("tiny_testset", "lr_unet_tests", "data_images")
-    unet_outputs_folder = os.path.join("tiny_testset", "lr_unet_tests", "unet_outputs")
-    reconstructed_signal_dir = os.path.join("evaluation", "data", "reconstructed_signals")
+    test_images_folder = os.path.join("temp_data", "images")
+    unet_outputs_folder = os.path.join("temp_data", "unet_outputs")
+    reconstructed_signal_dir = os.path.join("temp_data", "reconstructed_signals")
     visualization_save_folder = os.path.join("evaluation", "data", "trace_visualizations")
 
     visualize_trace(test_images_folder, 

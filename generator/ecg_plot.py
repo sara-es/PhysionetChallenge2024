@@ -359,12 +359,12 @@ def ecg_plot(
 
         leads_ds.append(current_lead_ds)
         # Adds vertical lines like a stupid
-
-        if columns > 1 and (i + 1) % columns != 0:
-            sep_x = [len(ecg[leadName]) * step + x_offset + dc_offset + x_gap] * round(8 * y_grid_dots)
-            sep_x = np.array(sep_x)
-            sep_y = np.linspace(y_offset - 4 * y_grid_dots * step, y_offset + 4 * y_grid_dots * step, len(sep_x))
-            ax.plot(sep_x, sep_y, linewidth=line_width * 3, color=color_line)
+        # 
+        # if columns > 1 and (i + 1) % columns != 0:
+        #     sep_x = [len(ecg[leadName]) * step + x_offset + dc_offset + x_gap] * round(8 * y_grid_dots)
+        #     sep_x = np.array(sep_x)
+        #     sep_y = np.linspace(y_offset - 4 * y_grid_dots * step, y_offset + 4 * y_grid_dots * step, len(sep_x))
+        #     ax.plot(sep_x, sep_y, linewidth=line_width * 3, color=color_line)
 
     #Plotting longest lead for 12 seconds
     if full_mode != 'None':
@@ -479,11 +479,13 @@ def ecg_plot(
                 ax.text(x_offset, y_offset, line, fontsize=lead_fontsize)
                 y_offset -= 0.5
 
-    #change x and y res
-    ax.text(2, 0.5, '25mm/s', fontsize=lead_fontsize)
-    ax.text(4, 0.5, '10mm/mV', fontsize=lead_fontsize)
 
     if (show_grid):
+        #change x and y res
+        # only display this if we're also showing the grid
+        ax.text(2, 0.5, '25mm/s', fontsize=lead_fontsize)
+        ax.text(4, 0.5, '10mm/mV', fontsize=lead_fontsize)
+
         ax.set_xticks(np.arange(x_min, x_max, x_grid_size))
         ax.set_yticks(np.arange(y_min, y_max, y_grid_size))
         ax.minorticks_on()
@@ -502,7 +504,19 @@ def ecg_plot(
     else:
         ax.grid(False)
 
-    plt.savefig(os.path.join(output_dir, tail + '.png'), dpi=resolution)
+    if single_channel: # save single channel as mask
+        fig.canvas.draw() # render the current matplotlib figure object 
+        img_arr = np.array(fig.canvas.renderer.buffer_rgba())
+        result_image = img_arr[:, :, 0].astype(bool)
+        result_image = ~result_image
+        # get rid of borders
+        result_image[0, :] = False
+        result_image[-1, :] = False
+        result_image[:, 0] = False
+        result_image[:, -1] = False
+        np.save(os.path.join(output_dir, tail + '.npy'), result_image)
+    else:
+        plt.savefig(os.path.join(output_dir, tail + '.png'), dpi=resolution)
     plt.close(fig)
     plt.clf()
     plt.cla()

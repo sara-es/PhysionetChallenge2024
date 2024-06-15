@@ -32,6 +32,35 @@ def get_augment(input_file, output_directory, rotate=25, noise=25, crop=0.01, te
 
     image = np.array(image)
 
+    if json_dict is None: # hack just to get augmentation working
+        json_dict = {}
+        json_dict['leads'] = [
+        {
+            "text_bounding_box": 
+            {
+                "0": [0, 0],
+                "1": [0, 0],
+                "2": [0, 0],
+                "3": [0, 0]
+            },
+            "lead_bounding_box":
+            {
+                "0": [0, 0],
+                "1": [0, 0],
+                "2": [0, 0],
+                "3": [0, 0]
+            },
+            "lead_name": "",
+            "start_sample": 0,
+            "end_sample": 0,
+            "plotted_pixels":
+            [
+                [0, 0],
+                [0, 0]
+            ]
+        } 
+    ]
+
     lead_bbs, leadNames_bbs, lead_bbs_labels, startTime_bbs, endTime_bbs, plotted_pixels = read_leads(
         json_dict['leads'])
 

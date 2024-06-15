@@ -72,7 +72,7 @@ def val_epoch(args, model, val_loader, criterion):
 
 
 def train_unet(ids, im_patch_dir, label_patch_dir, args, 
-               PATH_UNET, CHK_PATH_UNET, LOSS_PATH, LOAD_PATH_UNET, verbose, 
+               CHK_PATH_UNET, LOSS_PATH, LOAD_PATH_UNET, verbose, 
                max_samples=False,
                ):
     cuda = torch.cuda.is_available()
@@ -84,7 +84,7 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
         print('Training patches: ', len(train_patch_ids), flush=True)
         print('Validation patches: ', len(val_patch_ids), flush=True)
 
-        print('Creating datasets and dataloaders')
+        print('Creating datasets and dataloaders...')
     train_dataset = PatchDataset(train_patch_ids, im_patch_dir, label_patch_dir, transform=args.augmentation)
     val_dataset = PatchDataset(val_patch_ids, im_patch_dir, label_patch_dir, transform=None)
 
@@ -97,7 +97,7 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
         unet = unet.cuda()
     if LOAD_PATH_UNET:
         if verbose:
-            print('Loading Weights')
+            print('Loading U-net Weights...')
         encoder_dict = unet.state_dict()
         pretrained_dict = torch.load(LOAD_PATH_UNET)['model_state_dict']
         pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in encoder_dict}
@@ -140,7 +140,8 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
         if early_stopping.early_stop:
             loss_store = np.array(loss_store)
             np.save(LOSS_PATH, loss_store)
-            break
+            torch.save(unet.state_dict(), CHK_PATH_UNET)
+            return unet.state_dict()
             
         if args.reduce_lr:
             if early_stopping.counter == 5:
@@ -166,12 +167,12 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
                         
         if epoch == args.epochs:
             if verbose:
-                print('Finished Training', flush=True)
-                print('Saving U-net model', flush=True)
+                print('Finished Training. Saving U-net model...', flush=True)
 
             # Save the model in such a way that we can continue training later
-            torch.save(unet.state_dict(), PATH_UNET)
             loss_store = np.array(loss_store)
             np.save(LOSS_PATH, loss_store)
-
+            torch.save(unet.state_dict(), CHK_PATH_UNET)
+            return unet.state_dict()
+            
         torch.cuda.empty_cache()  # Clear memory cache

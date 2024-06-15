@@ -17,11 +17,13 @@ def run(args, records_to_process=None):
 
     i = 0
     if records_to_process is None:
-        full_header_files, full_recording_files = find_records(args.input_directory, args.output_dir)
+        full_header_files, full_recording_files = find_records(args.input_directory, args.output_directory)
+    else:
+        full_header_files = [r + '.hea' for r in records_to_process]
+        full_recording_files = [r + '.dat' for r in records_to_process]
 
     for full_header_file, full_recording_file in tqdm(zip(full_header_files, full_recording_files),
-                                                      total=len(full_header_files),
-                                                      desc='Generating images from data'):
+                                                      total=len(full_header_files)):
         filename = full_recording_file
         header = full_header_file
         args.input_file = os.path.join(args.input_directory, filename)
@@ -29,7 +31,7 @@ def run(args, records_to_process=None):
         args.start_index = -1
 
         folder_struct_list = full_header_file.split('/')[:-1]
-        args.output_directory = os.path.join(args.output_dir, '/'.join(folder_struct_list))
+        args.output_directory = os.path.join(args.output_directory, '/'.join(folder_struct_list))
         args.encoding = os.path.split(os.path.splitext(filename)[0])[1]
 
         i += run_single_file(args)

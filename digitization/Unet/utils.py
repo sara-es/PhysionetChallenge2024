@@ -72,7 +72,7 @@ def patch_split_from_ids(ids, im_patch_path, lab_patch_path, train_prop, max_sam
     image_ids = set([f.split('_')[0] for f in ids]) # set = unique values
     single_image_patchs = [f for f in im_patch_files if f.split('_')[0] == ids[0].split('_')[0]]
     n_patches_per_image = len(single_image_patchs)
-    print(image_ids)
+    # print(image_ids)
     image_ids = shuffle(list(image_ids), random_state=42)
 
     if max_samples and max_samples < len(image_ids):

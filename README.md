@@ -1,5 +1,5 @@
 # Code from team "The Easy Geese" for the George B. Moody PhysioNet Challenge 2024
-*Team members: Matti Kaisti, Tuija Leinonen, George Searle, Chris Shucksmith, Sara Summerton, Dave C. Wong*
+*Team members: Nicola Dinsdale, Matti Kaisti, Tuija Leinonen, George Searle, Chris Shucksmith, Sara Summerton, Dave C. Wong*
 
 ## What's in this repository?
 
@@ -19,15 +19,12 @@ A small subset of data and labels have been provided in the `tiny_testset` folde
     python evaluate_model.py -d tiny_testset/lr_gt -o tiny_testset/test_outputs
 
 ## Example image sets
-`tiny_testset` contains a number of folders with images generated *from the same data source* but with different parameters:
-- `hr_gt`: clean images (500 Hz .dat files)
-- `lr_gt`: clean images (100 Hz .dat files)
-- `lr_gt_noisy`: some distortions (rotations, shadow) (100 Hz .dat files)
-- `lr_gt_noisy_bw`: distortions plus random grid color, some black and white images (100 Hz .dat files)
-- `lr_gt_refpulse`: clean but with reference pulses on all images (100 Hz .dat files)
+`tiny_testset` contains 18 samples of ECG data files and header files:
+- `hr_gt` (.hea files, 500 Hz .dat files)
+- `lr_gt` (.hea files, 100 Hz .dat files)
 All of these include the ground truth signal .dat files so we can check model performance.
 
-To make sure that the model actually runs inference directly from generated images, there's `lr_hidden_clean` (100 Hz .hea files) and `hr_hidden_clean` (500 Hz .hea files) with labels removed.
+To make sure that the model actually runs inference directly from generated images, `tiny_testset` also contains `lr_hidden_clean` (generated images, 100 Hz .hea files).
 
 The full instructions, copied from the [Physionet python example code](https://github.com/physionetchallenges/python-example-2024) and [Physionet scoring code](https://github.com/physionetchallenges/evaluation-2024), have been copied below. 
 

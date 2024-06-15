@@ -92,10 +92,11 @@ def depatchify(patches, size=(256,256), image_shape=(1700, 2200)):
 
 def save_patches_single_image(record_id, image, label, patch_size, im_patch_save_path, lab_patch_save_path):
     im_patches, label_patches = patchify(image, label, size=(patch_size,patch_size))
+    
     for i in range(len(im_patches)):
         im_patch = im_patches[i]
         k = f'{record_id}_{i:03d}'
-        np.save(os.path.join(im_patch_save_path, k), im_patch)
+        np.save(os.path.join(im_patch_save_path, k), im_patch, )
         if label:
             lab_patch = label_patches[i]
             np.save(os.path.join(lab_patch_save_path, k), lab_patch)
@@ -115,10 +116,9 @@ def save_patches_batch(image_path, label_path, patch_size, patch_save_path, verb
         lab_pth = os.path.join(label_path, id)
         id = id.split('.')[0]
         img_pth = os.path.join(image_path, id + '.png')
-
-        image = plt.imread(img_pth)
-        with open(lab_pth, 'rb') as f:
-            label = np.load(f)
+        with open(img_pth, 'rb') as f:
+            image = plt.imread(f)
+        label = np.load(lab_pth, allow_pickle=True)
 
         im_patches, label_patches = patchify(image, label, size=(patch_size,patch_size))
         

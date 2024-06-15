@@ -17,7 +17,6 @@ from digitization.ECGminer.assets.Point import Point
 from digitization.ECGminer.assets.Rectangle import Rectangle
 from digitization.ECGminer.assets.DigitizationError import DigitizationError
 
-
 class SignalExtractor:
     """
     Signal extractor of an ECG image.
@@ -46,6 +45,7 @@ class SignalExtractor:
     def get_signals_dw(self, ecg: Image) -> Iterable[Iterable[Point]]:
         thresh = 50
         test_im = ecg.data
+        bounds = test_im.shape # bounds of the image
         # test_im = abs(image -1)*255 # invert colours - not required if colors already inverted
         rois = self.__get_roi(ecg)
         s = []
@@ -58,15 +58,20 @@ class SignalExtractor:
          
             while y < endcol:
                 # search up
-                x_idx = x-1
-                while test_im[x_idx, y] == 0:
+                x_idx = x-1 if x-1 >= 0 else x # TODO HACK FIXME added boundary condition, but too tired to think about it properly
+                while test_im[x_idx, y] == 0: 
                     signal_col.append([x_idx,y])
+                    if x_idx <= 0: # added boundary condition
+                        break
                     x_idx = x_idx-1
                 # search down
-                x_idx = x+1
+                x_idx = x+1 if x+1 < bounds[0] else x # added boundary condition
                 while test_im[x_idx, y] == 0:
                     signal_col.append([x_idx,y])
+                    if x_idx >= bounds[0]-1: 
+                        break
                     x_idx = x_idx+1
+
          
                 signal_col = sorted(signal_col, key=lambda x: x[0], reverse=False)
                 signal.append(signal_col)
@@ -80,21 +85,24 @@ class SignalExtractor:
                     candidates = np.where(test_im[:,y] == 0)[0]
                     dists = np.concatenate((candidates - top_line, candidates - bottom_line))
                     candidates = np.concatenate((candidates, candidates))
-                    if np.min(abs(dists))<thresh:                    
-                        #bit of voodoo here to try to make sure that we favour returning towards baseline when there is a choice
-                        dist_idx = np.where(abs(dists) == min(abs(dists)))[0]
-                        if len(dist_idx)>1:
-                            #if there is more than one minimum, select the one that takes us closer to the baseline
-                            x = candidates[dist_idx]
-                            i = np.argmin(abs(x-row))
-                            x = x[i]
-                        else:
-                            x = candidates[dist_idx][0]     
-                        signal_col = []
-                        signal_col.append([x,y])
-                        match = 1
-                    elif y == endcol:
-                        match = 1
+                    if len(candidates) > 0: # TODO HACK FIXME logic breaks if no candidates
+                        if np.min(abs(dists))<thresh:                    
+                            #bit of voodoo here to try to make sure that we favour returning towards baseline when there is a choice
+                            dist_idx = np.where(abs(dists) == min(abs(dists)))[0]
+                            if len(dist_idx)>1:
+                                #if there is more than one minimum, select the one that takes us closer to the baseline
+                                x = candidates[dist_idx]
+                                i = np.argmin(abs(x-row))
+                                x = x[i]
+                            else:
+                                x = candidates[dist_idx][0]     
+                            signal_col = []
+                            signal_col.append([x,y])
+                            match = 1
+                        elif y == endcol:
+                            match = 1
+                        else: #skip a column and try again
+                            y = y+1
                     else: #skip a column and try again
                         y = y+1
                      

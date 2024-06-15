@@ -37,11 +37,12 @@ import generator
 
 # Train your digitization model.
 def train_models(data_folder, model_folder, verbose):
+    start_time = time.time()
     # Find the data files.
     if verbose:
         print('Finding the Challenge data...')
 
-    records = find_records(data_folder)
+    records = helper_code.find_records(data_folder)
     num_records = len(records)
 
     if num_records == 0:
@@ -49,66 +50,22 @@ def train_models(data_folder, model_folder, verbose):
 
     # Train the digitization model. If you are not training a digitization model, then you can
     # remove this part of the code.
-
     if verbose:
         print('Training the digitization model...')
 
+    digitization_model, reconstructed_signals_folder = train_digitization_model(
+        data_folder, model_folder, verbose, records_to_process=records, delete_training_data=False)
+    
+    if verbose:
+        print(f'Done. Time to train digitization model and generate classifier training data: ' + \
+              f'{time.time() - start_time:.2f} seconds.')
+    
     # Extract the features and labels from the data.
     if verbose:
-        print('Extracting features and labels from the data...')
+        print('Training the classification model...')
 
-    digitization_features = list()
-    classification_features = list()
-    classification_labels = list()
-
-    # Iterate over the records.
-    for i in range(num_records):
-        if verbose:
-            width = len(str(num_records))
-            print(f'- {i+1:>{width}}/{num_records}: {records[i]}...')
-
-        record = os.path.join(data_folder, records[i])
-
-        # Extract the features from the image; this simple example uses the same features for the
-        # digitization and classification tasks.
-        features = extract_features(record)
-        
-        digitization_features.append(features)
-
-        # Some images may not be labeled...
-        labels = load_labels(record)
-        if any(label for label in labels):
-            classification_features.append(features)
-            classification_labels.append(labels)
-
-    # ... but we expect some images to be labeled for classification.
-    if not classification_labels:
-        raise Exception('There are no labels for the data.')
-
-    # Train the models.
-    if verbose:
-        print('Training the models on the data...')
-
-    # Train the digitization model. This very simple model uses the mean of these very 
-    # simple features as a seed for a random number generator.
-    digitization_model = np.mean(features)
-
-    # Train the classification model. If you are not training a classification model, then you can
-    # remove this part of the code.
-    
-    # This very simple model trains a random forest model with these very simple features.
-    classification_features = np.vstack(classification_features)
-    classes = sorted(set.union(*map(set, classification_labels)))
-    classification_labels = compute_one_hot_encoding(classification_labels, classes)
-
-    # Define parameters for random forest classifier and regressor.
-    n_estimators   = 12  # Number of trees in the forest.
-    max_leaf_nodes = 34  # Maximum number of leaf nodes in each tree.
-    random_state   = 56  # Random state; set for reproducibility.
-
-    # Fit the model.
-    classification_model = RandomForestClassifier(
-        n_estimators=n_estimators, max_leaf_nodes=max_leaf_nodes, random_state=random_state).fit(classification_features, classification_labels)
+    classification_model, classes = train_classification_model(reconstructed_signals_folder, 
+                                                               verbose, records_to_process=None)
 
     # Create a folder for the models if it does not already exist.
     os.makedirs(model_folder, exist_ok=True)
@@ -124,51 +81,42 @@ def train_models(data_folder, model_folder, verbose):
 # code, but do *not* change the arguments of this function. If you do not train one of the models,
 # then you can return None for the model.
 def load_models(model_folder, verbose):
-    digitization_filename = os.path.join(model_folder, 'digitization_model.sav')
-    digitization_model = joblib.load(digitization_filename)
-
-    classification_filename = os.path.join(model_folder, 'classification_model.sav')
-    classification_model = joblib.load(classification_filename)
+    digitization_model = model_persistence.load_torch_state_dict(model_folder, 'digitization_model', verbose)
+    classification_model = model_persistence.load_models(model_folder, verbose, 
+                                                         models_to_load=['classification_model', 'dx_classes'])
     return digitization_model, classification_model
 
 # Run your trained digitization model. This function is *required*. You should edit this function
 # to add your code, but do *not* change the arguments of this function. If you did not train one of
 # the models, then you can return None for the model.
 def run_models(record, digitization_model, classification_model, verbose):
-    # Run the digitization model; if you did not train this model, then you can set signal=None.
-
     # Load the digitization model.
-    model = digitization_model['model']
+    unet_model = digitization_model
 
-    # Load the dimensions of the signal.
-    header_file = get_header_file(record)
-    header = load_text(header_file)
+    # Run the digitization model; if you did not train this model, then you can set signal=None.
+    signal, reconstructed_signal_dir = unet_predict_single_image(record, unet_model, verbose, 
+                                                                 delete_patches=True)
+    
+    # Load the classification model and classes.
+    resnet_model = classification_model['classification_model']
+    dx_classes = classification_model['dx_classes']
 
-    num_samples = get_num_samples(header)
-    num_signals = get_num_signals(header)
+    # # Get the model probabilities.
+    # probabilities = model.predict_proba(features)
+    # probabilities = np.asarray(probabilities, dtype=np.float32)[:, 0, 1]
 
-    # Extract the features.
-    features = extract_features(record)
-    features = features.reshape(1, -1)
-
-    # Generate "random" waveforms using the a random seed from the features.
-    seed = int(round(model + np.mean(features)))
-    signal = np.random.default_rng(seed=seed).uniform(low=-1, high=1, size=(num_samples, num_signals))
+    # # Choose the class or classes with the highest probability as the label or labels.
+    # max_probability = np.nanmax(probabilities)
+    # labels = [classes[i] for i, probability in enumerate(probabilities) if probability == max_probability]
     
     # Run the classification model; if you did not train this model, then you can set labels=None.
-
-    # Load the classification model and classes.
-    model = classification_model['model']
-    classes = classification_model['classes']
-
-    # Get the model probabilities.
-    probabilities = model.predict_proba(features)
-    probabilities = np.asarray(probabilities, dtype=np.float32)[:, 0, 1]
-
-    # Choose the class or classes with the highest probability as the label or labels.
-    max_probability = np.nanmax(probabilities)
-    labels = [classes[i] for i, probability in enumerate(probabilities) if probability == max_probability]
-
+    labels = classify_signals(record, reconstructed_signal_dir, resnet_model, 
+                                dx_classes, verbose=verbose)
+    
+    # delete any temporary files
+    for f in os.listdir(reconstructed_signal_dir):
+        os.remove(os.path.join(reconstructed_signal_dir, f))
+    
     return signal, labels
 
 ################################################################################
@@ -180,24 +128,77 @@ def run_models(record, digitization_model, classification_model, verbose):
 # Save your trained models.
 def save_models(model_folder, digitization_model=None, classification_model=None, classes=None):
     if digitization_model is not None:
-        d = {'model': digitization_model}
-        filename = os.path.join(model_folder, 'digitization_model.sav')
-        joblib.dump(d, filename, protocol=0)
+        # TODO make this more robust
+        model_persistence.save_torch_state_dict(digitization_model, 'digitization_model', model_folder)
 
     if classification_model is not None:
-        d = {'model': classification_model, 'classes': classes}
-        filename = os.path.join(model_folder, 'classification_model.sav')
-        joblib.dump(d, filename, protocol=0)
+        d = {'classification_model': classification_model, 'dx_classes': classes}
+        # filename = os.path.join(model_folder, 'classification_model.sav')
+        # joblib.dump(d, filename, protocol=0) 
+        model_persistence.save_models(d, model_folder, verbose=False)
+        
 
-
-def generate_images_from_wfdb(records_folder, images_folder, generation_params, verbose, 
-                              records_to_process=None):
-    """TODO
-    Use WFDB records found in records_folder to generate images and save them in images_folder.
-    Optionally provide a list of a subset of records to process (records_to_process).
+def train_digitization_model(data_folder, model_folder, verbose, records_to_process=None,
+                             delete_training_data=True):
     """
-    
+    Our general digitization process is
+    1. generate testing images and masks
+    2. preprocess testing images to fix rotation and estimate grid size/scale
+    3. generate u-net patches
+    4. run u-net on patches
+    5. recover image with signal outline from u-net outputs
+    6. reconstruct signal and trace from u-net output
 
+    At each step we save the outputs to disk to save on memory; here, we assume by default that 
+    they should be deleted when no longer needed, but if you want to keep them for debugging or
+    visualization, set delete_images to False. 
+    """
+    # hard code some folder paths for now
+    images_folder = os.path.join(os.getcwd(), 'temp_data', 'images')
+    masks_folder = os.path.join(os.getcwd(), 'temp_data', 'masks')
+    patch_folder = os.path.join(os.getcwd(), 'temp_data', 'patches')
+    unet_output_folder = os.path.join(os.getcwd(), 'temp_data', 'unet_outputs')
+    reconstructed_signals_folder = os.path.join(os.getcwd(), 'temp_data', 
+                                                'reconstructed_signals')
+    os.makedirs(images_folder, exist_ok=True)
+    os.makedirs(masks_folder, exist_ok=True)
+    os.makedirs(patch_folder, exist_ok=True)
+    os.makedirs(unet_output_folder, exist_ok=True)
+    os.makedirs(reconstructed_signals_folder, exist_ok=True)
+
+    # TODO can do a split here if we want to have unet train and predict on different records
+    if not records_to_process:
+        records_to_process = helper_code.find_records(data_folder)
+
+    if verbose:
+        print('Training U-net model...')
+    # generate images and masks for training u-net; generate patches
+    generate_unet_training_data(data_folder, images_folder, 
+                                masks_folder, patch_folder, 
+                                verbose, records_to_process=records_to_process)
+    if verbose:
+        print(f'Done.')
+    
+    # train U-net
+    args = Unet.utils.Args()
+    args.train_val_prop = 1.0 # we want to train on all available data
+    args.epochs = 1 # TODO: increase this for actual training
+    unet_model = train_unet(records_to_process, patch_folder, model_folder, verbose, args=args, 
+                            warm_start=True)
+
+    if verbose:
+        print('Generating training data for classification...')
+    # generate training data for resnet: we want to use the reconstruction predictions (should
+    # not be a problem to re-use the same base data, if we generate images with another seed?)
+    # The following function generates new images, patches them, runs u-net, reconstructs signals
+    # from u-net outputs, then finally saves the reconstructed signals in wfdb format.
+    generate_and_predict_unet_batch(data_folder, images_folder, masks_folder, patch_folder,
+                                  unet_output_folder, model_folder, reconstructed_signals_folder,
+                                  verbose, records_to_process=records_to_process, 
+                                  delete_images=delete_training_data)
+    
+    return unet_model, reconstructed_signals_folder
+    
 
 def preprocess_images(raw_images_folder, processed_images_folder, verbose, 
                       records_to_process=None):
@@ -216,7 +217,7 @@ def preprocess_images(raw_images_folder, processed_images_folder, verbose,
         records_to_process = helper_code.find_records(raw_images_folder)
     
     for i in tqdm(range(len(records_to_process)), desc='Preprocessing images', disable=~verbose):
-        record = records_to_process[i] #FIXME this will break - need to get the record id from the record path
+        record = records_to_process[i] 
         #raw_image_path = os.path.join(raw_images_folder, record + '.png')
         
         # load raw image
@@ -240,12 +241,10 @@ def preprocess_images(raw_images_folder, processed_images_folder, verbose,
         
 
 def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder, patch_folder,
-                                verbose, patch_size=constants.PATCH_SIZE, records_to_process=None,
-                                delete_images=False):
-    """TODO
+                                verbose, patch_size=constants.PATCH_SIZE, records_to_process=None):
+    """
     Call generate_images_from_wfdb to generate images and masks; then patchify the images and masks
-    for training the U-Net model. Save the patches in patches_folder. Option to delete images and 
-    masks (not the patches) after patchifying to save space.
+    for training the U-Net model. Save the patches in patches_folder. 
     """
     if not records_to_process:
         records_to_process = helper_code.find_records(wfdb_records_folder)
@@ -260,20 +259,23 @@ def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder
 
     # set params for generating masks
     mask_gen_params = generator.MaskArgs()
-    img_gen_params.input_directory = wfdb_records_folder
+    mask_gen_params.input_directory = wfdb_records_folder
     mask_gen_params.output_directory = masks_folder
 
     # generate images and masks
-    generator.gen_ecg_images_from_data_batch.run(img_gen_params)
-    generator.gen_ecg_images_from_data_batch.run(mask_gen_params)
+    if verbose:
+        print("Generating images from wfdb files...")
+    generator.gen_ecg_images_from_data_batch.run(img_gen_params, records_to_process)
+    if verbose:
+        print("Generating masks from wfdb files...")
+    generator.gen_ecg_images_from_data_batch.run(mask_gen_params, records_to_process)
 
     # TODO: preprocess images (if needed)
 
     # generate patches
-    image_patch_folder = os.path.join(patch_folder, 'image_patches')
-    mask_patch_folder = os.path.join(patch_folder, 'label_patches')
-    Unet.patching.save_patches_batch(images_folder, masks_folder, constants.PATCH_SIZE, 
+    Unet.patching.save_patches_batch(images_folder, masks_folder, patch_size, 
                                      patch_folder, verbose, max_samples=False)
+
 
 
 def train_unet(record_ids, patch_folder, model_folder, verbose, 
@@ -288,8 +290,6 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
         args = Unet.utils.Args()
     
     patchsize = constants.PATCH_SIZE
-    # where the model will be saved
-    PATH_UNET = os.path.join(model_folder, 'UNET_' + str(patchsize))
     # path for model checkpoints, used with early stopping
     CHK_PATH_UNET = os.path.join(model_folder, 'UNET_' + str(patchsize) + '_checkpoint')
     # for saving the loss values, used with early stopping
@@ -297,8 +297,9 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
     # if we're loading a pretrained model - hardcoded for now
     LOAD_PATH_UNET = None
     if warm_start:
-        chkpt_path = os.path.join('model', 'pretrained', 
-                                      'UNET_run1_'+ str(patchsize) + '_checkpoint')
+        # TODO: replace once model has been retrained
+        chkpt_path = os.path.join('digitization', 'model_checkpoints', 
+                                      'UNET_run1_'+ str(patchsize) + '_aug_checkpoint')
         if not os.path.exists(chkpt_path):
             print(f"Warm start requested but no model found at {LOAD_PATH_UNET}, " +\
                   "training U-net from scratch.")
@@ -308,9 +309,8 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
     image_patch_folder = os.path.join(patch_folder, 'image_patches')
     mask_patch_folder = os.path.join(patch_folder, 'label_patches')
 
-    # TODO train_unet should return trained model
-    Unet.train_unet(record_ids, image_patch_folder, mask_patch_folder, args,
-            PATH_UNET, CHK_PATH_UNET, LOSS_PATH, LOAD_PATH_UNET, verbose,
+    unet_model = Unet.train_unet(record_ids, image_patch_folder, mask_patch_folder,
+            args, CHK_PATH_UNET, LOSS_PATH, LOAD_PATH_UNET, verbose,
             max_samples=max_train_samples,
             )
     
@@ -320,27 +320,20 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
         for im in os.listdir(mask_patch_folder):
             os.remove(os.path.join(mask_patch_folder, im))
 
+    return unet_model
 
-def reconstruct_signal(record, unet_output_folder, wfdb_headers_folder, 
+
+def reconstruct_signal(record, unet_image, header_txt, 
                        reconstructed_signals_folder, save_signal=True):
     """
-    
+
     """
-    # load header file to save with reconstructed signal
-    record_path = os.path.join(wfdb_headers_folder, record) 
-    header_txt = helper_code.load_header(record_path)
 
     # TODO: get gridsize from header file
     # alternately can pass original image in as an argument to this function and extract
     # gridsize from the image here
     ###### FIXME hardcoded gridsize for now ######
     gridsize = 37.5
-
-    # load u-net outputs
-    record_id = record.split('_')[0]
-    unet_image_path = os.path.join(unet_output_folder, record_id + '.npy')
-    with open(unet_image_path, 'rb') as f:
-        unet_image = np.load(f)
 
     # reconstruct signals from u-net outputs
     reconstructed_signal, trace = ECGminer.digitize_image_unet(unet_image, gridsize, sig_len=1000)
@@ -372,11 +365,20 @@ def generate_and_predict_unet_batch(wfdb_records_folder, images_folder, mask_fol
     if not records_to_process:
         records_to_process = helper_code.find_records(wfdb_records_folder)
 
-    # TODO: fill out generation params and uncomment below
-    test_generation_params = {}
-    # generate_images_from_wfdb(wfdb_records_folder, images_folder, test_generation_params, 
-    #                           verbose, records_to_process)
-    # preprocess_images(images_folder, images_folder, verbose, records_to_process)
+    # params for generating images
+    img_gen_params = generator.DefaultArgs()
+    img_gen_params.random_bw = 0.2
+    img_gen_params.wrinkles = True
+    img_gen_params.print_header = True
+    img_gen_params.augment = True # TODO reconstruction breaks with any rotation at the moment
+    img_gen_params.rotate = 5
+    img_gen_params.input_directory = wfdb_records_folder
+    img_gen_params.output_directory = images_folder
+
+    # generate images 
+    if verbose:
+        print("Generating images from wfdb files...")
+    generator.gen_ecg_images_from_data_batch.run(img_gen_params, records_to_process)
     
     # TODO: pass in model to predict images (right now it's hardcoded in batch_predict_full_images)
 
@@ -390,9 +392,20 @@ def generate_and_predict_unet_batch(wfdb_records_folder, images_folder, mask_fol
     reconstructed_signals = []
     for record in tqdm(records_to_process, desc='Reconstructing signals from U-net outputs', 
                        disable=not verbose):
-        rec_signal, _ = reconstruct_signal(record, unet_output_folder, wfdb_records_folder, 
+        # load u-net outputs
+        record_id = record.split('_')[0]
+        unet_image_path = os.path.join(unet_output_folder, record_id + '.npy')
+        with open(unet_image_path, 'rb') as f:
+            unet_image = np.load(f)
+
+        # reconstruct signal
+        # load header file to save with reconstructed signal
+        record_path = os.path.join(wfdb_records_folder, record) 
+        header_txt = helper_code.load_header(record_path)
+        rec_signal, _ = reconstruct_signal(record, unet_image, header_txt, 
                        reconstructed_signals_folder)
-        reconstructed_signals.append(rec_signal)     
+        reconstructed_signals.append(rec_signal)  
+
         # TODO: calculate and return DICE score
 
     # delete patches (we have the full images/masks in images_folder)
@@ -413,7 +426,7 @@ def generate_and_predict_unet_batch(wfdb_records_folder, images_folder, mask_fol
             os.remove(os.path.join(unet_output_folder, im))
 
 
-def train_classifier(reconstructed_records_folder, verbose, 
+def train_classification_model(reconstructed_records_folder, verbose, 
                      records_to_process=None):
     """
     Extracts features and labels from headers, then one-hot encodes labels and trains the
@@ -458,43 +471,58 @@ def train_classifier(reconstructed_records_folder, verbose,
     return resnet_model, uniq_labels
 
 
-def unet_predict_single_image(record_id, image, patch_folder, model, reconstructed_signal_folder,
-                              verbose, delete_patches=True):
+def unet_predict_single_image(record_path, model, verbose, delete_patches=True):
     """
     params
-        record_id: str, for saving
+        record_id: str, for saving/loading
         
     """
     # get image from image_path
+    image = helper_code.load_images(record_path)[0]
+    record_id = os.path.split(record_path)[-1].split('.')[0]
 
+    # hard code some folder paths for now
+    patch_folder = os.path.join('temp_data', 'patches', 'test_image_patches')
+    reconstructed_signals_folder = os.path.join('temp_data', 'reconstructed_signals')
+    os.makedirs(patch_folder, exist_ok=True)
+    os.makedirs(reconstructed_signals_folder, exist_ok=True)
 
     # preprocess image
+    # TODO
 
     # patchify image
+    image = np.asarray(image) # convert to numpy array
     # TODO will need to save/load patch size and original image size for persistence
-
     Unet.patching.save_patches_single_image(record_id, image, None, 
                                             patch_size=constants.PATCH_SIZE,
                                             im_patch_save_path=patch_folder,
-                                            label_patch_save_path=None)
+                                            lab_patch_save_path=None)
 
-    # predict on patches
+    # predict on patches, recover u-net output image
+    # TODO need to pass original image size as argument here
     predicted_image = Unet.predict_single_image(record_id, patch_folder, model)
 
-    # recover u-net output image from patches
-
     # reconstruct signal from u-net output image
-
-    # optional: save reconstructed signal
+    # load header file to save with reconstructed signal
+    header_txt = helper_code.load_header(record_path)
+    reconstructed_signal, trace = reconstruct_signal(record_id, predicted_image, 
+                                                     header_txt,
+                                                     reconstructed_signals_folder, 
+                                                     save_signal=True)
 
     # optional: delete patches
+    if delete_patches:
+        for im in os.listdir(patch_folder):
+            os.remove(os.path.join(patch_folder, im))
 
     # return reconstructed signal
+    return reconstructed_signal, reconstructed_signals_folder
 
 
-def classify_signals(record, data_folder, resnet_model, classes, verbose):
+def classify_signals(record_path, data_folder, resnet_model, classes, verbose):
     # wrap in list to match training data format
-    data = [classification.get_testing_data(record, data_folder)] 
+    record_id = os.path.split(record_path)[-1].split('.')[0]
+    data = [classification.get_testing_data(record_id, data_folder)] 
     pred_dx, probabilities = seresnet18.predict_proba(
                                         resnet_model, data, classes, verbose)
     labels = classes[np.where(pred_dx == 1)]

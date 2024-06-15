@@ -53,6 +53,7 @@ class DefaultArgs():
         self.augment = False
         self.lead_bbox = False
         self.single_channel = False
+        self.copy_data_files = True
         self.input_directory = ''
         self.output_directory = ''
         self.input_file = ''
@@ -112,6 +113,7 @@ class MaskArgs():
         self.augment = False
         self.lead_bbox = False
         self.single_channel = True
+        self.copy_data_files = False
         self.input_directory = ''
         self.output_directory = ''
         self.input_file = ''

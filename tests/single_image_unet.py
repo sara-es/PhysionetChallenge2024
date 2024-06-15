@@ -4,11 +4,12 @@ import matplotlib.pyplot as plt
 
 from digitization.Unet import Unet
 
-image = plt.imread("G:\\PhysionetChallenge2024\\tiny_testset\\real_images\\ecg00051.png")
+# image = plt.imread("G:\\PhysionetChallenge2024\\tiny_testset\\real_images\\ecg00051.png")
+image = plt.imread("temp_data\\images\\01017_lr-0.png")
 record_id = "ecg00051"
 patch_size = 256
 image_size = image.shape
-im_patch_save_path = "G:\\PhysionetChallenge2024\\tests\\data\\patches\\image_patches"
+im_patch_save_path = "G:\\PhysionetChallenge2024\\temp_data\\patches"
 model_folder = "G:\\PhysionetChallenge2024\\model"
 
 Unet.patching.save_patches_single_image(record_id, image, None, 

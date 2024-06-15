@@ -51,7 +51,7 @@ def run_single_file(args):
     else:
         bernoulli_add_print = bernoulli(args.random_print_header)
 
-    font = os.path.join('Fonts', random.choice(os.listdir("Fonts")))
+    font = os.path.join('Fonts', random.choice(os.listdir(os.path.join("generator", "Fonts"))))
 
     if args.random_bw == 0:
         if not args.random_grid_color:
@@ -61,7 +61,7 @@ def run_single_file(args):
     else:
         standard_colours = False
 
-    configs = read_config_file(os.path.join(os.getcwd(), args.config_file))
+    configs = read_config_file(os.path.join(os.getcwd(), "generator", args.config_file))
 
     out_array = get_paper_ecg(input_file=filename, header_file=header, configs=configs,
                               mask_unplotted_samples=args.mask_unplotted_samples, start_index=args.start_index,
@@ -71,7 +71,7 @@ def run_single_file(args):
                               show_grid=bernoulli_grid, add_print=bernoulli_add_print, pad_inches=padding,
                               font_type=font, standard_colours=standard_colours, full_mode=args.full_mode,
                               bbox=args.lead_bbox, columns=args.num_columns, seed=args.seed, 
-                              single_channel=args.single_channel)
+                              single_channel=args.single_channel, copy_data_files=args.copy_data_files)
 
     for out in out_array:
         if args.store_config:
@@ -128,6 +128,7 @@ def run_single_file(args):
             else:
                 temp = random.choice(range(10000, 20000))
             rotate = args.rotate
+            # note if args.store_config!=2 then json_dict is uninitialized
             out = get_augment(out, output_directory=args.output_directory, rotate=args.rotate, noise=noise, crop=crop,
                               temperature=temp, bbox=args.lead_bbox, store_text_bounding_box=args.lead_name_bbox,
                               json_dict=json_dict)

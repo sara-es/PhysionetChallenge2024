@@ -15,7 +15,7 @@ def get_paper_ecg(input_file, header_file, output_directory, seed, add_dc_pulse,
                   resolution=100, units='inches', papersize='', add_lead_names=True, pad_inches=1,
                   template_file=os.path.join('TemplateFiles', 'TextFile1.txt'),
                   font_type=os.path.join('Fonts', 'Times_New_Roman.ttf'), standard_colours=5, full_mode='II',
-                  bbox=False, columns=-1, single_channel=False):
+                  bbox=False, columns=-1, single_channel=False, copy_data_files=True):
     # Extract a reduced-lead set from each pair of full-lead header and recording files.
     full_header_file = header_file
     full_recording_file = input_file
@@ -31,9 +31,10 @@ def get_paper_ecg(input_file, header_file, output_directory, seed, add_dc_pulse,
 
     head, tail = os.path.split(full_header_file)
 
-    output_header_file = os.path.join(output_directory, tail)
-    with open(output_header_file, 'w') as f:
-        f.write('\n'.join(full_lines))
+    if copy_data_files:
+        output_header_file = os.path.join(output_directory, tail)
+        with open(output_header_file, 'w') as f:
+            f.write('\n'.join(full_lines))
 
     #Load the full-lead recording file, extract the lead data, and save the reduced-lead recording file.
     recording = load_recording(full_recording_file, full_header, key)
@@ -249,7 +250,8 @@ def get_paper_ecg(input_file, header_file, output_directory, seed, add_dc_pulse,
     outfile_array = []
 
     name, ext = os.path.splitext(full_header_file)
-    write_wfdb_file(segmented_ecg_data, name, rate, header_file, output_directory, full_mode, mask_unplotted_samples)
+    if copy_data_files:
+        write_wfdb_file(segmented_ecg_data, name, rate, header_file, output_directory, full_mode, mask_unplotted_samples)
 
     if len(ecg_frame) == 0:
         return outfile_array
