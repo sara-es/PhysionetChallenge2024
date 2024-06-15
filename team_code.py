@@ -81,6 +81,7 @@ def train_models(data_folder, model_folder, verbose):
 # code, but do *not* change the arguments of this function. If you do not train one of the models,
 # then you can return None for the model.
 def load_models(model_folder, verbose):
+    # TODO model saving/loading is incredibly scuffed the moment, SS to fix
     digitization_model = model_persistence.load_torch_state_dict(model_folder, 'digitization_model', verbose)
     classification_model = model_persistence.load_models(model_folder, verbose, 
                                                          models_to_load=['classification_model', 'dx_classes'])
