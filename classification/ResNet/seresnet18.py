@@ -249,7 +249,7 @@ def train_model(data, multilabels, uniq_labels, verbose, epochs=5, validate=True
     return model.state_dict()
 
 
-def predict_proba(saved_model, data, classes, verbose, abnormal_threshold=0.5):
+def predict_proba(saved_model, data, classes, verbose, multi_dx_threshold=0.5):
     """
     NOTE: As opposed to the train function, this function takes in a signal 
     (numpy array) directly, instead of a path to a signal.
@@ -259,8 +259,7 @@ def predict_proba(saved_model, data, classes, verbose, abnormal_threshold=0.5):
         data (list): [signal (np.array), fs (int), age and gender features (np.array)]
         classes (list): List of possible unique labels
         verbose (bool): printouts?
-        abnormal_threshold (float): threshold for 'Abnormal' class
-            (Used to be multi_dx_threshold for additional multiclass labels)
+        abnormal_threshold (float): threshold for additional multiclass labels
 
     Returns:
         probabilities (np.array): predicted probabilities for each class
@@ -294,7 +293,7 @@ def predict_proba(saved_model, data, classes, verbose, abnormal_threshold=0.5):
     
     # Choose the class(es) with the highest probability as the label(s).
     # Set the threshold for additional labels here
-    pred_dx = utils.threshold_predict_from_logits(
-                classes, probabilities, threshold=abnormal_threshold
+    pred_dx = utils.multiclass_predict_from_logits(
+                classes, probabilities, threshold=multi_dx_threshold
             )
     return pred_dx, probabilities

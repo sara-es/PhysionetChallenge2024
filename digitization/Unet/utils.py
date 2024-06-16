@@ -96,6 +96,7 @@ def patch_split_from_ids(ids, im_patch_path, lab_patch_path, train_prop, max_sam
 
 
 def load_unet_from_state_dict(model_folder, model_name=None):
+    # TODO add option to load a different model
     if model_name is None:
         model_path = os.path.join("model", "pretrained", "UNET_run1_256_aug_checkpoint")
         if not os.path.exists(model_path):
