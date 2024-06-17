@@ -5,6 +5,7 @@ from digitization.ECGminer.Preprocessor import Preprocessor
 from digitization.ECGminer.SignalExtractor import SignalExtractor
 from digitization.ECGminer.LayoutDetector import LayoutDetector 
 from digitization.ECGminer.assets.Image import Image
+from digitization.ECGminer.Postprocessor.ExtractRhythms import point_to_matrix, detect_rhythm_strip
 import pandas as pd
 
 
@@ -72,9 +73,13 @@ class PaperECG:
         # returns image object
         ecg_crop, rect = self.preprocessor.preprocess(self.image)
         
-        ## DW: replace extract_signals with our own version.
-        # returns x and y coordinates of the traces in order
+        # replaced extract_signals with our own version.
         signal_coords = self.signal_extractor.get_signals_dw(ecg_crop)
+    
+        #automatically detect rhythm strip
+        signal_array = point_to_matrix(signal_coords)      
+        rhythm_strips = detect_rhythm_strip(signal_array, THRESH = 1)
+        print(rhythm_strips)
         
         # check if reference pulses are present and where
         raw_signals, ref_pulse_present = self.layout_detector.detect_reference_pulses(signal_coords)
