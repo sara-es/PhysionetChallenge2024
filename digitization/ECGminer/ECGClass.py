@@ -5,7 +5,7 @@ from digitization.ECGminer.Preprocessor import Preprocessor
 from digitization.ECGminer.SignalExtractor import SignalExtractor
 from digitization.ECGminer.LayoutDetector import LayoutDetector 
 from digitization.ECGminer.assets.Image import Image
-from digitization.ECGminer.Postprocessor.ExtractRhythms import point_to_matrix, detect_rhythm_strip
+from digitization.ECGminer.ExtractRhythms import point_to_matrix, detect_rhythm_strip
 import pandas as pd
 
 
