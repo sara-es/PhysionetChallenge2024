@@ -113,12 +113,13 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
             unet.load_state_dict(checkpoint['model_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             epoch_reached = checkpoint['epoch']
-            loss_store = checkpoint['loss']
+            loss_store = [[checkpoint['loss'], None]]
             if verbose:
-                print(f'Checkpoint loaded {len(checkpoint["model_state_dict"])} ' +\
-                       f'{len(unet.state_dict())} weights. Starting from epoch {epoch_reached}.',
-                       flush=True)
-        except:
+                print(f'{len(checkpoint["model_state_dict"])}/{len(unet.state_dict())} weights ' +\
+                        f'loaded from {LOAD_PATH_UNET}. Starting from epoch {epoch_reached}.',
+                        flush=True)
+        except Exception as e:
+            print(e)
             print(f'Could not load U-net checkpoint from {LOAD_PATH_UNET}. '+\
                    'Training from scratch...', flush=True)
             
