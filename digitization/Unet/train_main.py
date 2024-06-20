@@ -35,7 +35,7 @@ def train_epoch(args, model, train_loader, optimizer, criterion, epoch, verbose)
 
             total_loss += loss
 
-            if verbose and batch_idx % args.log_interval == 0:
+            if verbose and batch_idx % args.log_interval*10 == 0:
                 print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                     epoch, (batch_idx+1) * len(data), len(train_loader.dataset),
                            100. * (batch_idx+1) / len(train_loader), loss.item()), flush=True)
