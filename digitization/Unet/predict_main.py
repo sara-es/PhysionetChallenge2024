@@ -1,11 +1,14 @@
 # Adapted from code by Nicola Dinsdale 2024
-import os
+import os, sys
+sys.path.append(os.path.join(sys.path[0], '..'))
 import numpy as np
 import torch
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
+from digitization.Unet.ECGunet import BasicResUNet
 from digitization.Unet.datasets.PatchDataset import PatchDataset
-from digitization.Unet import patching, utils
+from digitization import Unet
+from utils import team_helper_code
 from tqdm import tqdm
 
 def normal_predict(model, test_loader, have_labels=False):
@@ -33,7 +36,7 @@ def normal_predict(model, test_loader, have_labels=False):
     return pred, orig, true
 
 
-def dice(ground_truth, prediction):
+def calculate_dice(ground_truth, prediction):
     # Calculate the 3D dice coefficient of the ground truth and the prediction
     ground_truth = ground_truth > 0.5  # Binarize volume
     prediction = prediction > 0.5  # Binarize volume
@@ -66,37 +69,41 @@ def predict_single_image(image_id, im_patch_dir, unet, original_image_size=(1700
     results = results.squeeze()
     results = np.argmax(results, axis=1)
 
-    predicted_im = patching.depatchify(results, results.shape[1:], original_image_size)
+    predicted_im = Unet.patching.depatchify(results, results.shape[1:], original_image_size)
     return predicted_im
 
 
-def batch_predict_full_images(ids_to_predict, patch_dir, model_path, save_pth, 
+def batch_predict_full_images(ids_to_predict, patch_dir, unet_state_dict, save_pth, 
                               verbose, save_all=True):
     """
-    Mostly for testing - assumes we have labels for accuracy score and have already generated patches
+    Mostly for testing - assumes we have labels for accuracy score and have already generated 
+    patches. Note that this will predict on ALL patches in patch_dir, then attempt to reconstruct
+    them to full images; may fail if an image is missing one or more patches.
     """
-
     # want to predict on one image at a time so we can reconstruct it
-    ids = os.listdir(os.path.join(patch_dir, 'image_patches'))
-    image_ids = set([f.split('_')[0] for f in ids]) # set = unique values
-    ids_to_predict = [f.split('_')[0] for f in ids_to_predict]
-    if verbose:
-        print(f"Testing on {len(image_ids)} images with {len(ids)} total patches.")
-
-    # Load the model
-    # can change this to accept pre-loaded model if necessary
-    unet = utils.load_unet_from_state_dict(model_path)
     im_patch_dir = os.path.join(patch_dir, 'image_patches')
     label_patch_dir = os.path.join(patch_dir, 'label_patches')
+    ids = os.listdir(im_patch_dir)
+    ids_to_predict = team_helper_code.check_dirs_for_ids(ids_to_predict, im_patch_dir, 
+                                                         label_patch_dir, verbose)
+    if verbose:
+        print(f"Testing on {len(ids_to_predict)} images with {len(ids)} total patches.")
 
-    for image_id in tqdm(ids_to_predict, desc='Running U-net on images', disable=not verbose):
-        patch_ids = [f for f in ids if f.split('_')[0] == image_id]
+    # Load the model
+    unet = Unet.utils.load_unet_from_state_dict(unet_state_dict)
+    dice_list = np.zeros(len(ids_to_predict))
+
+    for i, image_id in tqdm(enumerate(ids_to_predict), desc='Running U-net on images', 
+                            disable=not verbose):
+        patch_ids = [f for f in ids if f.split('-')[0] == image_id]
         patch_ids = sorted(patch_ids)
         # train = True here because we want to load the labels for accuracy score
-        test_dataset = PatchDataset(patch_ids, im_patch_dir, label_patch_dir, train=True, transform=None)
+        test_dataset = PatchDataset(patch_ids, im_patch_dir, label_patch_dir, train=True, 
+                                    transform=None)
         test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=0)
 
         results, orig, true = normal_predict(unet, test_dataloader, have_labels=True)
+        dice_list[i] = calculate_dice(true, results)
 
         results = results.squeeze()
         results = np.argmax(results, axis=1)
@@ -107,13 +114,11 @@ def batch_predict_full_images(ids_to_predict, patch_dir, model_path, save_pth,
             # randomly save some images
             save_chance = np.random.rand()
         if save_chance > 0.9:
-            predicted_im = patching.depatchify(results, results.shape[1:])
-            # import matplotlib.pyplot as plt
-            # plt.imshow(predicted_im)
-            # plt.show()
+            predicted_im = Unet.patching.depatchify(results, results.shape[1:])
             with open(os.path.join(save_pth, image_id + '.npy'), 'wb') as f:
                 np.save(f , predicted_im)
 
+    return dice_list
 
-    # TODO calculate DICE
+
 

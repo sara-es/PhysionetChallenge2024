@@ -23,6 +23,7 @@ from digitization import Unet, ECGminer
 from classification import seresnet18
 import classification
 import generator
+from evaluation import eval_utils
 
 ################################################################################
 #
@@ -81,10 +82,11 @@ def train_models(data_folder, model_folder, verbose):
 # code, but do *not* change the arguments of this function. If you do not train one of the models,
 # then you can return None for the model.
 def load_models(model_folder, verbose):
-    # TODO model saving/loading is incredibly scuffed the moment, SS to fix
-    digitization_model = model_persistence.load_torch_state_dict(model_folder, 'digitization_model', verbose)
-    classification_model = model_persistence.load_models(model_folder, verbose, 
-                                                         models_to_load=['classification_model', 'dx_classes'])
+    models = model_persistence.load_models(model_folder, verbose, 
+                        models_to_load=['digitization_model', 'classification_model', 'dx_classes'])
+    digitization_model = models['digitization_model']
+    classification_model = models['classification_model', 'dx_classes']
+    print(classification_model)
     return digitization_model, classification_model
 
 # Run your trained digitization model. This function is *required*. You should edit this function
@@ -92,7 +94,7 @@ def load_models(model_folder, verbose):
 # the models, then you can return None for the model.
 def run_models(record, digitization_model, classification_model, verbose):
     # Load the digitization model.
-    unet_model = digitization_model
+    unet_model = Unet.utils.load_unet_from_state_dict(digitization_model)
 
     # Run the digitization model; if you did not train this model, then you can set signal=None.
     signal, reconstructed_signal_dir = unet_predict_single_image(record, unet_model, verbose, 
@@ -129,13 +131,10 @@ def run_models(record, digitization_model, classification_model, verbose):
 # Save your trained models.
 def save_models(model_folder, digitization_model=None, classification_model=None, classes=None):
     if digitization_model is not None:
-        # TODO make this more robust
-        model_persistence.save_torch_state_dict(digitization_model, 'digitization_model', model_folder)
+        model_persistence.save_model_torch(digitization_model, 'digitization_model', model_folder)
 
     if classification_model is not None:
         d = {'classification_model': classification_model, 'dx_classes': classes}
-        # filename = os.path.join(model_folder, 'classification_model.sav')
-        # joblib.dump(d, filename, protocol=0) 
         model_persistence.save_models(d, model_folder, verbose=False)
         
 
@@ -144,10 +143,10 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
     """
     Our general digitization process is
     1. generate testing images and masks
-    2. preprocess testing images to fix rotation and estimate grid size/scale
+    2. preprocess testing images to estimate grid size/scale (and fix rotation if needed)
     3. generate u-net patches
     4. run u-net on patches
-    5. recover image with signal outline from u-net outputs
+    5. recover full image with signal outline from u-net outputs
     6. reconstruct signal and trace from u-net output
 
     At each step we save the outputs to disk to save on memory; here, we assume by default that 
@@ -171,8 +170,6 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
     if not records_to_process:
         records_to_process = helper_code.find_records(data_folder)
 
-    if verbose:
-        print('Training U-net model...')
     # generate images and masks for training u-net; generate patches
     generate_unet_training_data(data_folder, images_folder, 
                                 masks_folder, patch_folder, 
@@ -186,6 +183,8 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
     args.epochs = 1 # TODO: increase this for actual training
     unet_model = train_unet(records_to_process, patch_folder, model_folder, verbose, args=args, 
                             warm_start=True)
+    if verbose:
+        print(f'Done.')
 
     if verbose:
         print('Generating training data for classification...')
@@ -194,51 +193,11 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
     # The following function generates new images, patches them, runs u-net, reconstructs signals
     # from u-net outputs, then finally saves the reconstructed signals in wfdb format.
     generate_and_predict_unet_batch(data_folder, images_folder, masks_folder, patch_folder,
-                                  unet_output_folder, model_folder, reconstructed_signals_folder,
+                                  unet_output_folder, unet_model, reconstructed_signals_folder,
                                   verbose, records_to_process=records_to_process, 
                                   delete_images=delete_training_data)
     
     return unet_model, reconstructed_signals_folder
-    
-
-def preprocess_images(raw_images_folder, processed_images_folder, verbose, 
-                      records_to_process=None):
-    """
-    Preprocess images found in raw_images_folder and save them in processed_images_folder.
-    Optionally provide a list of a subset of records to process (records_to_process).
-
-    Preprocessing steps currently implemented:
-        - resize images to a standard size
-    
-    TODO:
-        - determine grid size of the image and save it to either the original header file 
-        (will need to pass in the header file path, wfdb_records_folder) or a new file
-    """
-    if not records_to_process:
-        records_to_process = helper_code.find_records(raw_images_folder)
-    
-    for i in tqdm(range(len(records_to_process)), desc='Preprocessing images', disable=~verbose):
-        record = records_to_process[i] 
-        #raw_image_path = os.path.join(raw_images_folder, record + '.png')
-        
-        # load raw image
-        record_image = os.path.join(raw_images_folder, record)
-        image = helper_code.load_images(record_image)
-        # resize image if needed
-        image = resize_images(image)
-        
-        # get and save the gridsize
-        grayscale_image = preprocessing.cepstrum_grid_detection.image_to_grayscale_array(image)
-        
-        # TODO: fix get_rotation_angle - it breaks for tiny_test/hr_gt/01017_hr
-        rot_angle, gridsize = preprocessing.cepstrum_grid_detection.get_rotation_angle(grayscale_image)
-        team_helper_code.save_gridsize(record_image, gridsize)
-        
-        # TODO: decide if we want to do rotation now or after the u-net. If we do it now, set image to the rotated image
-
-        # TODO save processed image
-        processed_image = os.path.join(processed_images_folder, record + '.png')
-        image[0].save(processed_image,"PNG")
         
 
 def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder, patch_folder,
@@ -271,16 +230,13 @@ def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder
         print("Generating masks from wfdb files...")
     generator.gen_ecg_images_from_data_batch.run(mask_gen_params, records_to_process)
 
-    # TODO: preprocess images (if needed)
-
     # generate patches
-    Unet.patching.save_patches_batch(images_folder, masks_folder, patch_size, 
+    Unet.patching.save_patches_batch(records_to_process, images_folder, masks_folder, patch_size,
                                      patch_folder, verbose, max_samples=False)
 
 
-
 def train_unet(record_ids, patch_folder, model_folder, verbose, 
-               args=None, max_train_samples=5000, warm_start=False, delete_patches=True):
+               args=None, max_train_samples=5000, warm_start=True, delete_patches=True):
     """
     Train the U-Net model from patches and save the resulting model. 
     Note that no validation is done by default - during the challenge we will want to train
@@ -292,7 +248,7 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
     
     patchsize = constants.PATCH_SIZE
     # path for model checkpoints, used with early stopping
-    CHK_PATH_UNET = os.path.join(model_folder, 'UNET_' + str(patchsize) + '_checkpoint')
+    CHK_PATH_UNET = os.path.join(model_folder, 'UNET_' + str(patchsize))
     # for saving the loss values, used with early stopping
     LOSS_PATH = os.path.join(model_folder, 'UNET_' + str(patchsize) + '_losses')
     # if we're loading a pretrained model - hardcoded for now
@@ -300,9 +256,9 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
     if warm_start:
         # TODO: replace once model has been retrained
         chkpt_path = os.path.join('digitization', 'model_checkpoints', 
-                                      'UNET_run1_'+ str(patchsize) + '_aug_checkpoint')
+                                      'UNET_'+ str(patchsize) + '_checkpoint')
         if not os.path.exists(chkpt_path):
-            print(f"Warm start requested but no model found at {LOAD_PATH_UNET}, " +\
+            print(f"Warm start requested but no checkpoint found at {LOAD_PATH_UNET}, " +\
                   "training U-net from scratch.")
         else:
             LOAD_PATH_UNET = chkpt_path
@@ -337,8 +293,10 @@ def reconstruct_signal(record, unet_image, header_txt,
     gridsize = 37.5
 
     # reconstruct signals from u-net outputs
-    reconstructed_signal, trace = ECGminer.digitize_image_unet(unet_image, gridsize, sig_len=1000)
-    reconstructed_signal = np.asarray(np.nan_to_num(reconstructed_signal)) # removed *1000 astype int16
+    signal_length = helper_code.get_num_samples(header_txt)
+    reconstructed_signal, trace = ECGminer.digitize_image_unet(unet_image, gridsize, 
+                                                               sig_len=signal_length)
+    reconstructed_signal = np.asarray(np.nan_to_num(reconstructed_signal))
 
     # save reconstructed signal and copied header file in the same folder
     if save_signal:
@@ -353,7 +311,7 @@ def reconstruct_signal(record, unet_image, header_txt,
 
 
 def generate_and_predict_unet_batch(wfdb_records_folder, images_folder, mask_folder, patch_folder,
-                                  unet_output_folder, model_folder, reconstructed_signals_folder,
+                                  unet_output_folder, unet_model, reconstructed_signals_folder,
                                   verbose, records_to_process=None, delete_images=True):
     """
     An all-in-one to generate images from records, run them through the U-Net model, and 
@@ -371,8 +329,6 @@ def generate_and_predict_unet_batch(wfdb_records_folder, images_folder, mask_fol
     img_gen_params.random_bw = 0.2
     img_gen_params.wrinkles = True
     img_gen_params.print_header = True
-    img_gen_params.augment = True # TODO reconstruction breaks with any rotation at the moment
-    img_gen_params.rotate = 5
     img_gen_params.input_directory = wfdb_records_folder
     img_gen_params.output_directory = images_folder
 
@@ -380,21 +336,21 @@ def generate_and_predict_unet_batch(wfdb_records_folder, images_folder, mask_fol
     if verbose:
         print("Generating images from wfdb files...")
     generator.gen_ecg_images_from_data_batch.run(img_gen_params, records_to_process)
-    
-    # TODO: pass in model to predict images (right now it's hardcoded in batch_predict_full_images)
 
     # generate patches
-    Unet.patching.save_patches_batch(images_folder, mask_folder, constants.PATCH_SIZE, 
+    Unet.patching.save_patches_batch(records_to_process, images_folder, mask_folder, constants.PATCH_SIZE, 
                                      patch_folder, verbose, max_samples=False)
-    Unet.batch_predict_full_images(records_to_process, patch_folder, model_folder, 
+    dice_list = Unet.batch_predict_full_images(records_to_process, patch_folder, unet_model, 
                                    unet_output_folder, verbose, save_all=True)
 
     # reconstruct_signals
     reconstructed_signals = []
-    for record in tqdm(records_to_process, desc='Reconstructing signals from U-net outputs', 
-                       disable=not verbose):
+    snr_list = np.zeros(len(records_to_process))
+    for i, record in tqdm(enumerate(records_to_process), 
+                       desc='Reconstructing signals from U-net outputs', disable=not verbose):
         # load u-net outputs
-        record_id = record.split('_')[0]
+        record_id = team_helper_code.find_available_images(
+                            [record], unet_output_folder, verbose)[0] # returns list
         unet_image_path = os.path.join(unet_output_folder, record_id + '.npy')
         with open(unet_image_path, 'rb') as f:
             unet_image = np.load(f)
@@ -402,12 +358,18 @@ def generate_and_predict_unet_batch(wfdb_records_folder, images_folder, mask_fol
         # reconstruct signal
         # load header file to save with reconstructed signal
         record_path = os.path.join(wfdb_records_folder, record) 
+        label_signal, label_fields = helper_code.load_signals(record_path)
         header_txt = helper_code.load_header(record_path)
-        rec_signal, _ = reconstruct_signal(record, unet_image, header_txt, 
+        rec_signal, _ = reconstruct_signal(record_id, unet_image, header_txt, 
                        reconstructed_signals_folder)
         reconstructed_signals.append(rec_signal)  
 
-        # TODO: calculate and return DICE score
+        snr_list[i], _, _, _, _ = eval_utils.single_signal_snr(rec_signal, label_fields, 
+                                    label_signal, label_fields, record, extra_scores=False)
+
+    if verbose:
+        print(f"Average DICE score: {np.mean(dice_list)}")
+        print(f"Average SNR: {np.mean(snr_list)}")
 
     # delete patches (we have the full images/masks in images_folder)
     im_patch_dir = os.path.join(patch_folder, 'image_patches')
@@ -470,6 +432,46 @@ def train_classification_model(reconstructed_records_folder, verbose,
         print("Finished training classification model.")
     
     return resnet_model, uniq_labels
+
+
+def preprocess_images(raw_images_folder, processed_images_folder, verbose, 
+                      records_to_process=None):
+    """
+    Preprocess images found in raw_images_folder and save them in processed_images_folder.
+    Optionally provide a list of a subset of records to process (records_to_process).
+
+    Preprocessing steps currently implemented:
+        - resize images to a standard size
+    
+    TODO:
+        - determine grid size of the image and save it to either the original header file 
+        (will need to pass in the header file path, wfdb_records_folder) or a new file
+    """
+    if not records_to_process:
+        records_to_process = helper_code.find_records(raw_images_folder)
+    
+    for i in tqdm(range(len(records_to_process)), desc='Preprocessing images', disable=~verbose):
+        record = records_to_process[i] 
+        #raw_image_path = os.path.join(raw_images_folder, record + '.png')
+        
+        # load raw image
+        record_image = os.path.join(raw_images_folder, record)
+        image = helper_code.load_images(record_image)[0]
+        # resize image if needed
+        image = resize_images(image)
+        
+        # get and save the gridsize
+        grayscale_image = preprocessing.cepstrum_grid_detection.image_to_grayscale_array(image)
+        
+        # TODO: fix get_rotation_angle - it breaks for tiny_test/hr_gt/01017_hr
+        rot_angle, gridsize = preprocessing.cepstrum_grid_detection.get_rotation_angle(grayscale_image)
+        team_helper_code.save_gridsize(record_image, gridsize)
+        
+        # TODO: decide if we want to do rotation now or after the u-net. If we do it now, set image to the rotated image
+
+        # save processed image
+        processed_image = os.path.join(processed_images_folder, record + '.png')
+        image.save(processed_image,"PNG") # check this works?
 
 
 def unet_predict_single_image(record_path, model, verbose, delete_patches=True):

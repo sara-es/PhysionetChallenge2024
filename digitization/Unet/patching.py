@@ -1,7 +1,9 @@
-import os
+import os, sys
+sys.path.append(os.path.join(sys.path[0], '..'))
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from utils import team_helper_code
 
 
 def patchify(image, label, size=(128,128)):
@@ -13,8 +15,7 @@ def patchify(image, label, size=(128,128)):
     labels_present = True
     if label is None:
         labels_present = False
-    
-    # print(image.shape)
+
     for i in range(0, i_patches):
         for j in range(0, j_patches):
             im_patch = image[i*size[0]:(i+1)*size[0], j*size[1]:(j+1)*size[1], :3] # Remove the alpha channel
@@ -42,7 +43,7 @@ def patchify(image, label, size=(128,128)):
     im_arr = np.array(im_arr)
     if labels_present:
         lab_arr = np.array(lab_arr)
-    # print(im_arr.shape, flush=True)
+
     return im_arr, lab_arr
 
 
@@ -102,9 +103,8 @@ def save_patches_single_image(record_id, image, label, patch_size, im_patch_save
             np.save(os.path.join(lab_patch_save_path, k), lab_patch)
 
 
-def save_patches_batch(image_path, label_path, patch_size, patch_save_path, verbose, 
+def save_patches_batch(ids, image_path, label_path, patch_size, patch_save_path, verbose, 
                        max_samples=False):
-    ids = sorted(os.listdir(label_path))
     if max_samples:
         ids = ids[:max_samples]
     im_patch_path = os.path.join(patch_save_path, 'image_patches')
@@ -112,9 +112,14 @@ def save_patches_batch(image_path, label_path, patch_size, patch_save_path, verb
     os.makedirs(im_patch_path, exist_ok=True)
     os.makedirs(lab_patch_path, exist_ok=True)
 
+    # make sure we have matching images and labels
+    available_im_ids = team_helper_code.find_available_images(ids, image_path, verbose)
+    available_label_ids = team_helper_code.find_available_images(ids, label_path, verbose)
+    ids = list(set(available_im_ids).intersection(available_label_ids))
+
     for id in tqdm(ids, desc='Generating and saving patches', disable=not verbose):
-        lab_pth = os.path.join(label_path, id)
         id = id.split('.')[0]
+        lab_pth = os.path.join(label_path, id + '.npy')
         img_pth = os.path.join(image_path, id + '.png')
         with open(img_pth, 'rb') as f:
             image = plt.imread(f)
@@ -128,5 +133,3 @@ def save_patches_batch(image_path, label_path, patch_size, patch_save_path, verb
             k = f'_{i:03d}'
             np.save(os.path.join(im_patch_path, id + k), im_patch)
             np.save(os.path.join(lab_patch_path, id + k), lab_patch)
-        # np.save(os.path.join(im_patch_path, id), im_patches)
-        # np.save(os.path.join(lab_patch_path, id), label_patches)

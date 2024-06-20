@@ -11,7 +11,7 @@ from digitization.Unet import utils
 from digitization.Unet import Unet
 
 
-def train_epoch(args, model, train_loader, optimizer, criterion, epoch):
+def train_epoch(args, model, train_loader, optimizer, criterion, epoch, verbose):
     cuda = torch.cuda.is_available()
     total_loss = 0
     model.train()
@@ -35,7 +35,7 @@ def train_epoch(args, model, train_loader, optimizer, criterion, epoch):
 
             total_loss += loss
 
-            if batch_idx % args.log_interval == 0:
+            if verbose and batch_idx % args.log_interval == 0:
                 print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                     epoch, (batch_idx+1) * len(data), len(train_loader.dataset),
                            100. * (batch_idx+1) / len(train_loader), loss.item()), flush=True)
@@ -48,7 +48,7 @@ def train_epoch(args, model, train_loader, optimizer, criterion, epoch):
     return av_loss_copy
 
 
-def val_epoch(args, model, val_loader, criterion):
+def val_epoch(args, model, val_loader, criterion, epoch, verbose):
     cuda = torch.cuda.is_available()
     model.eval()
     total_loss = 0
@@ -63,8 +63,11 @@ def val_epoch(args, model, val_loader, criterion):
             x = model(data)
             loss = criterion(x, target)
             total_loss  += loss
-            # example = x[0:5].detach().cpu().numpy()
-            # np.save('G:\\PhysionetChallenge2024\\evaluation\\viz\\unet\\example_', example)
+
+            if verbose and batch_idx % args.log_interval == 0:
+                print('Val Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                    epoch, (batch_idx+1) * len(data), len(val_loader.dataset),
+                           100. * (batch_idx+1) / len(val_loader), loss.item()), flush=True)
     av_loss = total_loss / batches
     av_loss_copy = np.copy(av_loss.detach().cpu().numpy())
     del av_loss
@@ -77,37 +80,48 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
                ):
     cuda = torch.cuda.is_available()
 
-    train_patch_ids, val_patch_ids = utils.patch_split_from_ids(ids, im_patch_dir, label_patch_dir, 
-                                                    args.train_val_prop, max_samples=max_samples)
+    train_patch_ids, val_patch_ids = utils.patch_split_from_ids(ids, im_patch_dir, label_patch_dir,
+                                        args.train_val_prop, verbose, max_samples=max_samples)
 
     if verbose:
         print('Training patches: ', len(train_patch_ids), flush=True)
         print('Validation patches: ', len(val_patch_ids), flush=True)
 
         print('Creating datasets and dataloaders...')
-    train_dataset = PatchDataset(train_patch_ids, im_patch_dir, label_patch_dir, transform=args.augmentation)
+    train_dataset = PatchDataset(train_patch_ids, im_patch_dir, label_patch_dir, 
+                                 transform=args.augmentation)
     val_dataset = PatchDataset(val_patch_ids, im_patch_dir, label_patch_dir, transform=None)
 
-    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=0)
+    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, 
+                                  num_workers=0)
     val_dataloader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=0)
 
-    # Load the model
+    # Initialize and load the model
     unet = BasicResUNet(3, 2, nbs=[1, 1, 1, 1], init_channels=16, cbam=False)
+    epoch_reached = 1
+    loss_store = []  
+    optimizer = optim.AdamW(lr=args.learning_rate, params=unet.parameters())
+    early_stopping = utils.EarlyStopping(args.patience, verbose=False)
+
     if cuda:
         unet = unet.cuda()
     if LOAD_PATH_UNET:
         if verbose:
-            print('Loading U-net Weights...')
-        encoder_dict = unet.state_dict()
-        pretrained_dict = torch.load(LOAD_PATH_UNET)['model_state_dict']
-        pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in encoder_dict}
-        if verbose:  
-            print('weights loaded unet = ', len(pretrained_dict), '/', len(encoder_dict))
-        unet.load_state_dict(torch.load(LOAD_PATH_UNET)['model_state_dict'])
-    
-    optimizer = optim.AdamW(lr=args.learning_rate, params=unet.parameters())
-    early_stopping = utils.EarlyStopping(args.patience, verbose=False)
-
+            print('Loading U-net checkpoint...', flush=True)
+        try:
+            checkpoint = torch.load(LOAD_PATH_UNET)
+            unet.load_state_dict(checkpoint['model_state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            epoch_reached = checkpoint['epoch']
+            loss_store = checkpoint['loss']
+            if verbose:
+                print(f'Checkpoint loaded {len(checkpoint["model_state_dict"])} ' +\
+                       f'{len(unet.state_dict())} weights. Starting from epoch {epoch_reached}.',
+                       flush=True)
+        except:
+            print(f'Could not load U-net checkpoint from {LOAD_PATH_UNET}. '+\
+                   'Training from scratch...', flush=True)
+            
     # Loss function from paper --> dice loss + focal loss
     criterion = Unet.ComboLoss(
                 weights={'dice': 1, 'focal': 1},
@@ -117,20 +131,17 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
             )
     if cuda:
         crit = criterion.cuda()
-        
-    epoch_reached = 1
-    loss_store = []
 
     for epoch in range(epoch_reached, args.epochs+1):
         if verbose:
             print('Epoch ', epoch, '/', args.epochs, flush=True)
-        loss = Unet.train_epoch(args, unet, train_dataloader, optimizer, crit, epoch)
+        loss = Unet.train_epoch(args, unet, train_dataloader, optimizer, crit, epoch, verbose)
         if args.train_val_prop < 1.0:
-            val_loss = Unet.val_epoch(args, unet, val_dataloader, crit)
+            val_loss = Unet.val_epoch(args, unet, val_dataloader, crit, epoch, verbose)
+            if verbose:
+                print('Validation set: Average loss: {:.4f}\n'.format(val_loss,  flush=True))
         else:
             val_loss = 0
-        if verbose:
-            print('Validation set: Average loss: {:.4f}\n'.format(val_loss,  flush=True))
         loss_store.append([loss, val_loss])
         np.save(LOSS_PATH, np.array(loss_store))
 
@@ -140,7 +151,7 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
         if early_stopping.early_stop:
             loss_store = np.array(loss_store)
             np.save(LOSS_PATH, loss_store)
-            torch.save(unet.state_dict(), CHK_PATH_UNET)
+            torch.save(unet.state_dict() + '.pth', CHK_PATH_UNET)
             return unet.state_dict()
             
         if args.reduce_lr:
@@ -172,7 +183,7 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
             # Save the model in such a way that we can continue training later
             loss_store = np.array(loss_store)
             np.save(LOSS_PATH, loss_store)
-            torch.save(unet.state_dict(), CHK_PATH_UNET)
+            torch.save(unet.state_dict() + '.pth', CHK_PATH_UNET)
             return unet.state_dict()
             
         torch.cuda.empty_cache()  # Clear memory cache

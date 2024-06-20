@@ -12,6 +12,8 @@ Our general digitization process is
 Here we'll assume that all of that has been done, and we just need to load the respective files 
 and display them all together in a single image. The only exception is the trace, which we'll
 re-generate from the u-net output image.
+
+To generate the data first, use evaluation/generate_data.py. 
 """
 
 import sys, os
@@ -23,20 +25,23 @@ from PIL import Image
 
 import team_code, helper_code
 from evaluation import eval_utils
-from utils import model_persistence
+from utils import model_persistence, team_helper_code
 
 
 def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
                     wfdb_records_dir, visualization_save_dir):
-    image_filenames = [r for r in os.listdir(test_images_dir) if r.split('.')[-1] == 'png']
-    image_ids = set([r.split('_')[0] for r in image_filenames])
-    unet_ids = set([r.split('.')[0] for r in os.listdir(unet_outputs_dir)])
-    if image_ids != unet_ids and len(image_ids) > 0:
+    records = helper_code.find_records(wfdb_records_dir)
+    ids = team_helper_code.check_dirs_for_ids(records, test_images_dir, 
+                                              unet_outputs_dir, True)
+    image_ids = team_helper_code.find_available_images(ids, 
+                                                       test_images_dir, verbose=True)
+    unet_ids = team_helper_code.find_available_images(ids, 
+                                                      unet_outputs_dir, verbose=True)
+    if len(image_ids) != len(unet_ids) and len(image_ids) > 0:
         print(image_ids, unet_ids)
-        raise ValueError("Image and U-Net output file IDs do not match, please make sure both "+\
-                         "have been generated and saved correctly.")
+        raise ValueError("Number of image and U-Net output files do not match, please make "+\
+                         "sure both have been generated and saved correctly.")
     
-    records =  helper_code.find_records(wfdb_records_dir)
     image_ids = sorted(list(image_ids))
     unet_ids = sorted(list(unet_ids))
 
@@ -45,7 +50,7 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
     # resnet_model = classification_model["model"]
     # dx_classes = classification_model["dx_classes"]
     
-    for i in range(len(image_filenames)):
+    for i in range(len(image_ids)):
         # set up mosaic for original image, u-net output with trace, ground truth signal, 
         # and reconstructed signal
         mosaic = plt.figure(layout="tight", figsize=(18, 13))
@@ -55,7 +60,7 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
                                     ])
         # load image
         # TODO: this assumes image needs no preprocessing, or preprocessing has already been done
-        with Image.open(os.path.join(test_images_dir, image_filenames[i])) as img:
+        with Image.open(os.path.join(test_images_dir, image_ids[i] + '.png')) as img:
             axd['original_image'].axis('off')
             axd['original_image'].imshow(img, cmap='gray')
 
@@ -135,6 +140,7 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
 if __name__ == "__main__":
     test_images_folder = os.path.join("temp_data", "images")
     unet_outputs_folder = os.path.join("temp_data", "unet_outputs")
+    # unet_outputs_folder = os.path.join("temp_data", "masks")
     reconstructed_signal_dir = os.path.join("temp_data", "reconstructed_signals")
     visualization_save_folder = os.path.join("evaluation", "data", "trace_visualizations")
 

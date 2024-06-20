@@ -23,24 +23,6 @@ def save_model_torch(model, name, folder):
             print(f'Could not save torch model to {fn}.')
 
 
-def save_torch_state_dict(model, name, folder):
-    import torch
-    if model is not None:
-        try:
-            fn = os.path.join(folder, name)
-            torch.save(model, fn)
-        except Exception as e:
-            print(e)
-            print(f'Could not save torch state dict to {fn}.')
-
-
-def save_model(model, file, folder):
-    if isinstance(model, torch.nn.Module):
-        save_model_torch(model, file, folder)
-    else:
-        save_model_pkl(model, file, folder)
-
-
 def save_models(models, model_folder, verbose=True):
     for name, model in models.items():
         if isinstance(model, torch.nn.Module):
@@ -51,7 +33,14 @@ def save_models(models, model_folder, verbose=True):
             print(f'{name} model saved.')
 
 
-def load_torch_state_dict(folder, name, verbose=False):
+def load_checkpoint_dict(folder, name, verbose=False):
+    """
+    This is ONLY for model saves with checkpoint in the name. It will not work for normal torch 
+    model saves (.pth files).
+
+    Checkpoint saves are dictionaries with keys: 'epoch', 'model_state_dict', 
+    'optimizer_state_dict', and 'loss'.
+    """
     import torch
     from digitization.Unet.ECGunet import BasicResUNet
     cuda = torch.cuda.is_available()
@@ -73,41 +62,6 @@ def load_torch_state_dict(folder, name, verbose=False):
         print('weights loaded unet = ', len(pretrained_dict), '/', len(encoder_dict))
     unet.load_state_dict(torch.load(fn)['model_state_dict'])
     return unet
-    # except Exception as e:
-    #     print(e)
-    #     print(f'Could not load torch state dict from {fn}.')
-
-
-def load_model(model_folder, name, verbose=True):
-    if verbose:
-        print(f'Attempting to load from {model_folder}...')
-
-    if os.path.exists(model_folder):
-        # try to load pkl
-        fnp = os.path.join(model_folder, name + '.sav')
-        fnt = os.path.join(model_folder, name +'.pth')
-        if os.path.exists(fnp):
-            try:
-                model = pickle.load(open(fnp, 'rb'))
-                if verbose:
-                    print(f"Loaded model.")
-            except ValueError:
-                print(f"I couldn't load the pickled model {fnp}.")
-        # else try to load torch
-        elif os.path.exists(fnt):
-            device = torch.device("cpu")
-            try:
-                model = torch.load(fnt, map_location=device)
-                if verbose:
-                    print(f"Loaded model.")
-            except ValueError:
-                print(f"I couldn't load the torch model {fnt}.")
-        else:
-            print(f"I can't find the model.")
-    else:
-        print(f"{model_folder} not found or is not a valid path.")
-
-    return model
 
 
 def load_models(model_folder, verbose, models_to_load):

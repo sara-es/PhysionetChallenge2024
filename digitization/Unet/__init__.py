@@ -8,5 +8,5 @@ from digitization.Unet import patching
 from digitization.Unet.train_main import train_epoch
 from digitization.Unet.train_main import val_epoch
 from digitization.Unet.train_main import train_unet
-from digitization.Unet.predict_main import dice
+from digitization.Unet.predict_main import calculate_dice
 from digitization.Unet.predict_main import batch_predict_full_images, predict_single_image

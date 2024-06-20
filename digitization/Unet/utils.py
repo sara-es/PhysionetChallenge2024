@@ -4,11 +4,13 @@
 # Early stopping: exactly that
 # Load pretrained model: loads statedict into model
 ######################################################################################
-import os
+import os, sys
+sys.path.append(os.path.join(sys.path[0], '..'))
 import torch
 import numpy as np
 from sklearn.utils import shuffle
 from digitization.Unet.ECGunet import BasicResUNet
+from utils import team_helper_code
 
 class Args:
     # Store lots of the parameters that we might need to train the model
@@ -18,7 +20,7 @@ class Args:
         self.learning_rate = 0.5e-3
         self.epochs = 50
         self.train_val_prop = 1.0 # Set to 1.0 for no validation (train on all data)
-        self.patience = 25 # Early stopping patience
+        self.patience = 15 # Early stopping patience
         self.channels_first = True
         self.diff_model_flag = False
         self.alpha = 1
@@ -47,7 +49,7 @@ class EarlyStopping:
             self.counter += 1
             if self.verbose:
                 print('Early Stopping Counter: ', self.counter, '/', self.patience)
-            if self .counter >= self.patience:
+            if self.counter >= self.patience:
                 self.early_stop = True
         else:
             self.best_score = score
@@ -55,63 +57,67 @@ class EarlyStopping:
             self.counter = 0
 
     def save_checkpoint(self, val_loss, model, epoch, optimizer, loss, PTH):
-            # Saves the model when the validation loss decreases
-            if self.verbose:
-                print('Validation loss decreased: ', self.val_loss_min, ' --> ',  val_loss, 'Saving model ...')
-            torch.save({'epoch': epoch,
-                        'model_state_dict': model.state_dict(),
-                        'optimizer_state_dict': optimizer.state_dict(),
-                        'loss': loss}, PTH)
+        # Saves the model when the validation loss decreases
+        if self.verbose:
+            print('Validation loss decreased: ', self.val_loss_min, ' --> ',  val_loss, 'Saving model ...')
+        torch.save({'epoch': epoch,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'loss': loss}, PTH + '_checkpoint')
 
 
-def patch_split_from_ids(ids, im_patch_path, lab_patch_path, train_prop, max_samples=False):
-    # TODO: make sure there's an associated label patch for every image patch path
+def patch_split_from_ids(ids, im_patch_path, lab_patch_path, train_prop, verbose=False, 
+                         max_samples=False):
+    """
+    Shuffles patches and splits them into training and validation sets based on image ID,
+    to avoid data leakage. Note this will return a train/test split based only on the folder
+    contents, instead of a passed-in list of image IDs. 
+
+    Args:
+    ids: list of image IDs
+    im_patch_path (str): path to image patches
+    lab_patch_path (str): path to label patches
+    train_prop (float in range [0,1]): proportion of patches to use for training
+    max_samples (int): maximum number of samples to use for training and validation
+    """
     im_patch_files = sorted(os.listdir(im_patch_path))
-    lab_patch_files = sorted(os.listdir(lab_patch_path))
-    # there are ~64 patches for each image, shuffle by id to avoid data leakage
-    image_ids = set([f.split('_')[0] for f in ids]) # set = unique values
-    single_image_patchs = [f for f in im_patch_files if f.split('_')[0] == ids[0].split('_')[0]]
-    n_patches_per_image = len(single_image_patchs)
-    # print(image_ids)
-    image_ids = shuffle(list(image_ids), random_state=42)
+    # make sure there's an associated set of image and label patches for every requested ID
+    ids = team_helper_code.check_dirs_for_ids(ids, im_patch_path, lab_patch_path, verbose)
 
-    if max_samples and max_samples < len(image_ids):
+    # there are ~64 patches for each image, shuffle by id to avoid data leakage
+    ids = shuffle(list(ids), random_state=42)
+
+    if max_samples and max_samples < len(ids):
         train_prop = int(max_samples * train_prop)
-        img_id_train = image_ids[:train_prop]
-        img_id_test = image_ids[train_prop:max_samples]
+        img_id_train = ids[:train_prop]
+        img_id_test = ids[train_prop:max_samples]
     else:
-        n_images = len(image_ids)
+        n_images = len(ids)
         train_prop = int(n_images * train_prop)
-        img_id_train = image_ids[:train_prop]
-        img_id_test = image_ids[train_prop:]
+        img_id_train = ids[:train_prop]
+        img_id_test = ids[train_prop:]
 
     # find all patches for each image id in the train and test sets
-    id_train = [f for f in im_patch_files if f.split('_')[0] in img_id_train]
+    id_train = [f for f in im_patch_files if f.split('-')[0] in img_id_train]
     if len(img_id_test) > 0: # in case we aren't validating
-        id_test = [f for f in im_patch_files if f.split('_')[0] in img_id_test]
+        id_test = [f for f in im_patch_files if f.split('-')[0] in img_id_test]
     else:
         id_test = []
 
     return id_train, id_test
 
 
-def load_unet_from_state_dict(model_folder, model_name=None):
-    # TODO add option to load a different model
-    if model_name is None:
-        model_path = os.path.join("model", "pretrained", "UNET_run1_256_aug_checkpoint")
-        if not os.path.exists(model_path):
-            raise ValueError("Cannot load U-net state dict: model path does not exist.")
-    else: 
-        model_path = os.path.join(model_folder, model_name)
-
+def load_unet_from_state_dict(state_dict, verbose=False):
     # Load the model
     unet = BasicResUNet(3, 2, nbs=[1, 1, 1, 1], init_channels=16, cbam=False)
     if torch.cuda.is_available():
         unet = unet.cuda()
 
     encoder_dict = unet.state_dict()
-    pretrained_dict = torch.load(model_path)['model_state_dict']
-    pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in encoder_dict}
-    unet.load_state_dict(torch.load(model_path)['model_state_dict'])
+    if verbose:
+        print(f'U-net: loaded {len(state_dict)}/{len(unet.state_dict())} weights.')
+        if torch.cuda.is_available():
+            print('Using cuda.')
+    unet.load_state_dict(state_dict)
 
     return unet
