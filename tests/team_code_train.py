@@ -55,17 +55,19 @@ def train_models(data_folder, model_folder, verbose):
     #                                       masks_folder, patch_folder, 
     #                                       verbose, records_to_process=train_records)
     
+    # if images and masks are already generated, use only records that are present
     records = helper_code.find_records(images_folder)
-    tts = 0.6
+    tts = 1
     records = shuffle(records)
     train_records = records[:int(tts*num_records)]
     val_records = records[int(tts*num_records):]
+
     # train u-net
     args = Unet.utils.Args()
     args.train_val_prop = 0.8
     # args.epochs = 1
     unet_model = team_code.train_unet(train_records, patch_folder, model_folder, verbose, 
-                         args=args, warm_start=True)
+                         args=args, warm_start=True, max_train_samples=False)
 
     # save trained u-net
     model_persistence.save_model_torch(unet_model, 'digitization_model', model_folder)
