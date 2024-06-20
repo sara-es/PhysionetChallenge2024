@@ -11,13 +11,23 @@ from PIL import Image
 
 def resize_images(images, base_width = 4000, base_height = 1700, thresh = 0.8):
     for idx, image in enumerate(images):
-        if (image.size[0] < (thresh * base_width)) | (image.size[0] > ((2-thresh) * base_width)):
-            wpercent = (base_width / float(image.size[0]))
-            hsize = int((float(image.size[1]) * float(wpercent)))
-            images[idx] = image.resize((base_width, hsize), Image.Resampling.LANCZOS)
-        elif (image.size[0] < (thresh * base_height)) | (image.size[0] < ((2-thresh) * base_height)):
-            wpercent = (base_height / float(image.size[1]))
-            wsize = int((float(image.size[0]) * float(wpercent)))
-            images[idx] = image.resize((wsize, base_height), Image.Resampling.LANCZOS)
-        
+        images[idx] = resize_image(image, base_width, base_height, thresh)
+    
     return images
+
+def resize_image(image, base_width = 4000, base_height = 1700, thresh = 0.8):
+    """
+    Same as previous resize_images but for only one image
+    TODO this was previous image.size[0] but .size returns an int. you can either do image.shape[0]
+    (which is a tuple,) or image.size (which is an int, total number of pixels in the image)
+    """
+    if (image.shape[0] < (thresh * base_width)) | (image.shape[0] > ((2-thresh) * base_width)):
+        wpercent = (base_width / float(image.shape[0]))
+        hsize = int((float(image.shape[1]) * float(wpercent)))
+        image = image.resize((base_width, hsize), Image.Resampling.LANCZOS)
+    elif (image.shape[0] < (thresh * base_height)) | (image.shape[0] < ((2-thresh) * base_height)):
+        wpercent = (base_height / float(image.shape[1]))
+        wsize = int((float(image.shape[0]) * float(wpercent)))
+        image = image.resize((wsize, base_height), Image.Resampling.LANCZOS)
+        
+    return image

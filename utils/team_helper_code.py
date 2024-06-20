@@ -20,9 +20,9 @@ def load_image_paths(record):
 def get_gridsize_from_header(string):
     gridsize, has_gridsize = helper_code.get_variables(string, '# Gridsize:')
     if has_gridsize:
-        gridsize = float(gridsize)
+        gridsize = float(gridsize[0]) # returns a list, so take the first element
     else:
-        raise Exception('No labels available: are you trying to load the labels from the held-out data, or did you forget to prepare the data to include the labels?')
+        raise Exception('No grid size available: have you saved the grid size in the header?')
     return gridsize
 
 # Save the gridsize into header for a record. Assumes that gridsize is a number

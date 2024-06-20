@@ -20,6 +20,7 @@ def visualize_preprocessing(images_folder, processed_image_folder, visualization
                             n_gen_data=0, data_folder=None):
     os.makedirs(images_folder, exist_ok=True)
     os.makedirs(processed_image_folder, exist_ok=True)
+    os.makedirs(visualization_folder, exist_ok=True)
 
     if n_gen_data > 0:
         # Find the data files.
@@ -58,6 +59,8 @@ def visualize_preprocessing(images_folder, processed_image_folder, visualization
 
     # preprocess images. Make any edits to the function in team_code.py as needed
     records = helper_code.find_records(images_folder)
+    if len(records) == 0:
+        raise FileNotFoundError('No data were provided: try generating images first.')
     team_code.preprocess_images(images_folder, processed_image_folder, verbose, 
                                 records_to_process=records)
 
@@ -88,11 +91,12 @@ def visualize_preprocessing(images_folder, processed_image_folder, visualization
         try:
             grid_size = team_helper_code.get_gridsize_from_header(header_txt)
             header_str2 = f"Grid size: {grid_size}"
-        except:
+        except Exception as e:
+            print(f"Error when retrieving gridsize: {e}")
             header_str2 = "No grid size found in header"
 
         # show images in two columns
-        fig = plt.figure(layout="tight")
+        fig = plt.figure(figsize=(12, 6), layout="tight")
         rows, cols = 1, 2
 
         # plot first image
@@ -117,7 +121,7 @@ if __name__ == "__main__":
     processed_image_folder = os.path.join("evaluation", "data", "processed_images")
     visualization_folder = os.path.join("evaluation", "data", "preprocessing_visualizations")
     verbose = True
-    num_images_to_generate = 0 # int, set to 0 if data has already been generated to speed up testing time
+    num_images_to_generate = 5 # int, set to 0 if data has already been generated to speed up testing time
     data_folder = os.path.join("ptb-xl", "records500") # can set to None if num_images_to_generate = 0
     
     visualize_preprocessing(image_folder, processed_image_folder, visualization_folder, verbose, 
