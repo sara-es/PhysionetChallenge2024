@@ -1,1 +1,2 @@
+from generator import gen_ecg_images_from_data_batch
 from generator.ImageGenArgs import DefaultArgs, MaskArgs

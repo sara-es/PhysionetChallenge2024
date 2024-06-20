@@ -25,7 +25,6 @@ def generate_data(data_folder, model_folder, verbose):
 
     records = helper_code.find_records(data_folder)
     num_records = len(records)
-    records = shuffle(records)[:5] # test on a tiny number of records for now
 
     if num_records == 0:
         raise FileNotFoundError('No data were provided.')

@@ -14,15 +14,14 @@ import joblib, os, sys, time
 import numpy as np
 from tqdm import tqdm
 from sklearn.preprocessing import MultiLabelBinarizer
-import generator.gen_ecg_images_from_data_batch
-import preprocessing
+import matplotlib.pyplot as plt
+
 import helper_code
 from utils import team_helper_code, constants, model_persistence
-from preprocessing.resize_images import resize_images
 from digitization import Unet, ECGminer
 from classification import seresnet18
-import classification
-import generator
+import generator, preprocessing, classification
+import generator.gen_ecg_images_from_data_batch
 from evaluation import eval_utils
 
 ################################################################################
@@ -103,14 +102,6 @@ def run_models(record, digitization_model, classification_model, verbose):
     # Load the classification model and classes.
     resnet_model = classification_model['classification_model']
     dx_classes = classification_model['dx_classes']
-
-    # # Get the model probabilities.
-    # probabilities = model.predict_proba(features)
-    # probabilities = np.asarray(probabilities, dtype=np.float32)[:, 0, 1]
-
-    # # Choose the class or classes with the highest probability as the label or labels.
-    # max_probability = np.nanmax(probabilities)
-    # labels = [classes[i] for i, probability in enumerate(probabilities) if probability == max_probability]
     
     # Run the classification model; if you did not train this model, then you can set labels=None.
     labels = classify_signals(record, reconstructed_signal_dir, resnet_model, 
@@ -403,8 +394,7 @@ def train_classification_model(reconstructed_records_folder, verbose,
     for record in tqdm(records_to_process, desc='Loading classifier training data', 
                        disable=not verbose):
         data, label = classification.get_training_data(record, 
-                                                    reconstructed_records_folder
-                                                    )
+                                                       reconstructed_records_folder)
         if label is None: # don't use data without labels for training
             continue
 
@@ -450,28 +440,42 @@ def preprocess_images(raw_images_folder, processed_images_folder, verbose,
     if not records_to_process:
         records_to_process = helper_code.find_records(raw_images_folder)
     
-    for i in tqdm(range(len(records_to_process)), desc='Preprocessing images', disable=~verbose):
+    for i in tqdm(range(len(records_to_process)), desc='Preprocessing images', disable=not verbose):
         record = records_to_process[i] 
         #raw_image_path = os.path.join(raw_images_folder, record + '.png')
         
         # load raw image
-        record_image = os.path.join(raw_images_folder, record)
-        image = helper_code.load_images(record_image)[0]
+        record_path = os.path.join(raw_images_folder, record)
+        # TODO below commented line returns a PIL image and I had trouble working with it - may want to check this?
+        # image = helper_code.load_images(record_image)[0] 
+        record_image_name = team_helper_code.find_available_images(
+                            [record], raw_images_folder, verbose)[0] # returns list
+        with open(os.path.join(raw_images_folder, record_image_name + ".png"), 'rb') as f:
+            image = plt.imread(f)
+
         # resize image if needed
-        image = resize_images(image)
+        # TODO this breaks
+        # image = preprocessing.resize_image(image)
         
         # get and save the gridsize
         grayscale_image = preprocessing.cepstrum_grid_detection.image_to_grayscale_array(image)
         
         # TODO: fix get_rotation_angle - it breaks for tiny_test/hr_gt/01017_hr
         rot_angle, gridsize = preprocessing.cepstrum_grid_detection.get_rotation_angle(grayscale_image)
-        team_helper_code.save_gridsize(record_image, gridsize)
+        team_helper_code.save_gridsize(record_path, gridsize)
         
-        # TODO: decide if we want to do rotation now or after the u-net. If we do it now, set image to the rotated image
+        # TODO: set image to the rotated image
 
         # save processed image
-        processed_image = os.path.join(processed_images_folder, record + '.png')
-        image.save(processed_image,"PNG") # check this works?
+        processed_image = os.path.join(processed_images_folder, record_image_name + '.png')
+        with open(processed_image, 'wb') as f:
+            plt.imsave(f, image, cmap='gray')
+        # image.save(processed_image,"PNG") # check this works? Note: it does not work
+
+        # save header file with gridsize to processed_images_folder
+        header_txt = helper_code.load_header(record_path)
+        output_record_path = os.path.join(processed_images_folder, record)
+        helper_code.save_header(output_record_path, header_txt)
 
 
 def unet_predict_single_image(record_path, model, verbose, delete_patches=True):

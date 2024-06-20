@@ -1,1 +1,2 @@
 from preprocessing import resize_images, cepstrum_grid_detection
+from preprocessing.resize_images import resize_image

@@ -34,8 +34,8 @@ def clean_image(image, return_modified_image=True):
 
     return restored_image, gridsize
 
-def image_to_grayscale_array(image):
-    im = np.array(image[0])
+def image_to_grayscale_array(im):
+    # im = np.array(image[0]) # assume image is passed directly, not as a list
     blue_im = im[:, :, 0].astype(np.float32)  # this channel doesn't show up the grid very much
     green_im = im[:,:,1].astype(np.float32)
     red_im = im[:, :, 2].astype(np.float32)
