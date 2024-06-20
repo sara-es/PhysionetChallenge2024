@@ -88,6 +88,7 @@ class Postprocessor:
             list with the points of each of the signals of each lead and list with
             the reference pulses of each ECG row.
         """
+        #NOTE - IS FUNCTION DESCRIPTION ACCURATE? LOOKS LIKE IT JUST STRIPS OUT THE REFERENCES PULSE?
 
         if ref_pulse_present: # true if nonzero
             rp_at_right = ref_pulse_present == 2
