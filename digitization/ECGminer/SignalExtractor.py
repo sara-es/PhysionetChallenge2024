@@ -45,7 +45,6 @@ class SignalExtractor:
     def get_signals_dw(self, ecg: Image) -> Iterable[Iterable[Point]]:
         thresh = 50
         test_im = ecg.data
-        bounds = test_im.shape # bounds of the image
         # test_im = abs(image -1)*255 # invert colours - not required if colors already inverted
         rois = self.__get_roi(ecg)
         s = []
@@ -58,20 +57,23 @@ class SignalExtractor:
          
             while y < endcol:
                 # search up
-                x_idx = x-1 if x-1 >= 0 else x # TODO HACK FIXME added boundary condition, but too tired to think about it properly
-                while test_im[x_idx, y] == 0: 
-                    signal_col.append([x_idx,y])
-                    if x_idx <= 0: # added boundary condition
-                        break
-                    x_idx = x_idx-1
+                if x > 0:
+                    x_idx = x-1
+                    while test_im[x_idx, y] == 0:
+                        signal_col.append([x_idx,y])
+                        if x_idx > 0:
+                            x_idx = x_idx-1
+                        else:
+                            break
                 # search down
-                x_idx = x+1 if x+1 < bounds[0] else x # added boundary condition
-                while test_im[x_idx, y] == 0:
-                    signal_col.append([x_idx,y])
-                    if x_idx >= bounds[0]-1: 
-                        break
-                    x_idx = x_idx+1
-
+                if x < (test_im.shape[0]-2):
+                    x_idx = x+1
+                    while test_im[x_idx, y] == 0:
+                        signal_col.append([x_idx,y])
+                        if x_idx < (test_im.shape[0]-2):
+                            x_idx = x_idx+1
+                        else:
+                            break
          
                 signal_col = sorted(signal_col, key=lambda x: x[0], reverse=False)
                 signal.append(signal_col)
