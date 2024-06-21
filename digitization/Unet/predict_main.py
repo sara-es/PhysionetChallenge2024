@@ -77,8 +77,7 @@ def batch_predict_full_images(ids_to_predict, patch_dir, unet_state_dict, save_p
                               verbose, save_all=True):
     """
     Mostly for testing - assumes we have labels for accuracy score and have already generated 
-    patches. Note that this will predict on ALL patches in patch_dir, then attempt to reconstruct
-    them to full images; may fail if an image is missing one or more patches.
+    patches. Note that this may fail if an image is missing one or more patches.
     """
     # want to predict on one image at a time so we can reconstruct it
     im_patch_dir = os.path.join(patch_dir, 'image_patches')
@@ -94,7 +93,7 @@ def batch_predict_full_images(ids_to_predict, patch_dir, unet_state_dict, save_p
     dice_list = np.zeros(len(ids_to_predict))
 
     for i, image_id in tqdm(enumerate(ids_to_predict), desc='Running U-net on images', 
-                            disable=not verbose):
+                            disable=not verbose, total=len(ids_to_predict)):
         patch_ids = [f for f in ids if f.split('-')[0] == image_id]
         patch_ids = sorted(patch_ids)
         # train = True here because we want to load the labels for accuracy score

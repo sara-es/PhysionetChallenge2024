@@ -13,6 +13,7 @@ from digitization.Unet import Unet
 
 def train_epoch(args, model, train_loader, optimizer, criterion, epoch, verbose):
     cuda = torch.cuda.is_available()
+    device = torch.device("cuda" if cuda else "cpu")
     total_loss = 0
     model.train()
     batches = 0
@@ -20,6 +21,8 @@ def train_epoch(args, model, train_loader, optimizer, criterion, epoch, verbose)
         target = target.type(torch.LongTensor)
         if cuda:
             data, target = data.cuda(), target.cuda()
+        data.to(device)
+        target.to(device)
 
         data, target = Variable(data), Variable(target)
 
@@ -35,7 +38,7 @@ def train_epoch(args, model, train_loader, optimizer, criterion, epoch, verbose)
 
             total_loss += loss
 
-            if verbose and batch_idx % args.log_interval*10 == 0:
+            if verbose and batch_idx % args.log_interval == 0:
                 print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                     epoch, (batch_idx+1) * len(data), len(train_loader.dataset),
                            100. * (batch_idx+1) / len(train_loader), loss.item()), flush=True)
@@ -50,6 +53,7 @@ def train_epoch(args, model, train_loader, optimizer, criterion, epoch, verbose)
 
 def val_epoch(args, model, val_loader, criterion, epoch, verbose):
     cuda = torch.cuda.is_available()
+    device = torch.device("cuda" if cuda else "cpu")
     model.eval()
     total_loss = 0
     batches = 0
@@ -58,13 +62,15 @@ def val_epoch(args, model, val_loader, criterion, epoch, verbose):
             target = target.type(torch.LongTensor)
             if cuda:
                 data, target = data.cuda(), target.cuda()
+            data.to(device)
+            target.to(device)
             data, target = Variable(data), Variable(target)
             batches += 1
             x = model(data)
             loss = criterion(x, target)
             total_loss  += loss
 
-            if verbose and batch_idx % args.log_interval == 0:
+            if verbose and batch_idx % (args.log_interval*args.batch_size) == 0:
                 print('Val Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                     epoch, (batch_idx+1) * len(data), len(val_loader.dataset),
                            100. * (batch_idx+1) / len(val_loader), loss.item()), flush=True)
@@ -79,6 +85,7 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
                max_samples=False,
                ):
     cuda = torch.cuda.is_available()
+    device = torch.device("cuda" if cuda else "cpu")
 
     train_patch_ids, val_patch_ids = utils.patch_split_from_ids(ids, im_patch_dir, label_patch_dir,
                                         args.train_val_prop, verbose, max_samples=max_samples)
@@ -105,6 +112,8 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
 
     if cuda:
         unet = unet.cuda()
+    unet.to(device)
+        
     if LOAD_PATH_UNET:
         if verbose:
             print('Loading U-net checkpoint...', flush=True)
@@ -132,6 +141,7 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
             )
     if cuda:
         crit = criterion.cuda()
+    crit.to(device)
 
     for epoch in range(epoch_reached, args.epochs+1):
         if verbose:

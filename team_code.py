@@ -57,8 +57,9 @@ def train_models(data_folder, model_folder, verbose):
         data_folder, model_folder, verbose, records_to_process=records, delete_training_data=False)
     
     if verbose:
+        time1 = time.time()
         print(f'Done. Time to train digitization model and generate classifier training data: ' + \
-              f'{time.time() - start_time:.2f} seconds.')
+              f'{time1 - start_time:.2f} seconds.')
     
     # Extract the features and labels from the data.
     if verbose:
@@ -67,6 +68,11 @@ def train_models(data_folder, model_folder, verbose):
     classification_model, classes = train_classification_model(reconstructed_signals_folder, 
                                                                verbose, records_to_process=None)
 
+    if verbose:
+        time2 = time.time()
+        print(f'Done. Time to train digitization model and generate classifier training data: ' + \
+              f'{time2 - time1:.2f} seconds.')
+        
     # Create a folder for the models if it does not already exist.
     os.makedirs(model_folder, exist_ok=True)
 
@@ -74,8 +80,9 @@ def train_models(data_folder, model_folder, verbose):
     save_models(model_folder, digitization_model, classification_model, classes)
 
     if verbose:
-        print('Done.')
+        print('Done. Total time to train models: ' + f'{time.time() - start_time:.2f} seconds.')
         print()
+
 
 # Load your trained models. This function is *required*. You should edit this function to add your
 # code, but do *not* change the arguments of this function. If you do not train one of the models,
@@ -85,8 +92,8 @@ def load_models(model_folder, verbose):
                         models_to_load=['digitization_model', 'classification_model', 'dx_classes'])
     digitization_model = models['digitization_model']
     classification_model = models['classification_model', 'dx_classes']
-    print(classification_model)
     return digitization_model, classification_model
+
 
 # Run your trained digitization model. This function is *required*. You should edit this function
 # to add your code, but do *not* change the arguments of this function. If you did not train one of
@@ -119,6 +126,7 @@ def run_models(record, digitization_model, classification_model, verbose):
 #
 ################################################################################
 
+
 # Save your trained models.
 def save_models(model_folder, digitization_model=None, classification_model=None, classes=None):
     if digitization_model is not None:
@@ -134,7 +142,7 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
     """
     Our general digitization process is
     1. generate testing images and masks
-    2. preprocess testing images to estimate grid size/scale (and fix rotation if needed)
+    2. preprocess testing images to estimate grid size/scale
     3. generate u-net patches
     4. run u-net on patches
     5. recover full image with signal outline from u-net outputs
@@ -142,7 +150,7 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
 
     At each step we save the outputs to disk to save on memory; here, we assume by default that 
     they should be deleted when no longer needed, but if you want to keep them for debugging or
-    visualization, set delete_images to False. 
+    visualization, set delete_trainin_data to False. 
     """
     # hard code some folder paths for now
     images_folder = os.path.join(os.getcwd(), 'temp_data', 'images')
@@ -238,14 +246,13 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
         args = Unet.utils.Args()
     
     patchsize = constants.PATCH_SIZE
-    # path for model checkpoints, used with early stopping
+    # path for model checkpoints, used with early stopping or to resume training later
     CHK_PATH_UNET = os.path.join(model_folder, 'UNET_' + str(patchsize))
     # for saving the loss values, used with early stopping
     LOSS_PATH = os.path.join(model_folder, 'UNET_' + str(patchsize) + '_losses')
     # if we're loading a pretrained model - hardcoded for now
     LOAD_PATH_UNET = None
     if warm_start:
-        # TODO: replace once model has been retrained
         chkpt_path = os.path.join('digitization', 'model_checkpoints', 
                                       'UNET_'+ str(patchsize) + '_checkpoint')
         if not os.path.exists(chkpt_path):
@@ -415,8 +422,7 @@ def train_classification_model(reconstructed_records_folder, verbose,
         print("Training SE-ResNet classification model...")
     resnet_model = seresnet18.train_model(
                                 all_data, multilabels, uniq_labels, verbose, epochs=5, 
-                                validate=False
-                                )
+                                validate=False)
     
     if verbose:
         print("Finished training classification model.")
