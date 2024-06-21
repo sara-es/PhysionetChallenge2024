@@ -22,6 +22,7 @@ A small subset of data and labels have been provided in the `tiny_testset` folde
 `tiny_testset` contains 18 samples of ECG data files and header files:
 - `hr_gt` (.hea files, 500 Hz .dat files)
 - `lr_gt` (.hea files, 100 Hz .dat files)
+
 All of these include the ground truth signal .dat files so we can check model performance.
 
 To make sure that the model actually runs inference directly from generated images, `tiny_testset` also contains `lr_hidden_clean` (generated images, 100 Hz .hea files).
