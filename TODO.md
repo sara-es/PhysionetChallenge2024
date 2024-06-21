@@ -15,6 +15,7 @@
 - fix issue with different sampling frequencies (postprocessor?)
 - classifier to judge if returned signal looks like an ecg: YOLO maybe?
 - header/text extraction for features 
+- lead arithmetic for redundancy/error checking in reconstruction
 
 ## Classification
 - resnet missing feature flags + features for height/weight 
