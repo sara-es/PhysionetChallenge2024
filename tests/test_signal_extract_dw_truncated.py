@@ -99,15 +99,23 @@ def extract_rows(image, thresh = 50, plot_output = True):
         
         while y < endcol:
             # search up
-            x_idx = x-1
-            while test_im[x_idx, y] == 0:
-                signal_col.append([x_idx,y])
-                x_idx = x_idx-1
+            if x > 0:
+                x_idx = x-1
+                while test_im[x_idx, y] == 0:
+                    signal_col.append([x_idx,y])
+                    if x_idx > 0:
+                        x_idx = x_idx-1
+                    else:
+                        break
             # search down
-            x_idx = x+1
-            while test_im[x_idx, y] == 0:
-                signal_col.append([x_idx,y])
-                x_idx = x_idx+1
+            if x < (test_im.shape[0]-2):
+                x_idx = x+1
+                while test_im[x_idx, y] == 0:
+                    signal_col.append([x_idx,y])
+                    if x_idx < (test_im.shape[0]-2):
+                        x_idx = x_idx+1
+                    else:
+                        break
         
             signal_col = sorted(signal_col, key=lambda x: x[0], reverse=False)
             signal.append(signal_col)
@@ -180,6 +188,7 @@ with open(file, 'rb') as f:
     data = pickle.load(f)
 
 test_im = data[5]
+test_im = test_im[0:1550,:]
 signals, rois = extract_rows(test_im, thresh = 50, plot_output = True)
 raw_s = signal_to_miner(signals, rois)
 
