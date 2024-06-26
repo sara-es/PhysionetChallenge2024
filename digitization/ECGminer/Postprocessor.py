@@ -34,12 +34,15 @@ class Postprocessor:
             cabrera (bool): True if ECG is in Cabrera format False if not.
             interpolation (int, optional): Number of total data interpolated from signals.
                 It is the number of observations of the longest lead. Defaults to None.
+            first_pixels (Iterable[int], optional): First pixels of each ECG row. Populated if 
+                reference pulses are found. Initializes to None.
         """
         self.__rp_at_right = False
         self.__layout = (3,4)
         self.__cabrera = False
         self.__interpolation = None
         self.__rhythm = [Lead.II]
+        self.__first_pixels = None
 
     def postprocess(
         self, 
@@ -89,6 +92,7 @@ class Postprocessor:
             the reference pulses of each ECG row.
         """
         #NOTE - IS FUNCTION DESCRIPTION ACCURATE? LOOKS LIKE IT JUST STRIPS OUT THE REFERENCES PULSE?
+        # I agree - looks like the docstring is wrong! 
 
         if ref_pulse_present: # true if nonzero
             rp_at_right = ref_pulse_present == 2
@@ -96,7 +100,10 @@ class Postprocessor:
             LIMIT = min([len(signal) for signal in raw_signals])
             PIXEL_EPS = gridsize + 1
             # Check if ref pulse is at right side or left side of the ECG
-            first_pixels = [pulso[-1].y for pulso in raw_signals]
+            first_pixels = [pulso[-1].y for pulso in raw_signals] # actually rightmost pixels ?
+            # save leftmost pixels for later use
+            # actually these turn out to be the *top* of the reference pulses, usually
+            self.__first_pixels = [pulso[0].y for pulso in raw_signals] 
 
             # TODO: no accounting for reference pulses at right currently
             direction = (
@@ -207,12 +214,12 @@ class Postprocessor:
             # FIXME TODO
             # This adds a few pixels to the start of the signal, because the image-kit generator
             # overlaps the ecg and the reference pulses slightly. On real images, we should NOT do this!
-            if ref_pulse_generated == 1: # ref pulses at left, pad start of signal
-                buffer = [signal[0]]*9
-                signal = buffer + signal
-            if ref_pulse_generated == 2: # ref pulses are right, pad end of signal (CHECK IF THIS IS NEEDED)
-                buffer = [signal[-1]]*9
-                signal = signal + buffer
+            # if ref_pulse_generated == 1: # ref pulses at left, pad start of signal
+            #     buffer = [signal[0]]*9
+            #     signal = buffer + signal
+            # if ref_pulse_generated == 2: # ref pulses are right, pad end of signal (CHECK IF THIS IS NEEDED)
+            #     buffer = [signal[-1]]*9
+            #     signal = signal + buffer
             # END HACK
 
             interpolator = interpolate.interp1d(np.arange(len(signal)), signal)
@@ -242,9 +249,19 @@ class Postprocessor:
             signal = interp_signals[r, :]
             obs_num = len(signal) // (1 if rhythm else NCOLS)
             signal = signal[c * obs_num : (c + 1) * obs_num]
+
+            a = np.median(signal)
+            b = signal[0]
+            d = self.__first_pixels[r]
+            
             # Scale signal with ref pulses
             signal = [(volt_0 - y) * (1 / (volt_0 - volt_1)) for y in signal]
-            signal = signal-np.median(signal) # FUDGE TO GET ECGs CENTRED NEAR ZERO
+            if ref_pulse_generated != 0: # use the baseline of the reference pulse
+                first_pixel_scaled = (volt_0 - self.__first_pixels[r]) * (1 / (volt_0 - volt_1))
+                signal = signal - first_pixel_scaled 
+            else: # use the median of the signal as best guess at the baseline
+                # TODO: check if it's better to use the first pixel as the baseline
+                signal = signal-np.median(signal) # FUDGE TO GET ECGs CENTRED NEAR ZERO
             # Round voltages to 4 decimals
             signal = np.round(signal, 4)
             # Cabrera format -aVR

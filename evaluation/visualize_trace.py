@@ -37,10 +37,10 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
                                                        test_images_dir, verbose=True)
     unet_ids = team_helper_code.find_available_images(ids, 
                                                       unet_outputs_dir, verbose=True)
-    if len(image_ids) != len(unet_ids) and len(image_ids) > 0:
-        print(image_ids, unet_ids)
-        raise ValueError("Number of image and U-Net output files do not match, please make "+\
-                         "sure both have been generated and saved correctly.")
+    # if len(image_ids) != len(unet_ids) and len(image_ids) > 0:
+    #     print(image_ids, unet_ids)
+    #     raise ValueError("Number of image and U-Net output files do not match, please make "+\
+    #                      "sure both have been generated and saved correctly.")
     
     image_ids = sorted(list(image_ids))
     unet_ids = sorted(list(unet_ids))
@@ -49,6 +49,8 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
     # classification_model = model_persistence.load_model('model', 'classification_model')
     # resnet_model = classification_model["model"]
     # dx_classes = classification_model["dx_classes"]
+
+    snrs = []  
     
     for i in range(len(image_ids)):
         # set up mosaic for original image, u-net output with trace, ground truth signal, 
@@ -119,12 +121,12 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
         # fig.text(0.5, 0.95, description_string, ha='center')
         for j in range(reconstructed_signal.shape[1]):
             if j == 0:
-                axs[j].plot(reconstructed_signal[:, j], label='Reconstructed Signal')
                 axs[j].plot(label_signal[:, j], label='Ground Truth Signal')
-                axs[j].legend()
+                axs[j].plot(reconstructed_signal[:, j], label='Reconstructed Signal', alpha=0.8)
+                axs[j].legend(loc='upper right')
             else:
-                axs[j].plot(reconstructed_signal[:, j])
                 axs[j].plot(label_signal[:, j])
+                axs[j].plot(reconstructed_signal[:, j], alpha=0.8)
             axs[j].set_ylabel(f'{label_fields["sig_name"][j]}', rotation='horizontal')
             # axs[j].set_yrotation(0)
         fig.canvas.draw()
@@ -136,12 +138,16 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
         plt.savefig(os.path.join(visualization_save_dir, filename))
         plt.close()
 
+        snrs.append(mean_snr)
+
+    print(f"Average SNR: {np.mean(snrs):.2f}")
+
 
 if __name__ == "__main__":
-    test_images_folder = os.path.join("temp_data", "images")
-    unet_outputs_folder = os.path.join("temp_data", "unet_outputs")
-    # unet_outputs_folder = os.path.join("temp_data", "masks")
-    reconstructed_signal_dir = os.path.join("temp_data", "reconstructed_signals")
+    test_images_folder = os.path.join("test_data", "images")
+    unet_outputs_folder = os.path.join("test_data", "unet_outputs")
+    # unet_outputs_folder = os.path.join("test_data", "masks")
+    reconstructed_signal_dir = os.path.join("test_data", "reconstructed_signals")
     visualization_save_folder = os.path.join("evaluation", "data", "trace_visualizations")
 
     visualize_trace(test_images_folder, 

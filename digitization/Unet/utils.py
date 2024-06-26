@@ -16,11 +16,11 @@ class Args:
     # Store lots of the parameters that we might need to train the model
     def __init__(self):
         self.batch_size = 32
-        self.log_interval = 10
+        self.log_interval = 50
         self.learning_rate = 0.5e-3
         self.epochs = 50
         self.train_val_prop = 1.0 # Set to 1.0 for no validation (train on all data)
-        self.patience = 15 # Early stopping patience
+        self.patience = 25 # Early stopping patience
         self.channels_first = True
         self.diff_model_flag = False
         self.alpha = 1
@@ -70,8 +70,7 @@ def patch_split_from_ids(ids, im_patch_path, lab_patch_path, train_prop, verbose
                          max_samples=False):
     """
     Shuffles patches and splits them into training and validation sets based on image ID,
-    to avoid data leakage. Note this will return a train/test split based only on the folder
-    contents, instead of a passed-in list of image IDs. 
+    to avoid data leakage. Returns lists of patch filenames for training and validation.
 
     Args:
     ids: list of image IDs
