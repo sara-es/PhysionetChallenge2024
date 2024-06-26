@@ -20,6 +20,12 @@ format_3x4 = [
     ['Lead.III', 'Lead.aVF', 'Lead.V3', 'Lead.V6'],
 ]
 
+format_3x4_cab = [
+    ['Lead.aVL', 'Lead.II','Lead.V1', 'Lead.V4'],
+    ['Lead.I', 'Lead.aVF', 'Lead.V2', 'Lead.V5'],
+    ['Lead.-aVR', 'Lead.III', 'Lead.V3', 'Lead.V6'],
+]
+
 format_6x2 = [
     ['Lead.I', 'Lead.V1'],
     ['Lead.II', 'Lead.V2'],
@@ -29,20 +35,17 @@ format_6x2 = [
     ['Lead.aVF', 'Lead.V6'],
 ]
 
-format_12x1 = [
-    'Lead.I',
-    'Lead.II',
-    'Lead.III',
-    'Lead.aVR',
-    'Lead.aVL',
-    'Lead.aVF',
-    'Lead.V1',
-    'Lead.V2',
-    'Lead.V3',
-    'Lead.V4',
-    'Lead.V5',
-    'Lead.V6',
+
+format_6x2_cab = [
+    ['Lead.aVL', 'Lead.V1'],
+    ['Lead.I', 'Lead.V2'],
+    ['Lead.-aVR', 'Lead.V3'],
+    ['Lead.II', 'Lead.V4'],
+    ['Lead.aVF', 'Lead.V5'],
+    ['Lead.III', 'Lead.V6'],
 ]
+
+# TODO: fix to automatically detect more rows
 
 def get_roi(image, n = 4):
     """
@@ -232,34 +235,38 @@ def point_to_matrix(signals):
 #%%
 """
 This takes in a N-row array corresponding to the ECGs found by the line tracing algorithm.
-Input: list of ECG signals in the ecg-miner Point object format
+Input:
+    - signal_arr: list of ECG signals in the ecg-miner Point object format
+    - THRESH: The user parameter THRESH is the average per-column difference allowed between the rows to be accepted as the rhythm
+    - layout: normal or cabrera, derived from cabrera_detection function
 Output: list of strings (rhythm strip lead name) in order from top to bottom of image.
-The user parameter THRESH is the average per-column difference allowed between the rows to be accepted as the rhythm
+
+
+TODO: lots of repeating code in the IF - refactor if there is time
 """
 
-def detect_rhythm_strip(signal_arr, THRESH = 1):
+def detect_rhythm_strip(signal_arr, THRESH = 1, layout = 'normal'):
     NROWS = len(signals)
-
-    #THRESH is a user parameter
-    THRESH = 1
 
     #2.for each signal, get its np.diff - this converts from pixel coordinates to relative coordinates
     diff_signals = np.diff(signal_arr)
     reference = []
 
     if NROWS <=6: # if there are reference pulses, then we assume that the layout is in 3x4 format
-        NCOLS = 4
-        test_grid = np.zeros([3,NCOLS])
-        for i in range(3, NROWS):
-            main_ecg = diff_signals[0:3,:]
+        #assume 3x4 format:
+        ECG_ROWS = 3
+        ECG_COLS = 4
+        test_grid = np.zeros([ECG_ROWS,ECG_COLS])
+        for i in range(ECG_ROWS, NROWS):
+            main_ecg = diff_signals[0:ECG_ROWS,:] # 12 leads are contained in the top 3 rows
             ref = diff_signals[i,:]
-            col_width = len(ref)//NCOLS
+            col_width = len(ref)//ECG_COLS
             
             # compare the ith row to the top 3 rows - this currently assumes they are all the same length.
             test = abs(main_ecg - ref)
             
-            for j in range(3):
-                for k in range(NCOLS):
+            for j in range(ECG_ROWS):
+                for k in range(ECG_COLS):
                     start = col_width*k
                     fin = col_width*(k+1)-1
                     test_grid[j,k] = sum(test[j][start:fin]) / col_width
@@ -267,31 +274,40 @@ def detect_rhythm_strip(signal_arr, THRESH = 1):
             # find the minimum value of test_grid. If minimum value is less than threshold, report j,k.
             if (np.min(test_grid) < THRESH): # i.e. on average, maximum of 1 pixel difference
                 x,y = np.where(test_grid == np.min(test_grid))
-                reference.append(format_3x4[x[0]][y[0]]) # get corresponding label
+                if layout == 'cabrera':
+                    reference.append(format_3x4_cab[x[0]][y[0]]) # get corresponding label
+                else:    
+                    reference.append(format_3x4[x[0]][y[0]]) # get corresponding label
+                    
     
-    #for the special case of 4 rows, and the auto finder fails - assume that the rhythm strip is lead II
-    if NROWS == 4 & len(reference) == 0:
-        reference.append('Lead.II')
+        #for the special case of 4 rows, and the auto finder fails - assume that the rhythm strip is lead II
+        if NROWS == 4 & len(reference) == 0:
+            reference.append('Lead.II')
                 
     ## TODO  - extend to work with 6x2 format. Code below might work, but not tested
+    elif NROWS <=11: # if there are reference pulses, then we assume that the layout is in 6x2 format
+        ECG_ROWS = 6
+        ECG_COLS = 2
+        for i in range(ECG_ROWS, NROWS):
+            main_ecg = diff_signals[0:ECG_ROWS,:] # 12 leads are contained in the top 6 rows
+            ref = diff_signals[i,:]
+            col_width = len(ref)//ECG_COLS
+            
+            # compare the ith row to the top 6 rows
+            test = main_ecg - ref
+        
+            for j in range(ECG_ROWS):
+                for k in range(ECG_COLS):
+                    start = col_width*k
+                    fin = col_width*(k+1)-1
+                    test_grid[j,k] = sum(test[j][start:fin]) / col_width
     
-    # elif NROWS <=11: # if there are reference pulses, then we assume that the layout is in 6x2 format
-    #     NCOLS = 2
-    #     for i in range(6, NROWS):
-    #         main_ecg = diff_signals[0:2]
-    #         ref = diff_signals[i]
-        
-    #         # compare the ith row to the top 3 rows
-    #         test = main_ecg - ref
-        
-    #         for j in range(2):
-    #             for k in range(NCOLS):
-    #             test_grid[j,k] = sum(test[j][0:100])
-        
-    #         # find the minimum value of test_grid. If minimum value is less than threshold, report j,k.
-        
-    #         # convert j,k to lead name and store in rhythm
-    
-    # To differentiate between standard and cabrera, compare similarity of lead III and aVF
+            # find the minimum value of test_grid. If minimum value is less than threshold, report j,k.
+            if (np.min(test_grid) < THRESH): # i.e. on average, maximum of 1 pixel difference
+                x,y = np.where(test_grid == np.min(test_grid))
+                if layout == 'cabrera':
+                    reference.append(format_6x2_cab[x[0]][y[0]]) # get corresponding label
+                else:    
+                    reference.append(format_6x2[x[0]][y[0]]) # get corresponding label
     
     return reference

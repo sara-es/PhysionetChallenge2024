@@ -16,6 +16,7 @@ class PaperECG:
     # path: str #useful to pass this here but for now we'll just use the image object
     image: Image
     preprocessor = Preprocessor()
+    # TODO - figure out the number of rows of ECG automatically
     signal_extractor = SignalExtractor(n=4) #hardcoded n=4 for now because constant layout+rhythm
     layout_detector = LayoutDetector()
     postprocessor = Postprocessor()
