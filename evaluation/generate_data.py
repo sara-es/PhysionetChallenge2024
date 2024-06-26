@@ -60,27 +60,27 @@ def generate_data(data_folder, model_folder, verbose):
     mask_gen_params.input_directory = data_folder
     mask_gen_params.output_directory = masks_folder
 
-    # # generate images and masks
-    # if verbose:
-    #     print("Generating images from wfdb files...")
-    # generator.gen_ecg_images_from_data_batch.run(img_gen_params, records)
-    # if verbose:
-    #     print("Generating masks from wfdb files...")
-    # generator.gen_ecg_images_from_data_batch.run(mask_gen_params, records)
+    # generate images and masks
+    if verbose:
+        print("Generating images from wfdb files...")
+    generator.gen_ecg_images_from_data_batch.run(img_gen_params, records)
+    if verbose:
+        print("Generating masks from wfdb files...")
+    generator.gen_ecg_images_from_data_batch.run(mask_gen_params, records)
     
 
-    # # generate patches
-    # Unet.patching.save_patches_batch(records, images_folder, masks_folder, constants.PATCH_SIZE, 
-    #                                  patch_folder, verbose, max_samples=False)
+    # generate patches
+    Unet.patching.save_patches_batch(records, images_folder, masks_folder, constants.PATCH_SIZE, 
+                                     patch_folder, verbose, max_samples=False)
     
-    # # load u-net
-    # # models = model_persistence.load_models(model_folder, verbose, models_to_load=['digitization_model'])
-    # # unet_state_dict = models['digitization_model']
-    # checkpoint = torch.load("model\\UNET_256_checkpoint")
-    # unet_state_dict = checkpoint['model_state_dict']
-    # dice_list = Unet.batch_predict_full_images(records, patch_folder, unet_state_dict, 
-    #                                unet_output_folder, verbose, save_all=True)
-    # print(np.asarray(dice_list).mean())
+    # load u-net
+    # models = model_persistence.load_models(model_folder, verbose, models_to_load=['digitization_model'])
+    # unet_state_dict = models['digitization_model']
+    checkpoint = torch.load("model\\UNET_256_checkpoint")
+    unet_state_dict = checkpoint['model_state_dict']
+    dice_list = Unet.batch_predict_full_images(records, patch_folder, unet_state_dict, 
+                                   unet_output_folder, verbose, save_all=True)
+    print(np.asarray(dice_list).mean())
 
     # reconstruct_signals
     if verbose:
