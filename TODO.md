@@ -12,7 +12,8 @@
 - eval script to show/test both above
 
 ## Reconstruction
-- fix issue with different sampling frequencies (postprocessor?)
+- gaps between ecg leads in the same row
+- check if using first pixel of each lead as a baseline improves SNR
 - classifier to judge if returned signal looks like an ecg: YOLO maybe?
 - header/text extraction for features 
 - lead arithmetic for redundancy/error checking in reconstruction

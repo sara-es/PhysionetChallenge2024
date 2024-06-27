@@ -33,6 +33,14 @@ def save_gridsize(record, gridsize):
     helper_code.save_text(header_file, header)
     return header
 
+# Save the rotation angle into header for a record. Assumes that rotation is a number
+def save_rotation(record, gridsize):
+    header_file = helper_code.get_header_file(record)
+    header = helper_code.load_text(header_file)
+    header += '# Rotation: ' + str(gridsize) + '\n'
+    helper_code.save_text(header_file, header)
+    return header
+
 def find_available_images(ids, directory, verbose):
     """
     Check for images in the directory that match the IDs in the list.

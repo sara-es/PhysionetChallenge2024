@@ -469,6 +469,7 @@ def preprocess_images(raw_images_folder, processed_images_folder, verbose,
         # TODO: fix get_rotation_angle - it breaks for tiny_test/hr_gt/01017_hr
         rot_angle, gridsize = preprocessing.cepstrum_grid_detection.get_rotation_angle(grayscale_image)
         team_helper_code.save_gridsize(record_path, gridsize)
+        team_helper_code.save_rotation(record_path, rot_angle)
         
         # TODO: set image to the rotated image
 
