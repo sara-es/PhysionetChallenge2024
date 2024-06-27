@@ -131,6 +131,10 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
             print(e)
             print(f'Could not load U-net checkpoint from {LOAD_PATH_UNET}. '+\
                    'Training from scratch...', flush=True)
+
+    if epoch_reached > args.epochs: 
+        # checkpoint already reached the desired number of epochs, make sure we still return the model        
+        return unet.state_dict()
             
     # Loss function from paper --> dice loss + focal loss
     criterion = Unet.ComboLoss(
