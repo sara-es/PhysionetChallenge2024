@@ -212,6 +212,7 @@ def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder
     img_gen_params.random_bw = 0.2
     img_gen_params.wrinkles = True
     img_gen_params.print_header = True
+    img_gen_params.augment = True
     img_gen_params.input_directory = wfdb_records_folder
     img_gen_params.output_directory = images_folder
 
