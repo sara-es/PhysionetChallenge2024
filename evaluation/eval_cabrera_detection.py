@@ -11,6 +11,7 @@ Created on Fri May 24 09:15:21 2024
 
 @author: hssdwo
 """
+import os
 import numpy as np
 from scipy.signal import find_peaks
 import pickle
@@ -124,7 +125,6 @@ def extract_rows(image, thresh = 50, plot_output = True):
                 candidates_rep = []
                 signal_col_temp = [i[0] for i in signal_col]
                 candidates = np.where(test_im[:,y] == 0)[0]
-                print(candidates)
                 for i in signal_col_temp:
                     temp_dist = np.subtract(candidates, i)
                     dists.append(temp_dist)
@@ -142,8 +142,6 @@ def extract_rows(image, thresh = 50, plot_output = True):
                     if len(dist_idx)>1:
                         #if there is more than one minimum, select the one that takes us closer to the baseline
                         x = candidates[dist_idx]
-
-                        print(x)
                         i = np.argmin(abs(x-row))
                         x = x[i]
                             
@@ -165,6 +163,23 @@ def extract_rows(image, thresh = 50, plot_output = True):
                         match = 1
                     else: #skip a column and try again
                         y = y+1
+                        
+                        
+                        
+                    
+        #sanitise the list
+        signal_flat = [x for xs in signal for x in xs]
+        s.append(signal_flat)
+        #optional : plot output
+        if plot_output:
+            output = np.ones((test_im.shape[0], test_im.shape[1]))
+            for i in range(len(signal_flat)):
+                x = signal_flat[i][0]
+                y = signal_flat[i][1]
+                output[x,y] = 0
+            plt.figure()
+            plt.imshow(output) 
+    return s, rois
         
 """convert ecg sparse matrices into ecg miner format"""
 def signal_to_miner(signals, rois):
@@ -199,7 +214,7 @@ def point_to_matrix(signals):
     
     
     signal_arr = np.zeros([rows, (max_x + 2)]) #TODO: check that this works for all cases. adding 1 broke...
-    
+
     for i in range(rows):
         signal_x = [p.x for p in signals[i]]
         signal_y = [p.y for p in signals[i]]
@@ -217,86 +232,104 @@ def point_to_matrix(signals):
 ## --------------------------------------------------- main starts here ---------------------------------------------------------------------#
 
 file = "C:/Users/hssdwo/Downloads/images.pkl"
-with open(file, 'rb') as f:
-    data = pickle.load(f)
-
-print('extract signal and output in Point format')
-test_im = data[0]
-signals, rois = extract_rows(test_im, thresh = 50, plot_output = False)
-raw_s = signal_to_miner(signals, rois)
-
-print('turn raw signals into a matrix of signals')
-
-#TODO: FIXME - some error in here
-signal_arr = point_to_matrix(raw_s)
-plt.plot(signal_arr[0,:])
-plt.plot(signal_arr[1,:])
-plt.plot(signal_arr[2,:])
-plt.plot(signal_arr[3,:])
-plt.show()
 
 
-NROWS = len(signals)
+image_folder = "C:/Users/hssdwo/Documents/GitHub/PhysionetChallenge2024/temp_data/masks"
 
-#THRESH is a user parameter
-THRESH = 1
+files = os.listdir(image_folder)
+num = 100
+files = files[0:num]
+fails = []
+true_pos = 0
 
-#2.for each signal, get its np.diff - this converts from pixel coordinates to relative coordinates
-diff_signals = np.diff(signal_arr)
-# reference = []
 
-from scipy.signal import correlate, correlation_lags
-NCOLS = 4
-ref = np.size(diff_signals,1)
-col_width = ref//NCOLS
+for file in files:
+    full_path = image_folder + '/' + file
 
-print('correlation between positions {pos1: [0,2], pos2: [0,1]} standard:{lead III, lead aVR}, cabrera:{lead -aVR, leadII')
+    test_im = np.load(full_path)
 
-pos1 = diff_signals[0,1:col_width]
-pos2 = diff_signals[1,1:col_width]
-pos3 = diff_signals[2,1:col_width]
-pos4 = diff_signals[0,col_width:2*col_width]
-pos5 = diff_signals[1,col_width:2*col_width]
-pos6 = diff_signals[2,col_width:2*col_width]
+    print('extract signal and output in Point format')
+    #test_im = data[0]
+    signals, rois = extract_rows(test_im, thresh = 50, plot_output = False)
+    raw_s = signal_to_miner(signals, rois)
+    
+    print('turn raw signals into a matrix of signals')
+    
+    #TODO: FIXME - some error in here
+    signal_arr = point_to_matrix(raw_s)
+    #plt.plot(signal_arr[0,:])
+    #plt.plot(signal_arr[1,:])
+    #plt.plot(signal_arr[2,:])
+    #plt.plot(signal_arr[3,:])
+    #plt.show()
+    
+    
+    NROWS = len(signals)
+    
+    #THRESH is a user parameter
+    THRESH = 1
+    
+    #2.for each signal, get its np.diff - this converts from pixel coordinates to relative coordinates
+    diff_signals = np.diff(signal_arr)
+    # reference = []
+    
+    from scipy.signal import correlate, correlation_lags
+    NCOLS = 4
+    ref = np.size(diff_signals,1)
+    col_width = ref//NCOLS
+    
+    print('correlation between positions {pos1: [0,2], pos2: [0,1]} standard:{lead III, lead aVR}, cabrera:{lead -aVR, leadII')
+    
+    pos1 = diff_signals[0,1:col_width]
+    pos2 = diff_signals[1,1:col_width]
+    pos3 = diff_signals[2,1:col_width]
+    pos4 = diff_signals[0,col_width:2*col_width]
+    pos5 = diff_signals[1,col_width:2*col_width]
+    pos6 = diff_signals[2,col_width:2*col_width]
+    
+    test = correlate(pos1, pos2, mode='same', method='auto')
+    idx = np.where(abs(test)==max(abs(test)))[0]
+    corr1 = test[idx][0]
+    test = correlate(pos2, pos3, mode='same', method='auto')
+    idx = np.where(abs(test)==max(abs(test)))[0]
+    corr2 = test[idx][0]
+    test = correlate(pos3, pos4, mode='same', method='auto')
+    idx = np.where(abs(test)==max(abs(test)))[0]
+    corr3 = test[idx][0]
+    test = correlate(pos4, pos5, mode='same', method='auto')
+    idx = np.where(abs(test)==max(abs(test)))[0]
+    corr4 = test[idx][0]
+    test = correlate(pos5, pos6, mode='same', method='auto')
+    idx = np.where(abs(test)==max(abs(test)))[0]
+    corr5 = test[idx][0]
+    
+    test = correlate(pos5, pos1, mode='same', method='auto')
+    idx = np.where(abs(test)==max(abs(test)))[0]
+    c_corr1 = test[idx][0]
+    test = correlate(pos1, -pos4, mode='same', method='auto')
+    idx = np.where(abs(test)==max(abs(test)))[0]
+    c_corr2 = test[idx][0]
+    test = correlate(-pos4, pos2, mode='same', method='auto')
+    idx = np.where(abs(test)==max(abs(test)))[0]
+    c_corr3 = test[idx][0]
+    test = correlate(pos2, pos6, mode='same', method='auto')
+    idx = np.where(abs(test)==max(abs(test)))[0]
+    c_corr4 = test[idx][0]
+    test = correlate(pos6, pos3, mode='same', method='auto')
+    idx = np.where(abs(test)==max(abs(test)))[0]
+    c_corr5 = test[idx][0]
+    
+    a = np.std([corr1, corr2, corr3, corr4, corr5])
+    b = np.std([c_corr1, c_corr2, c_corr3, c_corr4, c_corr5])
+    #print(a)
+    #print(b)
+    
+    if a>b:
+        print('standard')
+        true_pos = true_pos + 1
+    else:
+        print('cabrera')
+        fails.append(file)
 
-test = correlate(pos1, pos2, mode='same', method='auto')
-idx = np.where(abs(test)==max(abs(test)))[0]
-corr1 = test[idx][0]
-test = correlate(pos2, pos3, mode='same', method='auto')
-idx = np.where(abs(test)==max(abs(test)))[0]
-corr2 = test[idx][0]
-test = correlate(pos3, pos4, mode='same', method='auto')
-idx = np.where(abs(test)==max(abs(test)))[0]
-corr3 = test[idx][0]
-test = correlate(pos4, pos5, mode='same', method='auto')
-idx = np.where(abs(test)==max(abs(test)))[0]
-corr4 = test[idx][0]
-test = correlate(pos5, pos6, mode='same', method='auto')
-idx = np.where(abs(test)==max(abs(test)))[0]
-corr5 = test[idx][0]
-
-test = correlate(pos5, pos1, mode='same', method='auto')
-idx = np.where(abs(test)==max(abs(test)))[0]
-c_corr1 = test[idx][0]
-test = correlate(pos1, -pos4, mode='same', method='auto')
-idx = np.where(abs(test)==max(abs(test)))[0]
-c_corr2 = test[idx][0]
-test = correlate(-pos4, pos2, mode='same', method='auto')
-idx = np.where(abs(test)==max(abs(test)))[0]
-c_corr3 = test[idx][0]
-test = correlate(pos2, pos6, mode='same', method='auto')
-idx = np.where(abs(test)==max(abs(test)))[0]
-c_corr4 = test[idx][0]
-test = correlate(pos6, pos3, mode='same', method='auto')
-idx = np.where(abs(test)==max(abs(test)))[0]
-c_corr5 = test[idx][0]
-
-a = np.std([corr1, corr2, corr3, corr4, corr5])
-b = np.std([c_corr1, c_corr2, c_corr3, c_corr4, c_corr5])
-print(a)
-print(b)
-
-if a>b:
-    print('standard')
-else:
-    print('cabrera')
+        
+accuracy = true_pos/num
