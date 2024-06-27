@@ -1,9 +1,5 @@
 """
-Generates all data locally for testing purposes: images, masks, patches of images and masks,
-unet output images, and reconstructed signals.
-
-By default this uses signals from tiny_testset, but this can be changed by setting the data_folder
-argument.
+Generates images and json files with bounding boxes for the images.
 """
 
 import sys, os
@@ -21,23 +17,17 @@ def generate_data(data_folder, model_folder, verbose):
         print('Finding the Challenge data...')
 
     records = helper_code.find_records(data_folder)
+    records = shuffle(records, random_state=42)[:500]
     num_records = len(records)
-    records = shuffle(records, random_state=42)[:5] # test on a tiny number of records for now
+    train_records = records[:int(num_records*0.8)]
+    val_records = records[int(num_records*0.8):int(num_records*0.9)]
+    test_records = records[int(num_records*0.9):]
 
     if num_records == 0:
         raise FileNotFoundError('No data were provided.')
 
-    images_folder = os.path.join("test_data", "images")
-    masks_folder = os.path.join("test_data", "masks")
-    patch_folder = os.path.join("test_data", "patches")
-    unet_output_folder = os.path.join("test_data", "unet_outputs")
-    reconstructed_signals_folder = os.path.join("test_data", "reconstructed_signals")
-
-    os.makedirs(images_folder, exist_ok=True)
-    os.makedirs(masks_folder, exist_ok=True)
-    os.makedirs(patch_folder, exist_ok=True)
-    os.makedirs(unet_output_folder, exist_ok=True)
-    os.makedirs(reconstructed_signals_folder, exist_ok=True)
+    test_images_folder = os.path.join("test_data", "train_images")
+    os.makedirs(test_images_folder, exist_ok=True)
 
     # params for generating images
     img_gen_params = generator.DefaultArgs()
@@ -49,19 +39,26 @@ def generate_data(data_folder, model_folder, verbose):
     img_gen_params.lead_name_bbox = True
     img_gen_params.store_config = 1
     img_gen_params.input_directory = data_folder
-    img_gen_params.output_directory = images_folder
+    img_gen_params.output_directory = test_images_folder
 
-    # generate images and masks
+    # generate train images
     if verbose:
         print("Generating images from wfdb files...")
-    generator.gen_ecg_images_from_data_batch.run(img_gen_params, records)
+    generator.gen_ecg_images_from_data_batch.run(img_gen_params, train_records)
 
+    # generate val images
+    img_gen_params.output_directory = os.path.join("test_data", "val_images")
+    os.makedirs(img_gen_params.output_directory, exist_ok=True)
+    generator.gen_ecg_images_from_data_batch.run(img_gen_params, val_records)
+
+    # generate test images
+    img_gen_params.output_directory = os.path.join("test_data", "test_images")
+    os.makedirs(img_gen_params.output_directory, exist_ok=True)
+    generator.gen_ecg_images_from_data_batch.run(img_gen_params, test_records)
 
 
 if __name__ == "__main__":
     data_folder = os.path.join("ptb-xl", "records500")
-    # data_folder = "G:\\PhysionetChallenge2024\\tiny_testset\\lr_gt"
-    # data_folder = os.path.join("test_data", "images")
     model_folder = os.path.join("model")
     verbose = True
 

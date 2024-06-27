@@ -1,0 +1,9 @@
+train: "G:\\PhysionetChallenge2024\\test_data\\train_images"
+val: "G:\\PhysionetChallenge2024\\test_data\\val_images"
+test: "G:\\PhysionetChallenge2024\\test_data\\test_images"
+
+# number of classes
+nc: 3
+
+# class names
+names: ['lead_text', 'short_lead', 'rhythm_lead']

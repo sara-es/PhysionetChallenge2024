@@ -21,19 +21,19 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-import test  # import test.py to get mAP after each epoch
-from models.experimental import attempt_load
-from models.yolo import Model
-from utils.autoanchor import check_anchors
-from utils.datasets import create_dataloader
-from utils.general import labels_to_class_weights, increment_path, labels_to_image_weights, init_seeds, \
+from digitization.YOLOv7 import test  # import test.py to get mAP after each epoch
+from digitization.YOLOv7.models.experimental import attempt_load
+from digitization.YOLOv7.models.yolo import Model
+from digitization.YOLOv7.utils.autoanchor import check_anchors
+from digitization.YOLOv7.utils.datasets import create_dataloader
+from digitization.YOLOv7.utils.general import labels_to_class_weights, increment_path, labels_to_image_weights, init_seeds, \
     fitness, strip_optimizer, get_latest_run, check_dataset, check_file, check_git_status, check_img_size, \
     check_requirements, print_mutation, set_logging, one_cycle, colorstr
-from utils.google_utils import attempt_download
-from utils.loss import ComputeLoss, ComputeLossOTA
-from utils.plots import plot_images, plot_labels, plot_results, plot_evolution
-from utils.torch_utils import ModelEMA, select_device, intersect_dicts, torch_distributed_zero_first, is_parallel
-from utils.wandb_logging.wandb_utils import WandbLogger, check_wandb_resume
+from digitization.YOLOv7.utils.google_utils import attempt_download
+from digitization.YOLOv7.utils.loss import ComputeLoss, ComputeLossOTA
+from digitization.YOLOv7.utils.plots import plot_images, plot_labels, plot_results, plot_evolution
+from digitization.YOLOv7.utils.torch_utils import ModelEMA, select_device, intersect_dicts, torch_distributed_zero_first, is_parallel
+from digitization.YOLOv7.utils.wandb_logging.wandb_utils import WandbLogger, check_wandb_resume
 
 logger = logging.getLogger(__name__)
 
@@ -523,7 +523,7 @@ def train(hyp, opt, device, tb_writer=None):
     torch.cuda.empty_cache()
     return results
 
-class DefaultArgs:
+class OptArgs:
     def __init__(self):
         self.weights = 'yolo7.pt' # initial weights path
         self.cfg = '' # model.yaml path
@@ -562,45 +562,8 @@ class DefaultArgs:
         self.freeze = [0] # Freeze layers: backbone of yolov7=50, first3=0 1 2
         self.v5_metric = False # assume maximum recall as 1.0 in AP calculation
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', type=str, default='yolo7.pt', help='initial weights path')
-    parser.add_argument('--cfg', type=str, default='', help='model.yaml path')
-    parser.add_argument('--data', type=str, default='data/coco.yaml', help='data.yaml path')
-    parser.add_argument('--hyp', type=str, default='data/hyp.scratch.p5.yaml', help='hyperparameters path')
-    parser.add_argument('--epochs', type=int, default=300)
-    parser.add_argument('--batch-size', type=int, default=16, help='total batch size for all GPUs')
-    parser.add_argument('--img-size', nargs='+', type=int, default=[640, 640], help='[train, test] image sizes')
-    parser.add_argument('--rect', action='store_true', help='rectangular training')
-    parser.add_argument('--resume', nargs='?', const=True, default=False, help='resume most recent training')
-    parser.add_argument('--nosave', action='store_true', help='only save final checkpoint')
-    parser.add_argument('--notest', action='store_true', help='only test final epoch')
-    parser.add_argument('--noautoanchor', action='store_true', help='disable autoanchor check')
-    parser.add_argument('--evolve', action='store_true', help='evolve hyperparameters')
-    parser.add_argument('--bucket', type=str, default='', help='gsutil bucket')
-    parser.add_argument('--cache-images', action='store_true', help='cache images for faster training')
-    parser.add_argument('--image-weights', action='store_true', help='use weighted image selection for training')
-    parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
-    parser.add_argument('--multi-scale', action='store_true', help='vary img-size +/- 50%%')
-    parser.add_argument('--single-cls', action='store_true', help='train multi-class data as single-class')
-    parser.add_argument('--adam', action='store_true', help='use torch.optim.Adam() optimizer')
-    parser.add_argument('--sync-bn', action='store_true', help='use SyncBatchNorm, only available in DDP mode')
-    parser.add_argument('--local_rank', type=int, default=-1, help='DDP parameter, do not modify')
-    parser.add_argument('--workers', type=int, default=8, help='maximum number of dataloader workers')
-    parser.add_argument('--project', default='runs/train', help='save to project/name')
-    parser.add_argument('--entity', default=None, help='W&B entity')
-    parser.add_argument('--name', default='exp', help='save to project/name')
-    parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
-    parser.add_argument('--quad', action='store_true', help='quad dataloader')
-    parser.add_argument('--linear-lr', action='store_true', help='linear LR')
-    parser.add_argument('--label-smoothing', type=float, default=0.0, help='Label smoothing epsilon')
-    parser.add_argument('--upload_dataset', action='store_true', help='Upload dataset as W&B artifact table')
-    parser.add_argument('--bbox_interval', type=int, default=-1, help='Set bounding-box image logging interval for W&B')
-    parser.add_argument('--save_period', type=int, default=-1, help='Log model after every "save_period" epoch')
-    parser.add_argument('--artifact_alias', type=str, default="latest", help='version of dataset artifact to be used')
-    parser.add_argument('--freeze', nargs='+', type=int, default=[0], help='Freeze layers: backbone of yolov7=50, first3=0 1 2')
-    parser.add_argument('--v5-metric', action='store_true', help='assume maximum recall as 1.0 in AP calculation')
-    opt = parser.parse_args()
+def main(args):
+    opt = args
 
     # Set DDP variables
     opt.world_size = int(os.environ['WORLD_SIZE']) if 'WORLD_SIZE' in os.environ else 1
@@ -739,5 +702,5 @@ if __name__ == '__main__':
 
         # Plot results
         plot_evolution(yaml_file)
-        print(f'Hyperparameter evolution complete. Best results saved as: {yaml_file}\n'
-              f'Command to train a new model with these hyperparameters: $ python train.py --hyp {yaml_file}')
+        # print(f'Hyperparameter evolution complete. Best results saved as: {yaml_file}\n'
+        #       f'Command to train a new model with these hyperparameters: $ python train.py --hyp {yaml_file}')

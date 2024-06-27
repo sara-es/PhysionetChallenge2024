@@ -11,9 +11,11 @@
 - layout detection/validation
 - eval script to show/test both above
 
+## YOLO
+- generate yaml file with train/test/val paths after image generation
+
 ## Reconstruction
 - fix issue with different sampling frequencies (postprocessor?)
-- classifier to judge if returned signal looks like an ecg: YOLO maybe?
 - header/text extraction for features 
 - lead arithmetic for redundancy/error checking in reconstruction
 

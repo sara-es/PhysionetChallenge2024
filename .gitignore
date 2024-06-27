@@ -170,3 +170,4 @@ u-net/
 /evaluation/data
 /temp_data
 /test_data
+/runs
