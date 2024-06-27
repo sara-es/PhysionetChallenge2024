@@ -104,31 +104,32 @@ def visualize_preprocessing(images_folder, processed_image_folder, visualization
         # angle or grid size there
         record_path = os.path.join(processed_image_folder, record) 
         header_txt = helper_code.load_header(record_path)
+        header_str1 = f"Original image: {record}"
         header_str2 = ""
 
-        grid_size, has_grid_size = team_helper_code.get_gridsize_from_header(header_txt, 
-                                                                         'Gridsize')
+        grid_size, has_grid_size = helper_code.get_variable(header_txt, '# Gridsize:')
         if has_grid_size:
             grid_size = float(grid_size)
-            header_str2 = f"Grid size: {grid_size}"
+            header_str1 += f"\nGrid size: {true_gridsize}"
+            header_str2 += f"Grid size: {grid_size}"
             pred_grid_sizes.append(grid_size)
-            if abs(true_gridsize - grid_size) > 5:
+            if verbose and abs(true_gridsize - grid_size) > 5:
                 print(f"Record {record} has a large difference in grid size: ")
                 print(f"predicted: {grid_size}, true: {true_gridsize}")
         else:
             header_str2 = "\nNo grid size found in header"
             pred_grid_sizes.append(np.nan)
 
-        rotation_angle, has_angle = helper_code.get_variable(header_txt, 'Rotation')
+        rotation_angle, has_angle = helper_code.get_variable(header_txt, '# Rotation:')
         if has_angle:
             rotation_angle = float(rotation_angle)
+            header_str1 += f"\nRotation angle: {true_rotation}"
             header_str2 += f"\nRotation angle: {rotation_angle}"
-            pred_rotations.append(float(rotation_angle))
+            pred_rotations.append(rotation_angle)
             # Flag images where gridsize or rotation is wildly off
-            if verbose:
-                if abs(true_rotation - rotation_angle) > 5:
-                    print(f"Record {record} has a large difference in rotation angle: ")
-                    print(f"predicted: {rotation_angle}, true: {true_rotation}")
+            if verbose and abs(true_rotation - rotation_angle) > 5:
+                print(f"Record {record} has a large difference in rotation angle: ")
+                print(f"predicted: {rotation_angle}, true: {true_rotation}")
         else:
             header_str2 += "\nNo rotation angle found in header"
             pred_rotations.append(np.nan)
@@ -140,7 +141,7 @@ def visualize_preprocessing(images_folder, processed_image_folder, visualization
         # plot first image
         ax = fig.add_subplot(rows, cols, 1)
         ax.imshow(original_image, cmap='gray')
-        ax.set_title(f"Original image: {record}")
+        ax.set_title(header_str1)
         ax.axis('off')
 
         # plot second image

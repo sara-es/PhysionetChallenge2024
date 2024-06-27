@@ -15,6 +15,7 @@ import numpy as np
 from tqdm import tqdm
 from sklearn.preprocessing import MultiLabelBinarizer
 import matplotlib.pyplot as plt
+import scipy as sp
 
 import helper_code
 from utils import team_helper_code, constants, model_persistence
@@ -468,10 +469,10 @@ def preprocess_images(raw_images_folder, processed_images_folder, verbose,
         
         # TODO: fix get_rotation_angle - it breaks for tiny_test/hr_gt/01017_hr
         rot_angle, gridsize = preprocessing.cepstrum_grid_detection.get_rotation_angle(grayscale_image)
-        team_helper_code.save_gridsize(record_path, gridsize)
-        team_helper_code.save_rotation(record_path, rot_angle)
         
-        # TODO: set image to the rotated image
+        # set image to the rotated image
+        image = sp.ndimage.rotate(image, rot_angle, axes=(1, 0), reshape=True)
+        image = (image * 255).astype(np.uint8) # convert back to uint8
 
         # save processed image
         processed_image = os.path.join(processed_images_folder, record_image_name + '.png')
@@ -483,6 +484,8 @@ def preprocess_images(raw_images_folder, processed_images_folder, verbose,
         header_txt = helper_code.load_header(record_path)
         output_record_path = os.path.join(processed_images_folder, record)
         helper_code.save_header(output_record_path, header_txt)
+        team_helper_code.save_gridsize(output_record_path, gridsize)
+        team_helper_code.save_rotation(output_record_path, rot_angle)
 
 
 def unet_predict_single_image(record_path, model, verbose, delete_patches=True):
