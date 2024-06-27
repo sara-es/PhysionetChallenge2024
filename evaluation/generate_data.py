@@ -114,10 +114,10 @@ def generate_data(data_folder, model_folder, verbose):
 
 
 if __name__ == "__main__":
-    data_folder = "G:\\PhysionetChallenge2024\\ptb-xl\\records500"
+    data_folder = os.path.join("ptb-xl", "records500")
     # data_folder = "G:\\PhysionetChallenge2024\\tiny_testset\\lr_gt"
     # data_folder = os.path.join("test_data", "images")
-    model_folder = "G:\\PhysionetChallenge2024\\model"
+    model_folder = "model"
     verbose = True
 
     generate_data(data_folder, model_folder, verbose)
