@@ -8,15 +8,24 @@ tqdm~=4.66.2
 torch>=1.10.0,<2.0
 torchvision>=0.11,<0.14
 torchaudio>=0.10,<=0.13
+torchio 
 imageio~=2.34.1
 matplotlib~=3.8.4
 iterative_stratification==0.1.7 
 scikit-image~=0.23.2
 opencv-python-headless
 
+# Image-kit
 scipy~=1.13.0
 requests~=2.31.0
 validators~=0.28.3
 opencv-python~=4.10.0.82
 imgaug~=0.4.0
 pyyaml~=6.0.1
+
+# YOLOv7
+protobuf<4.21.3
+tensorboard>=2.4.1
+seaborn>=0.11.0
+psutil
+thop
