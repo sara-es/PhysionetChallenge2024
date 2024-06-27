@@ -41,11 +41,20 @@ def save_rotation(record, gridsize):
     helper_code.save_text(header_file, header)
     return header
 
-def find_available_images(ids, directory, verbose):
+def find_available_images(ids : list, directory : str, verbose : bool):
     """
-    Check for images in the directory that match the IDs in the list.
+    Check for images or .npy arrays in the directory that match the IDs in the list.
     This compares the first 8 characters of the ID to avoid any additions in image, mask,
     or patch generation. (Somewhat of a hack, but works for the generator format.)
+
+    params:
+        ids: list of IDs to check for, e.g. ['01017_hr', '01018_hr', ...]
+        directory: path to the directory to search
+        verbose: printouts?
+
+    returns:
+        list of files that match requested ids, e.g. 
+        ['01017_hr', '01018_hr', ...] or ['01017_hr-0', '01018_hr-0', ...]
     """
     ids = [f.split(os.sep)[-1] for f in ids] # Make sure IDs are strings and not paths
     ids = [f[:8] for f in ids] # take the first 8 characters
