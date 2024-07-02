@@ -6,6 +6,7 @@ scratch.ipynb
 *.7z
 *.png
 !tiny_testset/*/*.png
+jobscripts/
 
 
 # Byte-compiled / optimized / DLL files
