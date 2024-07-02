@@ -46,15 +46,11 @@ def test_unet_rotation(record_ids, unet_outputs_dir, images_dir, verbose=True):
             col_hist = np.sum(rot_image, axis = 0) #sum each column 
 
             # find the starting and end column - columns with black pixels within the active region
-            idxs = np.where(col_hist == 0)[0]
-            if len(idxs) == 0:
-                col_hist = np.round(col_hist, decimals=12) # if col sum has no black lines, try within a tolerance
-                idxs = np.where(col_hist == 0)[0]
-                if len(idxs) == 0: # if it STILL fails, just continue
-                    continue
+            idxs = np.where(col_hist > 0)[0]
             startcol = idxs[0]
             endcol = idxs[-1]
             this_active = endcol-startcol
+            print(f"{startcol} to {endcol} active pixels")
             
             if this_active < active:
                 active = this_active
