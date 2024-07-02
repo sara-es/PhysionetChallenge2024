@@ -25,22 +25,22 @@ def train_models(data_folder, model_folder, verbose):
         raise FileNotFoundError('No data were provided.')
     
     # test on a smaller number of records for now
-    records = records[:2000]
+    records = shuffle(records, random_state=42)[:2500]
     num_records = len(records)
     
     # Get the file paths of signals
-    tts = 0.6
+    tts = 1
     records = shuffle(records)
     train_records = records[:int(tts*num_records)]
     val_records = records[int(tts*num_records):]
 
-    print(val_records)
+    print(train_records[:5])
 
     images_folder = os.path.join("temp_data", "images")
     masks_folder = os.path.join("temp_data", "masks")
     patch_folder = os.path.join("temp_data", "patches")
     unet_output_folder = os.path.join("temp_data", "unet_outputs")
-    reconstructed_signals_folder = os.path.join("tiny_testset", "test_outputs")
+    reconstructed_signals_folder = os.path.join("temp_data", "test_outputs")
 
     os.makedirs(images_folder, exist_ok=True)
     os.makedirs(masks_folder, exist_ok=True)
@@ -67,7 +67,7 @@ def train_models(data_folder, model_folder, verbose):
     args.train_val_prop = 0.8
     args.epochs = 50
     unet_model = team_code.train_unet(train_records, patch_folder, model_folder, verbose, 
-                         args=args, warm_start=True, max_train_samples=False, delete_patches=False)
+                         args=args, warm_start=False, max_train_samples=False, delete_patches=True)
 
     # save trained u-net
     model_persistence.save_model_torch(unet_model, 'digitization_model', model_folder)
