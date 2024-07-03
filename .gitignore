@@ -171,4 +171,5 @@ u-net/
 /temp_data
 /runs
 /test_data
+/runs
 /test_rot_data
