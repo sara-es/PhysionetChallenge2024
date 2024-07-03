@@ -2,7 +2,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-dir_path = "G:\\PhysionetChallenge2024\\test_data\\unet_outputs"
+dir_path = "G:\\PhysionetChallenge2024\\test_rot_data\\unet_outputs"
 # dir_path = "G:\\PhysionetChallenge2024\\test_data\patches\\label_patches"
 
 os.listdir(dir_path)

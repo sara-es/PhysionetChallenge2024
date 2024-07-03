@@ -43,7 +43,7 @@ for angle in range(min_angle, max_angle): # for debugging, this is only searchin
 
     col_hist = np.sum(rot_image, axis = 0) #sum each column
     # find the starting and end column - columns with black pixels within the active region
-    idxs = np.where(col_hist == 0)[0]
+    idxs = np.where(col_hist > 0)[0]
     startcol = idxs[0]
     endcol = idxs[-1]
     this_active = endcol-startcol

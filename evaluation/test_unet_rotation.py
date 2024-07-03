@@ -37,25 +37,24 @@ def test_unet_rotation(record_ids, unet_outputs_dir, images_dir, verbose=True):
         # closing filter on the image to remove noise
         test_im = skimage.morphology.closing(test_im, footprint=[(np.ones((5, 1)), 1), (np.ones((1, 5)), 1)])
 
-        # plt.imshow(test_im)
-        # plt.show()
+        n_active_cols = 5000
 
         for angle in range(min_angle, max_angle): # for debugging, this is only searching -5 to +4 degrees
-            rot_image = sp.ndimage.rotate(test_im, angle, axes=(1, 0), reshape=True)
-            # rot_image[rot_image < 0] = 0 # binarize
+            rot_image = sp.ndimage.rotate(test_im, angle, axes=(1, 0), reshape=False)
+            # rot_image[rot_image < 0] = 0
+            rot_image[:, 0] = 0
+            rot_image[:, -1] = 0
+            rot_image[0, :] = 0
+            rot_image[-1, :] = 0
             col_hist = np.sum(rot_image, axis = 0) #sum each column 
 
             # find the starting and end column - columns with black pixels within the active region
-            idxs = np.where(col_hist > 0)[0]
-            startcol = idxs[0]
-            endcol = idxs[-1]
-            this_active = endcol-startcol
-            print(f"{startcol} to {endcol} active pixels")
-            
-            if this_active < active:
-                active = this_active
+            idxs = np.sum(col_hist > 0)
+            if idxs < n_active_cols:
+                n_active_cols = idxs
                 rot_angle = angle
-
+    
+                
         # load rotation angle info from json
         config_file = os.path.join(images_dir, record + "-0.json")
         with open(config_file, 'r') as f:
