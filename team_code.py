@@ -196,7 +196,11 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
                                   delete_images=delete_training_data)
     
     return unet_model, reconstructed_signals_folder
-        
+
+
+def generate_yolo_training_data():
+    pass
+
 
 def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder, patch_folder,
                                 verbose, patch_size=constants.PATCH_SIZE, records_to_process=None):

@@ -56,16 +56,12 @@ def prepare_label_files(ids, json_file_dir, label_file_dir):
     """
     os.makedirs(label_file_dir, exist_ok=True)
 
-    ids = [f.split(os.sep)[-1] for f in ids] # Make sure IDs are strings and not paths
-    ids = [f[:8] for f in ids] # take the first 8 characters
-    all_files = os.listdir(json_file_dir)
-    json_filenames = [f for f in all_files if f.endswith('.json')]
-    matching_json_filenames = [f for f in json_filenames if f[:8] in ids]
-    if len(matching_json_filenames) != len(ids):
+    json_ids = find_files(json_file_dir, extension_str='.json')
+    if json_ids != ids:
         raise FileNotFoundError(f"Some requested json files are missing from {json_file_dir}. "+\
-                                "Please check that you have generated the json files for the images.")
+                            "Please check that you have generated the json files for the images.")
 
-    for json_file in matching_json_filenames:
+    for json_file in json_ids:
         json_path = os.path.join(json_file_dir, json_file)
         with open(json_path, 'r') as f:
             metadata = json.load(f)
@@ -74,8 +70,26 @@ def prepare_label_files(ids, json_file_dir, label_file_dir):
             f.write(label_text)
 
 
+def find_files(folder, extension_str):
+    """
+    Find all relative file paths to files with a specific extension with respect to the root 
+    folder. e.g. if folder is "ptb-xl/records100" then records is a list of strings 
+    e.g. ["00000/00157_lr", "01000/01128_lr", ...].
+    """
+    records = set()
+    for root, directories, files in os.walk(folder):
+        for file in files:
+            extension = os.path.splitext(file)[1]
+            if extension == extension_str:
+                record = os.path.relpath(os.path.join(root, file), folder)[:-4]
+                records.add(record)
+    records = sorted(records)
+    return records
+
+
 if __name__ == "__main__":
-    ids = set([f.split(".")[0] for f in os.listdir("test_data\\train_images\\images") if f.endswith(".png")]) 
-    json_file_dir = "test_data\\train_images"
-    label_file_dir = "test_data\\train_images\\labels"
+    images_dir = os.path.join("temp_data", "yolo_images")
+    ids = find_files(images_dir, extension_str='.png')
+    json_file_dir = os.path.join("temp_data", "yolo_images")
+    label_file_dir = os.path.join("temp_data", "yolo_labels")
     prepare_label_files(ids, json_file_dir, label_file_dir)
