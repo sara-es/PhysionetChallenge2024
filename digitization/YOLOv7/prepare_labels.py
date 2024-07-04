@@ -62,11 +62,11 @@ def prepare_label_files(ids, json_file_dir, label_file_dir):
                             "Please check that you have generated the json files for the images.")
 
     for json_file in json_ids:
-        json_path = os.path.join(json_file_dir, json_file)
+        json_path = os.path.join(json_file_dir, json_file + ".json")
         with open(json_path, 'r') as f:
             metadata = json.load(f)
         label_text = prepare_label_text(metadata)
-        with open(os.path.join(label_file_dir, json_file.replace(".json", ".txt")), 'w') as f:
+        with open(os.path.join(label_file_dir, json_file + ".txt"), 'w') as f:
             f.write(label_text)
 
 
@@ -77,11 +77,12 @@ def find_files(folder, extension_str):
     e.g. ["00000/00157_lr", "01000/01128_lr", ...].
     """
     records = set()
+    ext_len = len(extension_str)
     for root, directories, files in os.walk(folder):
         for file in files:
             extension = os.path.splitext(file)[1]
             if extension == extension_str:
-                record = os.path.relpath(os.path.join(root, file), folder)[:-4]
+                record = os.path.relpath(os.path.join(root, file), folder)[:-ext_len]
                 records.add(record)
     records = sorted(records)
     return records
@@ -92,4 +93,7 @@ if __name__ == "__main__":
     ids = find_files(images_dir, extension_str='.png')
     json_file_dir = os.path.join("temp_data", "yolo_images")
     label_file_dir = os.path.join("temp_data", "yolo_labels")
+    for split in ["train", "val", "test"]:
+        dir = os.path.join(label_file_dir, split)
+        os.makedirs(dir, exist_ok=True)
     prepare_label_files(ids, json_file_dir, label_file_dir)
