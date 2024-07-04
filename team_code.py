@@ -150,7 +150,7 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
 
     At each step we save the outputs to disk to save on memory; here, we assume by default that 
     they should be deleted when no longer needed, but if you want to keep them for debugging or
-    visualization, set delete_trainin_data to False. 
+    visualization, set delete_training_data to False. 
     """
     # hard code some folder paths for now
     images_folder = os.path.join(os.getcwd(), 'temp_data', 'images')
@@ -179,7 +179,6 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
     # train U-net
     args = Unet.utils.Args()
     args.train_val_prop = 1.0 # we want to train on all available data
-    args.epochs = 1 # TODO: increase this for actual training
     unet_model = train_unet(records_to_process, patch_folder, model_folder, verbose, args=args, 
                             warm_start=True)
     if verbose:
@@ -213,6 +212,7 @@ def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder
     img_gen_params.random_bw = 0.2
     img_gen_params.wrinkles = True
     img_gen_params.print_header = True
+    img_gen_params.augment = True
     img_gen_params.input_directory = wfdb_records_folder
     img_gen_params.output_directory = images_folder
 
