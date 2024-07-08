@@ -173,3 +173,4 @@ u-net/
 /test_data
 /runs
 /test_rot_data
+/jobscripts/logs
