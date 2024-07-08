@@ -1,0 +1,17 @@
+#!/bin/bash --login
+#$ -cwd              # Job will run in currect directory
+                     # Nothing specified to request more cores = default 1 core
+#$ -l nvidia_v100=1  # Request GPU with 1 core (can be 1-4)
+                     # Can also request nvidia_a100 but good luck with the queue
+# $ -pe smp.pe N     # remove space at start of line to run as parallel job with N cpu cores
+
+#$ -o jobscripts/logs/   # put outputs in logs folder
+#$ -e jobscripts/logs/                    
+
+# Load any required modulefiles
+source ~/envs/physionet2024/bin/activate
+module load libs/cuda/12.2.2
+module load compilers/gcc/6.4.0
+
+# Run code
+python tests/team_code_train.py

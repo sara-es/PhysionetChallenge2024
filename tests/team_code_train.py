@@ -48,7 +48,7 @@ def train_models(data_folder, model_folder, verbose):
     os.makedirs(unet_output_folder, exist_ok=True)
     os.makedirs(reconstructed_signals_folder, exist_ok=True)
 
-    # print(train_records)
+    print(data_folder)
 
     # generate images and masks for training u-net; generate patches 
     team_code.generate_unet_training_data(data_folder, images_folder, 
@@ -74,28 +74,25 @@ def train_models(data_folder, model_folder, verbose):
 
     # generate new images, patch them, then run u-net, then
     # reconstruct signals from u-net outputs, then save reconstructed signals
-    # team_code.generate_and_predict_unet_batch(data_folder, images_folder, masks_folder, patch_folder,
-    #                               unet_output_folder, unet_model, reconstructed_signals_folder,
-    #                               verbose, records_to_process=val_records, delete_images=False)
-
-    # team_code.reconstruct_signal_from_unet_output()
+    team_code.generate_and_predict_unet_batch(data_folder, images_folder, masks_folder, patch_folder,
+                                  unet_output_folder, unet_model, reconstructed_signals_folder,
+                                  verbose, records_to_process=val_records, delete_images=True)
 
     # train classification model
-    # resnet_model, uniq_labels = team_code.train_classification_model(
-    #     data_folder, verbose, records_to_process=val_records
-    #     )
+    resnet_model, uniq_labels = team_code.train_classification_model(
+        data_folder, verbose, records_to_process=val_records
+        )
 
-    # # save trained classification model
-    # team_code.save_models(model_folder, unet_model, resnet_model, uniq_labels)
+    # save trained classification model
+    team_code.save_models(model_folder, unet_model, resnet_model, uniq_labels)
 
     # optionally display some results
 
 
 
 if __name__ == "__main__":
-    data_folder = "G:\\PhysionetChallenge2024\\ptb-xl\\records500"
-    # data_folder = "G:\\PhysionetChallenge2024\\tiny_testset\\lr_gt"
-    model_folder = "G:\\PhysionetChallenge2024\\model"
+    data_folder = os.path.join(os.getcwd(), "ptb-xl", "records500")
+    model_folder = os.path.join(os.getcwd(), "model")
     verbose = True
 
     train_models(data_folder, model_folder, verbose)
