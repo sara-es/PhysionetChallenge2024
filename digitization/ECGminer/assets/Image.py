@@ -27,7 +27,7 @@ class Image:
 
     def __getitem__(
         self, index: Sequence
-    ) -> Iterable[Iterable[int | Iterable[int]]]:
+    ):
         """
         Get an slice of image data.
 
@@ -40,7 +40,7 @@ class Image:
         return self.__data[index]
 
     def __setitem__(
-        self, index: Sequence, value: Iterable[Iterable[int | Iterable[int]]]
+        self, index: Sequence, value
     ) -> None:
         """
         Set an slice of image data.
@@ -52,7 +52,7 @@ class Image:
         self.__data[index] = value
 
     @property
-    def data(self) -> Iterable[Iterable[int | Iterable[int]]]:
+    def data(self):
         """
         Returns the image data.
 
@@ -62,7 +62,7 @@ class Image:
         return self.__data
 
     @data.setter
-    def data(self, data: Iterable[Iterable[int | Iterable[int]]]) -> None:
+    def data(self, data) -> None:
         """
         Set the image data.
 
@@ -72,7 +72,7 @@ class Image:
         self.__data = data
 
     @data.getter
-    def data(self) -> Iterable[Iterable[int | Iterable[int]]]:
+    def data(self):
         """
         Returns the image data.
 
@@ -102,7 +102,7 @@ class Image:
         return self.__data.shape[1]
 
     @property
-    def white(self) -> int | Tuple[int, int, int]:
+    def white(self):
         """
         Get the white color depending of current image color space:
         - GRAY: 255
@@ -119,7 +119,7 @@ class Image:
         return [255, 255, 255]
 
     @property
-    def black(self) -> int | Tuple[int, int, int]:
+    def black(self):
         """
         Get the black color depending of current image color space:
         - GRAY: 0

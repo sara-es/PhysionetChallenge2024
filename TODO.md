@@ -1,24 +1,33 @@
 ## Image generation (image-kit)
-- add artefacts (e.g. tipp-ex) to generated images
+- different layouts
+- vertical bars in ecg
+**Low prio:**
 - handwriting or approximation thereof
-- different layouts 
-- different gap sizes between leads?
+- add artefacts (e.g. tipp-ex) to generated images
+- different gap sizes between leads in case of no rhythm strip
 - different resolutions/image size?
 
 ## Preprocessing/Image cleaning
-- image rotation
 - image scaling
 - layout detection/validation
 - eval script to show/test both above
 
 ## Reconstruction
-- fix issue with different sampling frequencies (postprocessor?)
-- classifier to judge if returned signal looks like an ecg: YOLO maybe?
+**Low prio:**
+- signal quality metric for reconstructed signal: return nans if reconstruction has failed (+lead arithmetic for redundancy/error checking in reconstruction)
+- check if using first pixel of each lead as a baseline improves SNR
 - header/text extraction for features 
-- lead arithmetic for redundancy/error checking in reconstruction
+
+## Unet
+- scaling in training process
+- domain adaptation
+- re-train with black rectangles in image generation
+- confidence measure per image
 
 ## Classification
 - resnet missing feature flags + features for height/weight 
-- ensemble resnet
+- training data is 2.5s per lead (non-concurrent)
 - train resnet checkpoint
+**Low prio:**
+- ensemble resnet
 - check model on both 100 Hz and 500 Hz data 
