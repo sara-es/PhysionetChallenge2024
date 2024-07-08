@@ -15,6 +15,7 @@ import numpy as np
 from tqdm import tqdm
 from sklearn.preprocessing import MultiLabelBinarizer
 import matplotlib.pyplot as plt
+import scipy as sp
 
 import helper_code
 from utils import team_helper_code, constants, model_persistence
@@ -91,8 +92,8 @@ def load_models(model_folder, verbose):
     models = model_persistence.load_models(model_folder, verbose, 
                         models_to_load=['digitization_model', 'classification_model', 'dx_classes'])
     digitization_model = models['digitization_model']
-    classification_model = models['classification_model', 'dx_classes']
-    return digitization_model, classification_model
+    # classification_model = models['classification_model', 'dx_classes']
+    return digitization_model, models
 
 
 # Run your trained digitization model. This function is *required*. You should edit this function
@@ -102,8 +103,11 @@ def run_models(record, digitization_model, classification_model, verbose):
     # Load the digitization model.
     unet_model = Unet.utils.load_unet_from_state_dict(digitization_model)
 
+    # Preprocess the image to get rotation angle
+    # preprocess_with_unet_predict(record, unet_model, verbose)
+
     # Run the digitization model; if you did not train this model, then you can set signal=None.
-    signal, reconstructed_signal_dir = unet_predict_single_image(record, unet_model, verbose, 
+    signal, reconstructed_signal_dir = unet_reconstruct_single_image(record, unet_model, verbose, 
                                                                  delete_patches=True)
     
     # Load the classification model and classes.
@@ -316,7 +320,7 @@ def generate_and_predict_unet_batch(wfdb_records_folder, images_folder, mask_fol
     reconstruct the patches to a full image. Assumes we are generating these images, so we have 
     masks (labels), and can return a DICE score for evaluation.
 
-    TODO: can either move a lot of these folder names to constants, or hard code them from a base 
+    Maybe todo can either move a lot of these folder names to constants, or hard code them from a base 
     directory since they're all temporary files anyway
     """
     if not records_to_process:
@@ -468,9 +472,10 @@ def preprocess_images(raw_images_folder, processed_images_folder, verbose,
         
         # TODO: fix get_rotation_angle - it breaks for tiny_test/hr_gt/01017_hr
         rot_angle, gridsize = preprocessing.cepstrum_grid_detection.get_rotation_angle(grayscale_image)
-        team_helper_code.save_gridsize(record_path, gridsize)
         
-        # TODO: set image to the rotated image
+        # set image to the rotated image
+        image = sp.ndimage.rotate(image, rot_angle, axes=(1, 0), reshape=True)
+        image = (image * 255).astype(np.uint8) # convert back to uint8
 
         # save processed image
         processed_image = os.path.join(processed_images_folder, record_image_name + '.png')
@@ -482,17 +487,22 @@ def preprocess_images(raw_images_folder, processed_images_folder, verbose,
         header_txt = helper_code.load_header(record_path)
         output_record_path = os.path.join(processed_images_folder, record)
         helper_code.save_header(output_record_path, header_txt)
+        team_helper_code.save_gridsize(output_record_path, gridsize)
+        team_helper_code.save_rotation(output_record_path, rot_angle)
 
 
-def unet_predict_single_image(record_path, model, verbose, delete_patches=True):
+def unet_reconstruct_single_image(record, model, verbose, delete_patches=True):
     """
     params
-        record_id: str, for saving/loading
-        
+        record: str, relative path from data folder and record ID, 
+            e.g. 'ptbl-xl/records500/01017_hr'
+        model: U-net state dict
+        verbose: bool
+        delete_patches: bool, whether to delete patches after processing    
     """
     # get image from image_path
-    image = helper_code.load_images(record_path)[0]
-    record_id = os.path.split(record_path)[-1].split('.')[0]
+    image = helper_code.load_images(record)[0]
+    record_id = os.path.split(record)[-1].split('.')[0]
 
     # hard code some folder paths for now
     patch_folder = os.path.join('temp_data', 'patches', 'test_image_patches')
@@ -500,24 +510,23 @@ def unet_predict_single_image(record_path, model, verbose, delete_patches=True):
     os.makedirs(patch_folder, exist_ok=True)
     os.makedirs(reconstructed_signals_folder, exist_ok=True)
 
-    # preprocess image
-    # TODO
-
     # patchify image
     image = np.asarray(image) # convert to numpy array
-    # TODO will need to save/load patch size and original image size for persistence
     Unet.patching.save_patches_single_image(record_id, image, None, 
                                             patch_size=constants.PATCH_SIZE,
                                             im_patch_save_path=patch_folder,
                                             lab_patch_save_path=None)
 
     # predict on patches, recover u-net output image
-    # TODO need to pass original image size as argument here
-    predicted_image = Unet.predict_single_image(record_id, patch_folder, model)
+    predicted_image = Unet.predict_single_image(record_id, patch_folder, model,
+                                                original_image_size=image.shape[:2])
+    
+    # rotate reconstructed u-net output to original orientation
+    # predicted_image = preprocessing.  
 
     # reconstruct signal from u-net output image
     # load header file to save with reconstructed signal
-    header_txt = helper_code.load_header(record_path)
+    header_txt = helper_code.load_header(record)
     reconstructed_signal, trace = reconstruct_signal(record_id, predicted_image, 
                                                      header_txt,
                                                      reconstructed_signals_folder, 

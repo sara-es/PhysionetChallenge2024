@@ -91,7 +91,7 @@ def get_rotation_angle(greyscale_image):
     # On generated images, this ratio is reliably about 60 or 350+
     # so 150 is rather arbitrary but should be fine
     if greyscale_image.shape[1]/grid_length > 150: 
-        print('small grid detected ' + str(greyscale_image.shape[1]/grid_length))
+        # print('small grid detected ' + str(greyscale_image.shape[1]/grid_length))
         grid_length *= 6
         rot_idx = np.argsort(cep_max)[-2] # second highest peak
         rot_angle = rot_idx + min_angle
@@ -113,7 +113,7 @@ def get_rotation_angle(greyscale_image):
         x = x + np.argmin(y) - search_pix_radius
 
     grid_length_adj = (x-init_idx)/steps
-    print(f' grid length {grid_length} adjusted: {grid_length_adj}')
+    # print(f' grid length {grid_length} adjusted: {grid_length_adj}')
 
     return rot_angle, grid_length_adj
 

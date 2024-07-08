@@ -54,9 +54,7 @@ def predict_single_image(image_id, im_patch_dir, unet, original_image_size=(1700
     Assumes labels are not present; patches already generated and in im_patch_dir
     MODEL MUST BE PRE-LOADED UNET + STATE DICT
     Returns the predicted image as a numpy array (flat)
-    TODO: maybe just take in patches directly? Will have to change dataloaders...
     """
-    cuda = torch.cuda.is_available()
     image_id = image_id.split('_')[0]
     patches = os.listdir(im_patch_dir)
     patch_ids = [f for f in patches if f.split('_')[0] == image_id]

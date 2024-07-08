@@ -24,15 +24,17 @@ def train_models(data_folder, model_folder, verbose):
     if num_records == 0:
         raise FileNotFoundError('No data were provided.')
     
-    # test on a tiny number of records for now
-    # records = records[:2000]
-    # num_records = len(records)
+    # test on a smaller number of records for now
+    records = shuffle(records, random_state=42)[:2500]
+    num_records = len(records)
     
     # Get the file paths of signals
-    tts = 0.4
-    records = shuffle(records, random_state=42)
+    tts = 1
+    records = shuffle(records)
     train_records = records[:int(tts*num_records)]
     val_records = records[int(tts*num_records):]
+
+    print(train_records[:5])
 
     images_folder = os.path.join("temp_data", "images")
     masks_folder = os.path.join("temp_data", "masks")
