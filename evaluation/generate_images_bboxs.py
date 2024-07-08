@@ -17,16 +17,16 @@ def generate_data(data_folder, model_folder, verbose):
         print('Finding the Challenge data...')
 
     records = helper_code.find_records(data_folder)
-    records = shuffle(records, random_state=42)[8000:16000]
+    records = shuffle(records, random_state=42)[14000:16000]
     num_records = len(records)
-    train_records = records[:int(num_records*0.8)]
-    val_records = records[int(num_records*0.8):int(num_records*0.9)]
-    test_records = records[int(num_records*0.9):]
+    train_records = records[:int(num_records*0.85)]
+    val_records = records[int(num_records*0.85):int(num_records*0.95)]
+    test_records = records[int(num_records*0.95):]
 
     if num_records == 0:
         raise FileNotFoundError('No data were provided.')
 
-    test_images_folder = os.path.join("temp_data", "yolo_images", "train")
+    test_images_folder = os.path.join("test_data", "yolo_images", "train")
     os.makedirs(test_images_folder, exist_ok=True)
 
     # params for generating images
@@ -40,6 +40,7 @@ def generate_data(data_folder, model_folder, verbose):
     img_gen_params.lead_bbox = True
     img_gen_params.lead_name_bbox = True
     img_gen_params.store_config = 1
+    img_gen_params.copy_data_files = False
     img_gen_params.input_directory = data_folder
     img_gen_params.output_directory = test_images_folder
 
@@ -49,12 +50,12 @@ def generate_data(data_folder, model_folder, verbose):
     generator.gen_ecg_images_from_data_batch.run(img_gen_params, train_records)
 
     # generate val images
-    img_gen_params.output_directory = os.path.join("temp_data", "yolo_images", "val")
+    img_gen_params.output_directory = os.path.join("test_data", "yolo_images", "val")
     os.makedirs(img_gen_params.output_directory, exist_ok=True)
     generator.gen_ecg_images_from_data_batch.run(img_gen_params, val_records)
 
     # generate test images
-    img_gen_params.output_directory = os.path.join("temp_data", "yolo_images", "test")
+    img_gen_params.output_directory = os.path.join("test_data", "yolo_images", "test")
     os.makedirs(img_gen_params.output_directory, exist_ok=True)
     generator.gen_ecg_images_from_data_batch.run(img_gen_params, test_records)
 

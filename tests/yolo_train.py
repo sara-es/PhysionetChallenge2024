@@ -5,9 +5,9 @@ from digitization import YOLOv7
 
 args = YOLOv7.train.OptArgs()
 args.epochs = 100
-args.workers = 2
+args.workers = 8
 args.device = "0"
-args.batch_size = 8
+args.batch_size = 12
 args.img_size = [640, 640]
 args.data = os.path.join("digitization", "YOLOv7", "data", "ecg.yaml")
 args.cfg = os.path.join("digitization", "YOLOv7", "cfg", "training", "yolov7-ecg.yaml")

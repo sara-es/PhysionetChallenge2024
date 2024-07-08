@@ -57,16 +57,21 @@ def prepare_label_files(ids, json_file_dir, label_file_dir):
     os.makedirs(label_file_dir, exist_ok=True)
 
     json_ids = find_files(json_file_dir, extension_str='.json')
-    if json_ids != ids:
+    id_tails = [f[-10:] for f in ids]
+    if set(json_ids) != set(id_tails):
+        print(len(json_ids), len(ids))
+        print(id_tails)
+        print(f"Missing json files: {set(id_tails) - set(json_ids)}")
+        print(f"Missing image files: {set(json_ids) - set(id_tails)}")
         raise FileNotFoundError(f"Some requested json files are missing from {json_file_dir}. "+\
                             "Please check that you have generated the json files for the images.")
 
-    for json_file in json_ids:
+    for i, json_file in enumerate(json_ids):
         json_path = os.path.join(json_file_dir, json_file + ".json")
         with open(json_path, 'r') as f:
             metadata = json.load(f)
         label_text = prepare_label_text(metadata)
-        with open(os.path.join(label_file_dir, json_file + ".txt"), 'w') as f:
+        with open(os.path.join(label_file_dir, ids[i] + ".txt"), 'w') as f:
             f.write(label_text)
 
 
@@ -89,10 +94,10 @@ def find_files(folder, extension_str):
 
 
 if __name__ == "__main__":
-    images_dir = os.path.join("temp_data", "yolo_images")
+    images_dir = os.path.join("test_data", "yolo_images")
     ids = find_files(images_dir, extension_str='.png')
-    json_file_dir = os.path.join("temp_data", "yolo_images")
-    label_file_dir = os.path.join("temp_data", "yolo_labels")
+    json_file_dir = os.path.join("test_data", "config_files")
+    label_file_dir = os.path.join("test_data", "yolo_labels")
     for split in ["train", "val", "test"]:
         dir = os.path.join(label_file_dir, split)
         os.makedirs(dir, exist_ok=True)

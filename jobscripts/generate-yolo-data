@@ -1,0 +1,14 @@
+#!/bin/bash --login
+#$ -cwd              # Job will run in currect directory
+
+#$ -o jobscripts/logs/   # put outputs in logs folder
+#$ -e jobscripts/logs/                    
+
+# Load any required modulefiles
+source ~/envs/physionet2024/bin/activate
+
+# Run code
+# python evaluation/generate_images_bboxs.py
+python digitization/YOLOv7/prepare_labels.py
+# mv test_data/yolo_images/*/*.json test_data/config_files/
+
