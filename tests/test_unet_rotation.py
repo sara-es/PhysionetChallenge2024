@@ -19,8 +19,8 @@ def test_unet_rotation(record_ids, unet_outputs_dir, images_dir, verbose=True):
     pred_rotations = []
     true_rotations = []
 
-    min_angle = -8
-    max_angle = 8
+    min_angle = -10
+    max_angle = 10
 
     for i, record in enumerate(unet_output_ids):
         unet_output_path = os.path.join(unet_outputs_dir, record + ".npy")
@@ -36,6 +36,11 @@ def test_unet_rotation(record_ids, unet_outputs_dir, images_dir, verbose=True):
 
         # closing filter on the image to remove noise
         test_im = skimage.morphology.closing(test_im, footprint=[(np.ones((5, 1)), 1), (np.ones((1, 5)), 1)])
+
+        # show some images that it was having trouble with
+        if record in ["01195_hr", "02103_hr", "11534_hr"]:
+            plt.imshow(test_im)
+            plt.show()
 
         n_active_cols = 5000
 
