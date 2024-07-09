@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 import scipy as sp
 
 import helper_code
+import preprocessing
 from utils import team_helper_code, constants, model_persistence
 from digitization import Unet, ECGminer
 from classification import seresnet18
@@ -437,6 +438,8 @@ def train_classification_model(reconstructed_records_folder, verbose,
 def preprocess_images(raw_images_folder, processed_images_folder, verbose, 
                       records_to_process=None):
     """
+    CURRENTLY NOT USED
+    
     Preprocess images found in raw_images_folder and save them in processed_images_folder.
     Optionally provide a list of a subset of records to process (records_to_process).
 
@@ -522,7 +525,19 @@ def unet_reconstruct_single_image(record, model, verbose, delete_patches=True):
                                                 original_image_size=image.shape[:2])
     
     # rotate reconstructed u-net output to original orientation
-    # predicted_image = preprocessing.  
+    predicted_image, rot_angle = preprocessing.column_rotation(record_id, predicted_image,
+                                                    angle_range=(-45, 45), verbose=verbose)
+    
+    if rot_angle != 0: # re-patch and predict on the rotated image (TODO: check if necessary)
+        image = sp.ndimage.rotate(image, rot_angle, axes=(1, 0), reshape=True)
+        Unet.patching.save_patches_single_image(record_id, image, None, 
+                                            patch_size=constants.PATCH_SIZE,
+                                            im_patch_save_path=patch_folder,
+                                            lab_patch_save_path=None)
+
+        # predict on patches, recover u-net output image
+        predicted_image = Unet.predict_single_image(record_id, patch_folder, model,
+                                                original_image_size=image.shape[:2])
 
     # reconstruct signal from u-net output image
     # load header file to save with reconstructed signal
