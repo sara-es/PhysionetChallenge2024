@@ -435,65 +435,6 @@ def train_classification_model(reconstructed_records_folder, verbose,
     return resnet_model, uniq_labels
 
 
-def preprocess_images(raw_images_folder, processed_images_folder, verbose, 
-                      records_to_process=None):
-    """
-    CURRENTLY NOT USED
-    
-    Preprocess images found in raw_images_folder and save them in processed_images_folder.
-    Optionally provide a list of a subset of records to process (records_to_process).
-
-    Preprocessing steps currently implemented:
-        - resize images to a standard size
-    
-    TODO:
-        - determine grid size of the image and save it to either the original header file 
-        (will need to pass in the header file path, wfdb_records_folder) or a new file
-    """
-    if not records_to_process:
-        records_to_process = helper_code.find_records(raw_images_folder)
-    
-    for i in tqdm(range(len(records_to_process)), desc='Preprocessing images', disable=not verbose):
-        record = records_to_process[i] 
-        #raw_image_path = os.path.join(raw_images_folder, record + '.png')
-        
-        # load raw image
-        record_path = os.path.join(raw_images_folder, record)
-        # TODO below commented line returns a PIL image and I had trouble working with it - may want to check this?
-        # image = helper_code.load_images(record_image)[0] 
-        record_image_name = team_helper_code.find_available_images(
-                            [record], raw_images_folder, verbose)[0] # returns list
-        with open(os.path.join(raw_images_folder, record_image_name + ".png"), 'rb') as f:
-            image = plt.imread(f)
-
-        # resize image if needed
-        # TODO this breaks
-        # image = preprocessing.resize_image(image)
-        
-        # get and save the gridsize
-        grayscale_image = preprocessing.cepstrum_grid_detection.image_to_grayscale_array(image)
-        
-        # TODO: fix get_rotation_angle - it breaks for tiny_test/hr_gt/01017_hr
-        rot_angle, gridsize = preprocessing.cepstrum_grid_detection.get_rotation_angle(grayscale_image)
-        
-        # set image to the rotated image
-        image = sp.ndimage.rotate(image, rot_angle, axes=(1, 0), reshape=True)
-        image = (image * 255).astype(np.uint8) # convert back to uint8
-
-        # save processed image
-        processed_image = os.path.join(processed_images_folder, record_image_name + '.png')
-        with open(processed_image, 'wb') as f:
-            plt.imsave(f, image, cmap='gray')
-        # image.save(processed_image,"PNG") # check this works? Note: it does not work
-
-        # save header file with gridsize to processed_images_folder
-        header_txt = helper_code.load_header(record_path)
-        output_record_path = os.path.join(processed_images_folder, record)
-        helper_code.save_header(output_record_path, header_txt)
-        team_helper_code.save_gridsize(output_record_path, gridsize)
-        team_helper_code.save_rotation(output_record_path, rot_angle)
-
-
 def unet_reconstruct_single_image(record, model, verbose, delete_patches=True):
     """
     params
