@@ -1,9 +1,0 @@
-train: "/temp_data/yolo_images/train"
-val: "/temp_data/yolo_images/val"
-test: "/temp_data/yolo_images/test"
-
-# number of classes
-nc: 3
-
-# class names
-names: ['lead_text', 'short_lead', 'rhythm_lead']
