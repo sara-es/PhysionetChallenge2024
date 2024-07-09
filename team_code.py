@@ -438,6 +438,8 @@ def train_classification_model(reconstructed_records_folder, verbose,
 def preprocess_images(raw_images_folder, processed_images_folder, verbose, 
                       records_to_process=None):
     """
+    CURRENTLY NOT USED
+    
     Preprocess images found in raw_images_folder and save them in processed_images_folder.
     Optionally provide a list of a subset of records to process (records_to_process).
 
