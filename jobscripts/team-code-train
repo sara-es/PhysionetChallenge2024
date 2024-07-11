@@ -14,12 +14,7 @@ module load libs/cuda/12.2.2
 module load compilers/gcc/6.4.0
 
 # Copy a directory of files from scratch to the GPU node's local NVMe storage
-rsync -av --progress ~/scratch/PhysionetChallenge2024 $TMPDIR --exclude test_data --exclude .git --exclude ptb-xl
-cd $TMPDIR/PhysionetChallenge2024
-echo "Copy complete. Starting job with $NGPUS GPU(s) with ID(s) $CUDA_VISIBLE_DEVICES and $NSLOTS CPU core(s)."
+echo "Starting job with $NGPUS GPU(s) with ID(s) $CUDA_VISIBLE_DEVICES and $NSLOTS CPU core(s)."
 
 # Run code
 python tests/team_code_train.py
-
-# Move model back to scratch
-cp -r model ~/scratch/PhysionetChallenge2024

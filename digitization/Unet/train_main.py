@@ -98,8 +98,7 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
     train_dataset = PatchDataset(train_patch_ids, im_patch_dir, label_patch_dir, 
                                  transform=args.augmentation)
     val_dataset = PatchDataset(val_patch_ids, im_patch_dir, label_patch_dir, transform=None)
-    # batch_size=args.batch_size
-    train_dataloader = DataLoader(train_dataset, batch_size=128, shuffle=True, 
+    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, 
                                   num_workers=8, pin_memory=True)
     val_dataloader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=8, 
                                 pin_memory=True)
