@@ -9,10 +9,10 @@ args.workers = 8
 args.device = "0"
 args.batch_size = 8
 args.img_size = [640, 640]
-args.data = os.path.join("digitization", "YOLOv7", "data", "ecg-3class.yaml")
-args.cfg = os.path.join("digitization", "YOLOv7", "cfg", "training", "yolov7-ecg-3c.yaml")
+args.data = os.path.join("digitization", "YOLOv7", "data", "ecg-2class.yaml")
+args.cfg = os.path.join("digitization", "YOLOv7", "cfg", "training", "yolov7-ecg-2c.yaml")
 args.weights = os.path.join("digitization", "model_checkpoints", "yolov7_training.pt")
-args.name = "yolov7-ecg-3c-multi-res"
+args.name = "yolov7-ecg-2c-multi-res"
 args.hyp = os.path.join("digitization", "YOLOv7", "data", "hyp.scratch.custom.yaml")
 args.multi_scale = True
 
