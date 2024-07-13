@@ -95,7 +95,8 @@ class ResNet(nn.Module):
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
         self.avgpool = nn.AdaptiveAvgPool1d(1)
-        self.fc1 = nn.Linear(3, 10) # AGE AND GENDER LAYER - input size the same with the array size of attributes
+        #self.fc1 = nn.Linear(3, 10) # AGE AND GENDER LAYER - input size the same with the array size of attributes
+        self.fc1 = nn.Linear(5, 10) # AGE AND GENDER LAYER - input is size 5, as it contains missing flags for age and gender
         self.fc = nn.Linear(512 * block.expansion + 10, out_channel)
         #self.sig = nn.Sigmoid() ! DON'T USE HERE CAUSE IMPLEMENTED IN THE TRAINING LOOP IN ./utils/train_utils_clip_ag.py
 

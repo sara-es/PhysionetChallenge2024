@@ -3,8 +3,12 @@ import numpy as np
 import helper_code
 
 def get_demographic_features(record):
+    
+    '''
+        age_gender = [age, age_flag,gender_female, gender_male, gender_flag]
+    '''
     # TODO: add missing flags
-    age_gender = np.zeros(3)
+    age_gender = np.zeros(5)
     header = helper_code.load_header(record)
     
     age, has_age = helper_code.get_variable(header, 'Age')
@@ -14,9 +18,17 @@ def get_demographic_features(record):
 
     if has_age:
         age_gender[0] = int(age)/100.
+        age_gender[1] = 1
+    else:
+        age_gender[0] = -1
+    
     if has_sex:
-        age_gender[1] = int(sex == 'Female')
-        age_gender[2] = int(sex == 'Male')
+        if sex == 'Female':
+            age_gender[4] = 1
+            age_gender[2] = 1
+        elif sex == 'Male':
+            age_gender[4] = 1
+            age_gender[3] = 1
     return age_gender
 
 
