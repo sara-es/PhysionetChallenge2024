@@ -39,7 +39,6 @@ def get_training_data(record, data_folder):
     labels = helper_code.load_labels(record_path)
     if labels: # only process records with labels for training
         # get demographic info
-        # TODO: add missing flags
         age_gender = get_demographic_features(record_path)
         fs = helper_code.get_sampling_frequency(header_txt)
     else:
