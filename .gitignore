@@ -169,6 +169,7 @@ u-net/
 /old_stuff
 /evaluation/data
 /temp_data
+/runs
 /test_data
 /runs
 /test_rot_data
