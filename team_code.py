@@ -55,8 +55,8 @@ def train_models(data_folder, model_folder, verbose):
     if verbose:
         print('Training the digitization model...')
 
-    digitization_model, reconstructed_signals_folder = train_digitization_model(
-        data_folder, model_folder, verbose, records_to_process=records, delete_training_data=False)
+    digitization_model = train_digitization_model(data_folder, model_folder, verbose, 
+                                records_to_process=records, delete_training_data=False)
     
     if verbose:
         time1 = time.time()
@@ -67,12 +67,12 @@ def train_models(data_folder, model_folder, verbose):
     if verbose:
         print('Training the classification model...')
 
-    classification_model, classes = train_classification_model(reconstructed_signals_folder, 
-                                                               verbose, records_to_process=None)
+    classification_model, classes = train_classification_model(data_folder, verbose, 
+                                                               records_to_process=None)
 
     if verbose:
         time2 = time.time()
-        print(f'Done. Time to train digitization model and generate classifier training data: ' + \
+        print(f'Done. Time to train classification model: ' + \
               f'{time2 - time1:.2f} seconds.')
         
     # Create a folder for the models if it does not already exist.
@@ -162,13 +162,11 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
     masks_folder = os.path.join(os.getcwd(), 'temp_data', 'masks')
     patch_folder = os.path.join(os.getcwd(), 'temp_data', 'patches')
     unet_output_folder = os.path.join(os.getcwd(), 'temp_data', 'unet_outputs')
-    reconstructed_signals_folder = os.path.join(os.getcwd(), 'temp_data', 
-                                                'reconstructed_signals')
+
     os.makedirs(images_folder, exist_ok=True)
     os.makedirs(masks_folder, exist_ok=True)
     os.makedirs(patch_folder, exist_ok=True)
     os.makedirs(unet_output_folder, exist_ok=True)
-    os.makedirs(reconstructed_signals_folder, exist_ok=True)
 
     # TODO can do a split here if we want to have unet train and predict on different records
     if not records_to_process:
@@ -184,12 +182,13 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
     # train U-net
     args = Unet.utils.Args()
     args.train_val_prop = 1.0 # we want to train on all available data
+    args.epochs = 31 # TODO SET THIS IN FINAL SUBMISSION
     unet_model = train_unet(records_to_process, patch_folder, model_folder, verbose, args=args, 
                             warm_start=True)
     if verbose:
         print(f'Done.')
     
-    return unet_model, reconstructed_signals_folder
+    return unet_model
         
 
 def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder, patch_folder,
@@ -254,6 +253,7 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
                   "training U-net from scratch.")
         else:
             LOAD_PATH_UNET = chkpt_path
+
 
     image_patch_folder = os.path.join(patch_folder, 'image_patches')
     mask_patch_folder = os.path.join(patch_folder, 'label_patches')
@@ -532,6 +532,8 @@ def unet_reconstruct_single_image(record, model, verbose, delete_patches=True):
                                                      header_txt,
                                                      reconstructed_signals_folder, 
                                                      save_signal=True)
+    # if reconstructed_signal is None and trace is None:
+
 
     # optional: delete patches
     if delete_patches:
