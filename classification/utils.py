@@ -3,20 +3,35 @@ import numpy as np
 import helper_code
 
 def get_demographic_features(record):
+    
+    '''
+        age_gender = [age, age_flag,gender_female, gender_male, gender_flag]
+    '''
     # TODO: add missing flags
-    age_gender = np.zeros(3)
+    age_gender = np.zeros(5)
     header = helper_code.load_header(record)
     
     age, has_age = helper_code.get_variable(header, 'Age')
-    height, has_height = helper_code.get_variable(header, 'Height')
-    weight, has_weight = helper_code.get_variable(header, 'Weight')
+    #height, has_height = helper_code.get_variable(header, 'Height')
+    #weight, has_weight = helper_code.get_variable(header, 'Weight')
     sex, has_sex = helper_code.get_variable(header, 'Sex')
 
     if has_age:
         age_gender[0] = int(age)/100.
+        age_gender[1] = 1
+    else:
+        age_gender[0] = -1
+    
     if has_sex:
-        age_gender[1] = int(sex == 'Female')
-        age_gender[2] = int(sex == 'Male')
+        if sex == 'Female':
+            age_gender[4] = 1
+            age_gender[2] = 1
+        elif sex == 'Male':
+            age_gender[4] = 1
+            age_gender[3] = 1
+            
+    #age_gender[5] = height / 209
+    #TODO add the rest of variables
     return age_gender
 
 
@@ -27,7 +42,6 @@ def get_training_data(record, data_folder):
     labels = helper_code.load_labels(record_path)
     if labels: # only process records with labels for training
         # get demographic info
-        # TODO: add missing flags
         age_gender = get_demographic_features(record_path)
         fs = helper_code.get_sampling_frequency(header_txt)
     else:
