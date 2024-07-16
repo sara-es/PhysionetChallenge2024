@@ -321,7 +321,7 @@ clips ECG channels so that 2.5 seconds of lead each lead is available in the fol
     [[Lead I, Lead II, Lead III],[aVL, aVR, aVF],[Lead V1, Lead V2, Lead V3],[Lead V4, Lead V5, Lead V6]]'''
 class DigitizationClip(object):
     # TODO: check - ideally w = 5000, but not sure if using something that isn't 2^n will cause problems for resnet
-    def __init__(self, w=5000, fs = 500): 
+    def __init__(self, w=4096, fs = 256): 
         self.w = w
         self.fs = fs
 
@@ -366,9 +366,10 @@ class DigitizationClip(object):
         
         # column 4
         left_padding = np.zeros(w_col*3)
-        mseq[9] = np.hstack((left_padding, mseq[9][(3*w_col+1):(4*w_col)]))
-        mseq[10] = np.hstack((left_padding, mseq[10][(3*w_col+1):(4*w_col)]))
-        mseq[11] = np.hstack((left_padding, mseq[11][(3*w_col+1):(4*w_col)]))
+        right_padding = np.zeros(self.w - 4*w_col)
+        mseq[9] = np.hstack((left_padding, mseq[9][(3*w_col+1):(4*w_col)], right_padding))
+        mseq[10] = np.hstack((left_padding, mseq[10][(3*w_col+1):(4*w_col)], right_padding))
+        mseq[11] = np.hstack((left_padding, mseq[11][(3*w_col+1):(4*w_col)], right_padding))
         
         
         return mseq

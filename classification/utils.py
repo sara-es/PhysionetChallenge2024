@@ -12,8 +12,8 @@ def get_demographic_features(record):
     header = helper_code.load_header(record)
     
     age, has_age = helper_code.get_variable(header, 'Age')
-    height, has_height = helper_code.get_variable(header, 'Height')
-    weight, has_weight = helper_code.get_variable(header, 'Weight')
+    #height, has_height = helper_code.get_variable(header, 'Height')
+    #weight, has_weight = helper_code.get_variable(header, 'Weight')
     sex, has_sex = helper_code.get_variable(header, 'Sex')
 
     if has_age:
@@ -29,6 +29,9 @@ def get_demographic_features(record):
         elif sex == 'Male':
             age_gender[4] = 1
             age_gender[3] = 1
+            
+    #age_gender[5] = height / 209
+    #TODO add the rest of variables
     return age_gender
 
 
