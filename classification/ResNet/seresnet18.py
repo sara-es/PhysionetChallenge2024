@@ -242,7 +242,7 @@ def train_model(data, multilabels, uniq_labels, verbose, epochs=5, validate=True
     else: 
         # Only train the model
         # Train the model using entire data and store the state dictionary
-        train_dl = initialise_train_only(data, multilabels, device, batch_size=5)
+        train_dl = initialise_train_only(data, multilabels, device, batch_size=64)
         
         for epoch in range(1, epochs+1):
             train(model, train_dl, device, criterion, sigmoid, optimizer, epoch, uniq_labels, verbose)

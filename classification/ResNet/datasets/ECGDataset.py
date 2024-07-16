@@ -12,8 +12,7 @@ def get_transforms(dataset_type):
     ''' Get transforms for ECG data based on the dataset type (train, validation, test)
     '''
     # TODO: change seq_length to be more than 10 seconds
-    #seq_length = 4096
-    seq_length = 5000
+    seq_length = 4096
     normalizetype = '0-1'
     
     data_transforms = {
@@ -76,7 +75,7 @@ class ECGDataset(Dataset):
         ecg = ecg.T # shape (channels, samples)
         ag = self.ag[item]
 
-        ecg = np.nan_to_num(ecg, nan=0) # HANDLING THE NAN VALUES IN SIGNAL DATA
+        ecg = self.transforms(ecg)
 
         if self.training:
             label_torch = self.labels[item]
