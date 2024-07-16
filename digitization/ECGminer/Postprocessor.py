@@ -249,10 +249,6 @@ class Postprocessor:
             signal = interp_signals[r, :]
             obs_num = len(signal) // (1 if rhythm else NCOLS)
             signal = signal[c * obs_num : (c + 1) * obs_num]
-
-            a = np.median(signal)
-            b = signal[0]
-            d = self.__first_pixels[r]
             
             # Scale signal with ref pulses
             signal = [(volt_0 - y) * (1 / (volt_0 - volt_1)) for y in signal]

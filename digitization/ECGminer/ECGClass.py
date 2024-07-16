@@ -74,6 +74,7 @@ class PaperECG:
         
         ## DW: replace extract_signals with our own version.
         # returns x and y coordinates of the traces in order
+        # raises DigitizationError if failure occurs.
         signal_coords = self.signal_extractor.get_signals_dw(ecg_crop)
         
         # check if reference pulses are present and where
