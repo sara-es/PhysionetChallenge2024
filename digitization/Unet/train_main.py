@@ -166,7 +166,7 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
         if early_stopping.early_stop:
             loss_store = np.array(loss_store)
             np.save(LOSS_PATH, loss_store)
-            torch.save(unet.state_dict() + '.pth', CHK_PATH_UNET)
+            torch.save(unet.state_dict(), CHK_PATH_UNET)
             return unet.state_dict()
             
         if args.reduce_lr:
@@ -198,7 +198,7 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
             # Save the model in such a way that we can continue training later
             loss_store = np.array(loss_store)
             np.save(LOSS_PATH, loss_store)
-            torch.save(unet.state_dict() + '.pth', CHK_PATH_UNET)
+            torch.save(unet.state_dict(), CHK_PATH_UNET)
             return unet.state_dict()
             
         torch.cuda.empty_cache()  # Clear memory cache

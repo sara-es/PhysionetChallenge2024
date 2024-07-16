@@ -3,7 +3,7 @@ sys.path.append(os.path.join(sys.path[0], '..'))
 
 import torch
 from torch.utils.data import Dataset
-from classification.ResNet.datasets.transforms import Compose, RandomClip, Normalize, ValClip, Retype
+from classification.ResNet.datasets.transforms import Compose, RandomClip, Normalize, ValClip, Retype, DigitizationClip
 from helper_code import load_signals
 import numpy as np
 
@@ -11,23 +11,26 @@ import numpy as np
 def get_transforms(dataset_type):
     ''' Get transforms for ECG data based on the dataset type (train, validation, test)
     '''
-    seq_length = 4096
+    # TODO: change seq_length to be more than 10 seconds
+    #seq_length = 4096
+    seq_length = 5000
     normalizetype = '0-1'
     
     data_transforms = {
-        
         'train': Compose([
-            RandomClip(w=seq_length),
+            #RandomClip(w=seq_length),
+            DigitizationClip(w=seq_length),
             Normalize(normalizetype),
             Retype() 
         ], p = 1.0),
-        
         'val': Compose([
-            ValClip(w=seq_length),
+            #TODO: check whether DigitizationClip is needed?
+            DigitizationClip(w=seq_length),
+            #ValClip(w=seq_length),
             Normalize(normalizetype),
             Retype()
         ], p = 1.0),
-        
+        # no need for crops, as this should take in the result of digitization step
         'test': Compose([
             ValClip(w=seq_length),
             Normalize(normalizetype),
