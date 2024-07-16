@@ -55,24 +55,24 @@ def train_models(data_folder, model_folder, verbose):
     if verbose:
         print('Training the digitization model...')
 
-    digitization_model, reconstructed_signals_folder = train_digitization_model(
-        data_folder, model_folder, verbose, records_to_process=records, delete_training_data=False)
+    digitization_model = train_digitization_model(data_folder, model_folder, verbose, 
+                                records_to_process=records, delete_training_data=False)
     
     if verbose:
         time1 = time.time()
-        print(f'Done. Time to train digitization model and generate classifier training data: ' + \
+        print(f'Done. Time to train digitization model: ' + \
               f'{time1 - start_time:.2f} seconds.')
     
     # Extract the features and labels from the data.
     if verbose:
         print('Training the classification model...')
 
-    classification_model, classes = train_classification_model(reconstructed_signals_folder, 
-                                                               verbose, records_to_process=None)
+    classification_model, classes = train_classification_model(data_folder, verbose, 
+                                                               records_to_process=None)
 
     if verbose:
         time2 = time.time()
-        print(f'Done. Time to train digitization model and generate classifier training data: ' + \
+        print(f'Done. Time to train classification model: ' + \
               f'{time2 - time1:.2f} seconds.')
         
     # Create a folder for the models if it does not already exist.
@@ -162,13 +162,11 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
     masks_folder = os.path.join(os.getcwd(), 'temp_data', 'masks')
     patch_folder = os.path.join(os.getcwd(), 'temp_data', 'patches')
     unet_output_folder = os.path.join(os.getcwd(), 'temp_data', 'unet_outputs')
-    reconstructed_signals_folder = os.path.join(os.getcwd(), 'temp_data', 
-                                                'reconstructed_signals')
+
     os.makedirs(images_folder, exist_ok=True)
     os.makedirs(masks_folder, exist_ok=True)
     os.makedirs(patch_folder, exist_ok=True)
     os.makedirs(unet_output_folder, exist_ok=True)
-    os.makedirs(reconstructed_signals_folder, exist_ok=True)
 
     # TODO can do a split here if we want to have unet train and predict on different records
     if not records_to_process:
@@ -184,23 +182,13 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
     # train U-net
     args = Unet.utils.Args()
     args.train_val_prop = 1.0 # we want to train on all available data
+    args.epochs = 31 # TODO SET THIS IN FINAL SUBMISSION
     unet_model = train_unet(records_to_process, patch_folder, model_folder, verbose, args=args, 
                             warm_start=True)
     if verbose:
         print(f'Done.')
-
-    if verbose:
-        print('Generating training data for classification...')
-    # generate training data for resnet: we want to use the reconstruction predictions (should
-    # not be a problem to re-use the same base data, if we generate images with another seed?)
-    # The following function generates new images, patches them, runs u-net, reconstructs signals
-    # from u-net outputs, then finally saves the reconstructed signals in wfdb format.
-    generate_and_predict_unet_batch(data_folder, images_folder, masks_folder, patch_folder,
-                                  unet_output_folder, unet_model, reconstructed_signals_folder,
-                                  verbose, records_to_process=records_to_process, 
-                                  delete_images=delete_training_data)
     
-    return unet_model, reconstructed_signals_folder
+    return unet_model
         
 
 def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder, patch_folder,
@@ -266,6 +254,7 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
         else:
             LOAD_PATH_UNET = chkpt_path
 
+
     image_patch_folder = os.path.join(patch_folder, 'image_patches')
     mask_patch_folder = os.path.join(patch_folder, 'label_patches')
 
@@ -321,8 +310,7 @@ def generate_and_predict_unet_batch(wfdb_records_folder, images_folder, mask_fol
     reconstruct the patches to a full image. Assumes we are generating these images, so we have 
     masks (labels), and can return a DICE score for evaluation.
 
-    Maybe todo can either move a lot of these folder names to constants, or hard code them from a base 
-    directory since they're all temporary files anyway
+    NOTE: currently not used - we train the resnet on the ground truth data, not the U-net outputs.
     """
     if not records_to_process:
         records_to_process = helper_code.find_records(wfdb_records_folder)
@@ -392,21 +380,20 @@ def generate_and_predict_unet_batch(wfdb_records_folder, images_folder, mask_fol
             os.remove(os.path.join(unet_output_folder, im))
 
 
-def train_classification_model(reconstructed_records_folder, verbose, 
-                     records_to_process=None):
+def train_classification_model(records_folder, verbose, records_to_process=None):
     """
     Extracts features and labels from headers, then one-hot encodes labels and trains the
     SE-ResNet model.
     """
     if not records_to_process:
-        records_to_process = helper_code.find_records(reconstructed_records_folder)
+        records_to_process = helper_code.find_records(records_folder)
 
     all_data = []
     labels = []
     for record in tqdm(records_to_process, desc='Loading classifier training data', 
                        disable=not verbose):
-        data, label = classification.get_training_data(record, 
-                                                       reconstructed_records_folder)
+        # TODO need to make sure that data is interpolated/downsampled to consistent frequency
+        data, label = classification.get_training_data(record, records_folder)
         if label is None: # don't use data without labels for training
             continue
 
@@ -422,7 +409,6 @@ def train_classification_model(reconstructed_records_folder, verbose,
     multilabels = mlb.fit_transform(labels)
     uniq_labels = mlb.classes_
 
-    # TODO: check if frequency is used/if it's important
     if verbose:
         print("Training SE-ResNet classification model...")
     resnet_model = seresnet18.train_model(
@@ -546,6 +532,8 @@ def unet_reconstruct_single_image(record, model, verbose, delete_patches=True):
                                                      header_txt,
                                                      reconstructed_signals_folder, 
                                                      save_signal=True)
+    # if reconstructed_signal is None and trace is None:
+
 
     # optional: delete patches
     if delete_patches:
