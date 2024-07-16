@@ -352,7 +352,6 @@ class DigitizationClip(object):
         right_padding = np.zeros(int(self.w - w_col))
         mseq[0] = np.hstack((mseq[0][0:w_col], right_padding)) 
         mseq[1] = np.hstack((mseq[1][0:w_col], right_padding))
-        # assume that rhythm strip is lead 2 - no changes
         
         # column 2
         left_padding = np.zeros(w_col)
@@ -374,6 +373,10 @@ class DigitizationClip(object):
         mseq[9] = np.hstack((left_padding, mseq[9][(3*w_col):(4*w_col)], right_padding))
         mseq[10] = np.hstack((left_padding, mseq[10][(3*w_col):(4*w_col)], right_padding))
         mseq[11] = np.hstack((left_padding, mseq[11][(3*w_col):(4*w_col)], right_padding))
+        
+        # assume that rhythm strip is lead 2 - no changes
+        mseq[2] = np.hstack((mseq[2][0:(4*w_col)], right_padding))
+        
         
         #fig, ax = plt.subplots(len(mseq), 1, figsize=(6, 15))
         #for i, lead in enumerate(mseq):
