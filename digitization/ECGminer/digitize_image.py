@@ -41,6 +41,6 @@ def digitize_image_unet(restored_image, gridsize, sig_len=1000):
     restored_image = Image(restored_image) # cleaned_image = reconstruction.Image.Image(cleaned_image)
 
     paper_ecg = PaperECG(restored_image, gridsize, sig_len=sig_len)
-    ECG_signals, trace, raw_signals = paper_ecg.digitise_unet()
+    isQuality, ECG_signals, trace, raw_signals = paper_ecg.digitise_unet()
 
-    return ECG_signals, trace
+    return isQuality, ECG_signals, trace

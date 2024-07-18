@@ -75,7 +75,10 @@ class PaperECG:
         ## DW: replace extract_signals with our own version.
         # returns x and y coordinates of the traces in order
         # raises DigitizationError if failure occurs.
-        signal_coords = self.signal_extractor.get_signals_dw(ecg_crop)
+        signal_coords, rois = self.signal_extractor.get_signals_dw(ecg_crop)
+        
+        # DW: Add in ECG SQI here - not the most logical place, but SQI requires signal in pixel coordinates
+        isQuality = self.signal_extractor.ecg_sqi(signal_coords, rois)
         
         # check if reference pulses are present and where
         raw_signals, ref_pulse_present = self.layout_detector.detect_reference_pulses(signal_coords)
@@ -85,5 +88,5 @@ class PaperECG:
                 self.gridsize, signal_coords, ecg_crop, self.sig_len, ref_pulse_present
             )
 
-        return digitised_signals, trace, raw_signals
+        return isQuality, digitised_signals, trace, raw_signals
 
