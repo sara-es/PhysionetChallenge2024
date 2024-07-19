@@ -44,8 +44,6 @@ class numpy_dataset(Dataset):  # Inherit from Dataset class
                     scaler = transforms.RandomAffine(degrees=0, translate=None, scale=(0.5, 2))     # Nearest neighbour interpolation by standard, use that for now 
                     x = scaler(x)
                     y = scaler(y)
-                else:
-                    print('error')
         return x, y
 
     def __len__(self):
