@@ -57,7 +57,7 @@ class PatchDataset(Dataset):  # Inherit from Dataset class
                     noise = torch.randn(x.shape)
                     x = x + noise
                 elif option == 'scale':
-                    scaler = transforms.RandomAffine(degrees=0, translate=None, scale=(0.5, 2))     # Nearest neighbour interpolation by standard, use that for now 
+                    scaler = transforms.RandomAffine(degrees=0, translate=None, scale=(0.5, 1.5))     # Nearest neighbour interpolation by standard, use that for now 
                     x = scaler(x)
                     y = scaler(y)
         return x, y
