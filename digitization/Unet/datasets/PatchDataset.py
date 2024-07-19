@@ -47,7 +47,7 @@ class PatchDataset(Dataset):  # Inherit from Dataset class
                     jitter = transforms.ColorJitter(brightness=.5, hue=.3)
                     x = jitter(x)
                 elif option == 'rotation':
-                    rot = int(torch.randint(low=0, high=90, size=(1,)))
+                    rot = int(torch.randint(low=-90, high=90, size=(1,)))
                     x = TF.rotate(x, rot)
                     y = TF.rotate(y, rot)
                 elif option == 'blur':
