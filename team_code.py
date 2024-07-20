@@ -254,7 +254,6 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
         else:
             LOAD_PATH_UNET = chkpt_path
 
-
     image_patch_folder = os.path.join(patch_folder, 'image_patches')
     mask_patch_folder = os.path.join(patch_folder, 'label_patches')
 
@@ -275,19 +274,18 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
 def reconstruct_signal(record, unet_image, header_txt, 
                        reconstructed_signals_folder, save_signal=True):
     """
+    reconstruct signals from u-net outputs
 
+    Returns:
+        reconstructed_signal: pandas dataframe, reconstructed signal
+        raw_signals: np.array, raw signals in pixel coords
+        gridsize: float, scaling factor for the signals in pixel units
     """
-
-    # TODO: get gridsize from header file
-    # alternately can pass original image in as an argument to this function and extract
-    # gridsize from the image here
-    ###### FIXME hardcoded gridsize for now ######
-    gridsize = 37.5
-
-    # reconstruct signals from u-net outputs
     signal_length = helper_code.get_num_samples(header_txt)
-    reconstructed_signal, trace = ECGminer.digitize_image_unet(unet_image, gridsize, 
-                                                               sig_len=signal_length)
+    fs = helper_code.get_sampling_frequency(header_txt)
+    max_duration = int(signal_length/fs)
+    reconstructed_signal, raw_signals, gridsize  = ECGminer.digitize_image_unet(unet_image,
+                                          sig_len=signal_length, max_duration=max_duration)
     reconstructed_signal = np.asarray(np.nan_to_num(reconstructed_signal))
 
     # save reconstructed signal and copied header file in the same folder
@@ -299,7 +297,7 @@ def reconstruct_signal(record, unet_image, header_txt,
 
     # TODO: adapt self.postprocessor.postprocess to work for different layouts
 
-    return reconstructed_signal, trace
+    return reconstructed_signal, raw_signals, gridsize
 
 
 def generate_and_predict_unet_batch(wfdb_records_folder, images_folder, mask_folder, patch_folder,
@@ -351,7 +349,7 @@ def generate_and_predict_unet_batch(wfdb_records_folder, images_folder, mask_fol
         record_path = os.path.join(wfdb_records_folder, record) 
         label_signal, label_fields = helper_code.load_signals(record_path)
         header_txt = helper_code.load_header(record_path)
-        rec_signal, _ = reconstruct_signal(record_id, unet_image, header_txt, 
+        rec_signal, _, _ = reconstruct_signal(record_id, unet_image, header_txt, 
                        reconstructed_signals_folder)
         reconstructed_signals.append(rec_signal)  
 
@@ -469,7 +467,7 @@ def unet_reconstruct_single_image(record, model, verbose, delete_patches=True):
     # reconstruct signal from u-net output image
     # load header file to save with reconstructed signal
     header_txt = helper_code.load_header(record)
-    reconstructed_signal, trace = reconstruct_signal(record_id, predicted_image, 
+    reconstructed_signal, raw_signals, _ = reconstruct_signal(record_id, predicted_image, 
                                                      header_txt,
                                                      reconstructed_signals_folder, 
                                                      save_signal=True)

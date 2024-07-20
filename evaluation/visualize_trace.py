@@ -22,10 +22,76 @@ sys.path.append(os.path.join(sys.path[0], '..'))
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
+import cv2
 
 import team_code, helper_code
 from evaluation import eval_utils
 from utils import model_persistence, team_helper_code
+from digitization.ECGminer.assets.Image import Image as ECGImage
+from digitization.ECGminer.assets.Format import Format
+from digitization.ECGminer.assets.Lead import Lead
+from digitization.ECGminer.assets.Point import Point
+from digitization.ECGminer.assets.Rectangle import Rectangle
+
+
+def get_trace(image, raw_signals, rhythm_leads=[Lead.II]):
+    """
+    Get the trace of the signal from the u-net output image.
+    """
+    """
+    Get the trace of the extraction algorithm performed over the ECG image.
+
+    Args:
+        ecg (Image): ECG image.
+        signals (Iterable[Iterable[Point]]): List with the points of each of
+            the signals of each lead.
+        ref_pulses (Iterable[Tuple[int, int]]): List with the reference pulses
+            of each ECG row.
+
+    Returns:
+        Image: ECG image with the trace painted over.
+    """
+    NROWS, NCOLS = (3,4)
+    ORDER = Format.STANDARD
+    COLORS = [
+        (0, 0, 255),
+        (0, 255, 0),
+        (255, 0, 0),
+        (0, 200, 255),
+        (255, 255, 0),
+        (255, 0, 255),
+        (0, 0, 125),
+        (0, 125, 0),
+        (125, 0, 0),
+        (0, 100, 125),
+        (125, 125, 0),
+        (125, 0, 125),
+    ]
+    H_SPACE = 20
+
+    # Invert the colours
+    trace = abs(image - 1)*255
+    # convert greyscale to rgb
+    trace = cv2.merge([trace,trace,trace])
+    trace = np.uint8(trace)
+    trace = ECGImage(trace)
+    # replicate crop that happens in preprocessing
+    rect = Rectangle(Point(0, 350), Point(image.shape[1], image.shape[0])) #set it to image size
+    trace.crop(rect)
+    trace.to_BGR()
+
+    # Draw signals
+    for i, lead in enumerate(ORDER):
+        rhythm = lead in rhythm_leads
+        r = rhythm_leads.index(lead) + NROWS if rhythm else i % NROWS
+        c = 0 if rhythm else i // NROWS
+        signal = raw_signals[r]
+        obs_num = len(signal) // (1 if rhythm else NCOLS)
+        signal = signal[c * obs_num : (c + 1) * obs_num]
+        color = COLORS[i % len(COLORS)]
+        for p1, p2 in zip(signal, signal[1:]):
+            trace.line(p1, p2, color, thickness=2)
+    return trace
 
 
 def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
@@ -73,13 +139,13 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
         # digitize signal from u-net ouput
         record_path = os.path.join(wfdb_records_dir, records[i]) 
         header_txt = helper_code.load_header(record_path)
-        reconstructed_signal, trace = team_code.reconstruct_signal(records[i], unet_image, 
+        reconstructed_signal, raw_signals, gridsize = team_code.reconstruct_signal(records[i], unet_image, 
                                  header_txt, reconstructed_signal_dir, save_signal=True)
-        reconstructed_signal = np.asarray(np.nan_to_num(reconstructed_signal))
+        trace = get_trace(unet_image, raw_signals)
         
         # plot trace of signal from u-net output
-        axd['trace'].xaxis.set_visible(False)
-        axd['trace'].yaxis.set_visible(False)
+        # axd['trace'].xaxis.set_visible(False)
+        # axd['trace'].yaxis.set_visible(False)
         axd['trace'].imshow(trace.data, cmap='gray')
 
         # load ground truth signal
@@ -101,7 +167,7 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
         mean_snr, mean_snr_median, mean_ks_metric, mean_asci_metric, \
             mean_weighted_absolute_difference_metric = eval_utils.single_signal_snr(output_signal,
                         output_fields, label_signal, label_fields, records[i], extra_scores=True)
-        gridsize = '37.5 (hardcoded)'
+        gridsize = f'{gridsize:.2f}'
 
         labels = None
         # optional: classify signal
@@ -111,7 +177,7 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
         description_string = f"""{records[i]} ({label_fields['fs']} Hz)
     Reconstruction SNR: {mean_snr:.2f}
     Gridsize: {gridsize}
-    {label_fields['comments']}
+    {label_fields['comments'][1:-1]}
     Predicted labels: {labels}"""
     
         # plot ground truth and reconstructed signal
@@ -144,11 +210,11 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
 
 
 if __name__ == "__main__":
-    test_images_folder = os.path.join("test_data", "images")
-    unet_outputs_folder = os.path.join("test_data", "unet_outputs")
-    # unet_outputs_folder = os.path.join("test_data", "masks")
-    reconstructed_signal_dir = os.path.join("test_data", "reconstructed_signals")
-    visualization_save_folder = os.path.join("evaluation", "data", "trace_visualizations")
+    test_images_folder = os.path.join("temp_data", "images")
+    # unet_outputs_folder = os.path.join("test_data", "unet_outputs")
+    unet_outputs_folder = os.path.join("temp_data", "masks")
+    reconstructed_signal_dir = os.path.join("temp_data", "reconstructed_signals")
+    visualization_save_folder = os.path.join("evaluation", "trace_visualizations")
 
     visualize_trace(test_images_folder, 
                     unet_outputs_folder, 
