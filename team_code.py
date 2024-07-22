@@ -284,9 +284,13 @@ def reconstruct_signal(record, unet_image, header_txt,
     signal_length = helper_code.get_num_samples(header_txt)
     fs = helper_code.get_sampling_frequency(header_txt)
     max_duration = int(signal_length/fs)
-    reconstructed_signal, raw_signals, gridsize  = ECGminer.digitize_image_unet(unet_image,
+    reconstructed_signal, sqi, raw_signals, gridsize  = ECGminer.digitize_image_unet(unet_image,
                                           sig_len=signal_length, max_duration=max_duration)
     reconstructed_signal = np.asarray(np.nan_to_num(reconstructed_signal))
+    
+    # if signal quality is bad
+    if isQuality == False:
+        reconstructed_signal = np.zeros_like(reconstructed_signal)
 
     # save reconstructed signal and copied header file in the same folder
     if save_signal:
