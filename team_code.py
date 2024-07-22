@@ -22,7 +22,7 @@ import preprocessing
 from utils import team_helper_code, constants, model_persistence
 from digitization import Unet, ECGminer
 from classification import seresnet18
-import generator, preprocessing, classification
+import generator, preprocessing, digitization, classification
 import generator.gen_ecg_images_from_data_batch
 from evaluation import eval_utils
 
@@ -284,10 +284,12 @@ def reconstruct_signal(record, unet_image, header_txt,
     signal_length = helper_code.get_num_samples(header_txt)
     fs = helper_code.get_sampling_frequency(header_txt)
     max_duration = int(signal_length/fs)
-    reconstructed_signal, sqi, raw_signals, gridsize  = ECGminer.digitize_image_unet(unet_image,
-                                          sig_len=signal_length, max_duration=max_duration)
+    # max duration on images cannot exceed 10s as per Challenge team
+    max_duration = 10 if max_duration > 10 else max_duration 
+    reconstructed_signal, isQuality, raw_signals, gridsize  = ECGminer.digitize_image_unet(unet_image, 
+                                    sig_len=signal_length, max_duration=max_duration)
     reconstructed_signal = np.asarray(np.nan_to_num(reconstructed_signal))
-    
+
     # if signal quality is bad
     if isQuality == False:
         reconstructed_signal = np.zeros_like(reconstructed_signal)
@@ -300,7 +302,7 @@ def reconstruct_signal(record, unet_image, header_txt,
         helper_code.save_signals(output_record_path, reconstructed_signal, comments)
 
     # TODO: adapt self.postprocessor.postprocess to work for different layouts
-
+    # return raw_signals and gridsize for external evaluation
     return reconstructed_signal, raw_signals, gridsize
 
 

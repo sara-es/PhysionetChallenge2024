@@ -6,16 +6,15 @@ import numpy as np
 from digitization.ECGminer.assets.Image import Image
 from digitization.ECGminer.Preprocessor import Preprocessor
 
-from digitization.ECGminer import extract_signals
+from digitization.ECGminer import extract_signals, vectorize_signals
 
 
 def digitize_image_unet(restored_image, sig_len=1000, max_duration=10):
     """ 
-    digitize_image_unet takes the output of the u-net. ECG_signals are extracted with an 
-    alternative method: PaperECG/digitize_unet
+    digitize_image_unet takes the output of the u-net
 
     Input - an image (mask) from the unet, where ECG = 1, background - 0
-    Output - reconstructed ECG signals, trace of 
+    Output - reconstructed ECG signals, trace of, quality index, grid size in pixels
        
     There are three stages:
         1. convert unet image into a set of Point (ecg-miner) objects that correspond to each row of ECG, in pixels
@@ -38,13 +37,16 @@ def digitize_image_unet(restored_image, sig_len=1000, max_duration=10):
     # returns x and y coordinates of the traces in order
     # raises DigitizationError if failure occurs.
     # hardcoded n_lines=4 for now because constant layout+rhythm
-    signal_coords = extract_signals.get_signals_dw(ecg_crop, n_lines=4)
+    signal_coords, rois = extract_signals.get_signals_dw(ecg_crop, n_lines=4)
+
+    # DW: Add in ECG SQI here - not the most logical place, but SQI requires signal in pixel coordinates
+    isQuality = extract_signals.ecg_sqi(signal_coords, rois)
 
     # check for reference pulses, then convert to digitized signals
     # returns array of digitized signals, original signal coordinates, and gridsize
     # gridsize: float, scaling factor for the signals in pixel units
-    digitised_signals, raw_signals, gridsize = extract_signals.vectorize(signal_coords, 
+    digitised_signals, raw_signals, gridsize = vectorize_signals.vectorize(signal_coords, 
                                                                 sig_len, max_duration)
 
-    return digitised_signals, raw_signals, gridsize
+    return digitised_signals, isQuality, raw_signals, gridsize
 

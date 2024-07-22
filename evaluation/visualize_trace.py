@@ -205,6 +205,8 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
         plt.close()
 
         snrs.append(mean_snr)
+        if mean_snr < 3.5:
+            print(f"Low SNR for {records[i]}: {mean_snr:.2f}")
 
     print(f"Average SNR: {np.mean(snrs):.2f}")
 
