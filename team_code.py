@@ -292,7 +292,8 @@ def reconstruct_signal(record, unet_image, header_txt,
 
     # if signal quality is bad
     if isQuality == False:
-        reconstructed_signal = np.zeros_like(reconstructed_signal)
+        # reconstructed_signal = np.zeros_like(reconstructed_signal)
+        print(f"Signal quality for record {record} is bad.")
 
     # save reconstructed signal and copied header file in the same folder
     if save_signal:

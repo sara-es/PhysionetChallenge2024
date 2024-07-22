@@ -248,14 +248,22 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
         signal = interp_signals[r, :]
         obs_num = len(signal) // (1 if rhythm else NCOLS)
         signal = signal[c * obs_num : (c + 1) * obs_num]
-        # QA: Check if this signal overlaps with another, if so, populate with zeros
+
+        # QA
         for j in range(0, len(interp_signals)):
             if j == r:
                 continue
+            # Check if this signal overlaps with another, if so, populate with zeros
             shared_points = [point for point in signal if point in interp_signals[j, :]]
-            if len(shared_points) > sig_len/max_duration*0.5:
-                signal = np.zeros(len(signal))   
-                zeroed = True             
+            
+            # replace y value with first pixel (approx. roi) for this row
+            signal_adjusted = np.abs(signal - first_pixels[r])
+            if len(shared_points) > len(signal)*0.2: # >20% overlap
+                # Only zero if this signal's median y-value is much closer to another line's 
+                # first pixel: ie we suspect it's jumped lines
+                if np.median(signal - first_pixels[j]) < np.median(signal - first_pixels[r]):
+                    signal = np.zeros(len(signal))   
+                    zeroed = True          
         
         if not zeroed: 
             # Scale signal with ref pulses
@@ -264,6 +272,7 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
             # alternate option no longer used: use the median of the signal
             first_pixel_scaled = (volt_0 - first_pixels[r]) * (1 / (volt_0 - volt_1))
             signal = signal - first_pixel_scaled 
+
         # Round voltages to 4 decimals
         signal = np.round(signal, 4)
         # Cabrera format -aVR
