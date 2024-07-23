@@ -37,7 +37,7 @@ def digitize_image_unet(restored_image, sig_len=1000, max_duration=10):
     # returns x and y coordinates of the traces in order
     # raises DigitizationError if failure occurs.
     # hardcoded n_lines=4 for now because constant layout+rhythm
-    signal_coords, rois = extract_signals.get_signals_dw(ecg_crop, n_lines=4)
+    signal_coords, rois = extract_signals.extract_row_signals(ecg_crop, n_lines=4)
 
     # DW: Add in ECG SQI here - not the most logical place, but SQI requires signal in pixel coordinates
     isQuality = extract_signals.ecg_sqi(signal_coords, rois)

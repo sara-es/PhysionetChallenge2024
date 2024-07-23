@@ -36,10 +36,10 @@ def eval_reconstruction(test_images_dir, unet_outputs_dir, reconstructed_signal_
                                                        test_images_dir, verbose=True)
     unet_ids = team_helper_code.find_available_images(ids, 
                                                       unet_outputs_dir, verbose=True)
-    # if len(image_ids) != len(unet_ids) and len(image_ids) > 0:
-    #     print(image_ids, unet_ids)
-    #     raise ValueError("Number of image and U-Net output files do not match, please make "+\
-    #                      "sure both have been generated and saved correctly.")
+    if len(image_ids) != len(unet_ids) and len(image_ids) > 0:
+        print(image_ids, unet_ids)
+        raise ValueError("Number of image and U-Net output files do not match, please make "+\
+                         "sure both have been generated and saved correctly.")
     
     image_ids = sorted(list(image_ids))
     unet_ids = sorted(list(unet_ids))
@@ -114,7 +114,7 @@ def eval_reconstruction(test_images_dir, unet_outputs_dir, reconstructed_signal_
     print(f"Average SNR: {np.mean(snrs):.2f}")
     df = pd.DataFrame(stats)
     os.makedirs(os.path.join("evaluation", "data"), exist_ok=True)
-    df.to_csv(os.path.join("evaluation", "data", "snr_old_line_trace_sliding_window_control.csv"), index=False)
+    df.to_csv(os.path.join("evaluation", "data", "snr_new_line_trace_force_rp_left.csv"), index=False)
 
 
 if __name__ == "__main__":

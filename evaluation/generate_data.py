@@ -60,6 +60,7 @@ def generate_data(data_folder, model_folder, verbose):
     # set params for generating masks
     mask_gen_params = generator.MaskArgs()
     mask_gen_params.seed = 42
+    mask_gen_params.calibration_pulse = 0.5
     mask_gen_params.input_directory = data_folder
     mask_gen_params.output_directory = masks_folder
 

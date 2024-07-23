@@ -147,7 +147,7 @@ def ecg_sqi(signals, rois, max_duration=10, thresh_lens=5, thresh_secs=0.1) -> b
     return SQI
 
 
-def get_signals_dw(ecg: Image, n_lines: int) -> Iterable[Iterable[Point]]:
+def extract_row_signals(ecg: Image, n_lines: int) -> Iterable[Iterable[Point]]:
     thresh = 50
     test_im = ecg.data
     rois = get_roi(ecg, n_lines)
@@ -161,59 +161,71 @@ def get_signals_dw(ecg: Image, n_lines: int) -> Iterable[Iterable[Point]]:
         
         while y < endcol:
             # search up
-            if x > 0:
-                x_idx = x-1
-                while test_im[x_idx, y] == 0:
-                    signal_col.append([x_idx,y])
-                    if x_idx > 0:
-                        x_idx = x_idx-1
-                    else:
-                        break
+            x_idx = x-1
+            while test_im[x_idx, y] == 0:
+                signal_col.append([x_idx,y])
+                x_idx = x_idx-1
             # search down
-            if x < (test_im.shape[0]-2):
-                x_idx = x+1
-                while test_im[x_idx, y] == 0:
-                    signal_col.append([x_idx,y])
-                    if x_idx < (test_im.shape[0]-2):
-                        x_idx = x_idx+1
-                    else:
-                        break
+            x_idx = x+1
+            while test_im[x_idx, y] == 0:
+                signal_col.append([x_idx,y])
+                x_idx = x_idx+1
         
             signal_col = sorted(signal_col, key=lambda x: x[0], reverse=False)
             signal.append(signal_col)
             
             # go to next column and find nearest black pixels
-            top_line = signal_col[0][0] # y-coordinate of top of line in previous column 
-            bottom_line = signal_col[-1][0] # y-coordinate of bottom of line in previous column 
             y = y+1
             match = 0
-            while match == 0 and y < endcol:
+            while match == 0:
+                
+                # get distances between possible matches
+                dists = []
+                candidates_rep = []
+                signal_col_temp = [i[0] for i in signal_col]
                 candidates = np.where(test_im[:,y] == 0)[0]
-                dists = np.concatenate((candidates - top_line, candidates - bottom_line))
-                candidates = np.concatenate((candidates, candidates))
-                if len(candidates) > 0: 
-                    if np.min(abs(dists))<thresh:                    
-                        #bit of voodoo here to try to make sure that we favour returning towards baseline when there is a choice
-                        dist_idx = np.where(abs(dists) == min(abs(dists)))[0]
-                        if len(dist_idx)>1:
-                            #if there is more than one minimum, select the one that takes us closer to the baseline
-                            x = candidates[dist_idx]
-                            i = np.argmin(abs(x-row))
-                            x = x[i]
-                        else:
-                            x = candidates[dist_idx][0]     
-                        signal_col = []
-                        signal_col.append([x,y])
-                        match = 1
-                    elif y == endcol:
+                for i in signal_col_temp:
+                    temp_dist = np.subtract(candidates, i)
+                    dists.append(temp_dist)
+                    candidates_rep.append(candidates)
+                dists= [x for xs in dists for x in xs]
+                dists = np.array(dists)
+                
+                candidates = [x for xs in candidates_rep for x in xs]
+                candidates = np.array(candidates)
+                
+                if np.min(abs(dists))<thresh:                    
+                    #bit of voodoo here to try to make sure that we favour returning towards 
+                    # baseline when there is a choice
+                    dist_idx = np.where(abs(dists) == min(abs(dists)))[0]
+
+                    if len(dist_idx)>1:
+                        # if there is more than one minimum, select the one that takes us closer 
+                        # to the baseline
+                        x = candidates[dist_idx]
+                        i = np.argmin(abs(x-row))
+                        x = x[i]
+                    else:
+                        x = candidates[dist_idx][0]
+                    signal_col = []
+                    signal_col.append([x,y])
+                    match = 1
+                elif y == endcol:
+                    match = 1
+                else:
+                    #check whether ecg has returned to near baseline (new lead), if so, reset x_idx
+                    check_col = test_im[(row-thresh):(row+thresh),y+1]
+                    x = np.where(check_col == 0)[0]
+                    if len(x) > 0:
+                        x_idx = row-thresh+x[0]
+                        x = x_idx
                         match = 1
                     else: #skip a column and try again
                         y = y+1
-                else: #skip a column and try again
-                    y = y+1
-                    
-    #sanitise the list
+  
+        #sanitise the list
         signal_flat = [x for xs in signal for x in xs]
         s.append(signal_flat)
+
     point_signal = signal_to_miner(s, rois)
     return point_signal, rois
