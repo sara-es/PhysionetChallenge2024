@@ -44,7 +44,9 @@ def row_pulse_pos(
     is_right = is_pulse(right_segment, baseline)
 
     if is_left & is_right:
-        return 0 # assume there's been a mistake, no reference pulses 
+        # triggers sometimes when the end of the signal is the same height as the reference pulse
+        # should assume it's a mistake, but this causes issues. Instead, assume it's on the left.
+        return 1 
     elif is_left:
         return 1 
     elif is_right:
@@ -56,7 +58,7 @@ def row_pulse_pos(
 def remove_pulses(raw_signals: Iterable[Iterable[Point]], ref_pulse_present: int,
                   duration: int) -> Tuple[Iterable[Iterable[Point]], Iterable[Tuple[int, int]]]:
     """
-    TODO Vintage ECGminer code - needs work
+
     """
     rp_at_right = ref_pulse_present == 2
     INI, MID, END = (0, 1, 2)
@@ -100,7 +102,7 @@ def remove_pulses(raw_signals: Iterable[Iterable[Point]], ref_pulse_present: int
         elif pulse_pos == END:
             ini_count -= 1
         if abs(i) > max_pulse_width*1.5: # failsafe to make sure we don't clip more than logical
-            cut = i
+            cut = i # force cut
             break
     try:
         # Slice signal
