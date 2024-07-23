@@ -17,4 +17,4 @@ module load compilers/gcc/6.4.0
 echo "Starting job with $NGPUS GPU(s) with ID(s) $CUDA_VISIBLE_DEVICES and $NSLOTS CPU core(s)."
 
 # Run code
-python tests/team_code_train.py
+python evaluation/train_unet.py

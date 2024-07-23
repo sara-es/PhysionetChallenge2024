@@ -16,6 +16,7 @@ from tqdm import tqdm
 from sklearn.preprocessing import MultiLabelBinarizer
 import matplotlib.pyplot as plt
 import scipy as sp
+from sklearn.utils import shuffle
 
 import helper_code
 import preprocessing
@@ -143,7 +144,7 @@ def save_models(model_folder, digitization_model=None, classification_model=None
         
 
 def train_digitization_model(data_folder, model_folder, verbose, records_to_process=None,
-                             delete_training_data=True):
+                             delete_training_data=True, max_size_training_set=5000):
     """
     Our general digitization process is
     1. generate testing images and masks
@@ -171,6 +172,8 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
     # TODO can do a split here if we want to have unet train and predict on different records
     if not records_to_process:
         records_to_process = helper_code.find_records(data_folder)
+    if max_size_training_set is not None:
+        records_to_process = shuffle(records_to_process)[:max_size_training_set]
 
     # generate images and masks for training u-net; generate patches
     generate_unet_training_data(data_folder, images_folder, 
@@ -200,17 +203,22 @@ def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder
     if not records_to_process:
         records_to_process = helper_code.find_records(wfdb_records_folder)
 
+    seed = np.random.randint(100000)
+
     # params for generating images
     img_gen_params = generator.DefaultArgs()
+    img_gen_params.seed = seed
     img_gen_params.random_bw = 0.2
     img_gen_params.wrinkles = True
     img_gen_params.print_header = True
     img_gen_params.augment = True
+    img_gen_params.calibration_pulse = 0.5
     img_gen_params.input_directory = wfdb_records_folder
     img_gen_params.output_directory = images_folder
 
     # set params for generating masks
     mask_gen_params = generator.MaskArgs()
+    mask_gen_params.seed = seed
     mask_gen_params.input_directory = wfdb_records_folder
     mask_gen_params.output_directory = masks_folder
 

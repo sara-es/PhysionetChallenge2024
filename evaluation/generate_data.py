@@ -48,7 +48,7 @@ def generate_training_data(data_folder, output_folder, verbose, max_samples):
     img_gen_params.wrinkles = True
     img_gen_params.print_header = True
     img_gen_params.augment = True
-    img_gen_params.calibration_pulse = 0.5
+    # img_gen_params.calibration_pulse = 1
     img_gen_params.store_config = 2
     img_gen_params.input_directory = data_folder
     img_gen_params.output_directory = images_folder

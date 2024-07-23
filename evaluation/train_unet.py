@@ -21,13 +21,10 @@ def train_unet(data_folder, model_folder, verbose, num_images_to_generate=0):
     if num_records == 0:
         raise FileNotFoundError('No data were provided.')
     
-    # test on a smaller number of records for now
-    records = shuffle(records, random_state=42)
-    num_records = len(records)
-    
     # Get the file paths of signals
     tts = 1
-    records = shuffle(records)
+    records = shuffle(records, random_state=42)
+    num_records = len(records)
     train_records = records[:int(tts*num_records)]
     val_records = records[int(tts*num_records):]
 
