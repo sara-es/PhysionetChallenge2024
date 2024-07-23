@@ -289,6 +289,15 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
             # alternate option no longer used: use the median of the signal
             first_pixel_scaled = (volt_0 - first_pixels[r]) * (1 / (volt_0 - volt_1))
             signal = signal - first_pixel_scaled 
+        
+        # remove single pixel spikes from lead delimiters in middle of signals
+        if c == 0: # furthest left column
+            signal[-1] = signal[-2]
+        elif c == NROWS - 1: # furthest right column
+            signal[0] = signal[1]
+        else: # middle columns
+            signal[0] = signal[1]
+            signal[-1] = signal[-2]
 
         # Round voltages to 4 decimals
         signal = np.round(signal, 4)
