@@ -5,7 +5,6 @@ import team_code, helper_code
 from sklearn.utils import shuffle
 from digitization import Unet
 from utils import model_persistence
-from evaluation import generate_data
 
 
 def train_unet(data_folder, model_folder, verbose, num_images_to_generate=0):
@@ -60,20 +59,6 @@ def train_unet(data_folder, model_folder, verbose, num_images_to_generate=0):
 
     # save trained u-net
     model_persistence.save_model_torch(unet_model, 'digitization_model', model_folder)
-
-    # testing: generate new images, patch them, then run u-net, then
-    # reconstruct signals from u-net outputs, then save reconstructed signals
-    # generate_data.generate_and_predict_unet_batch(data_folder, images_folder, masks_folder, patch_folder,
-    #                               unet_output_folder, unet_model, reconstructed_signals_folder,
-    #                               verbose, records_to_process=val_records, delete_images=False)
-
-    # train classification model
-    # resnet_model, uniq_labels = team_code.train_classification_model(
-    #     data_folder, verbose, records_to_process=val_records
-    #     )
-
-    # TODO: display some results
-
 
 
 if __name__ == "__main__":
