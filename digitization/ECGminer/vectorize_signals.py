@@ -53,19 +53,23 @@ def row_pulse_pos(
         return 0 # will be False if bool
 
 
-def remove_pulses(raw_signals: Iterable[Iterable[Point]], ref_pulse_present: int
-                  ) -> Tuple[Iterable[Iterable[Point]], Iterable[Tuple[int, int]]]:
+def remove_pulses(raw_signals: Iterable[Iterable[Point]], ref_pulse_present: int,
+                  duration: int) -> Tuple[Iterable[Iterable[Point]], Iterable[Tuple[int, int]]]:
     """
     TODO Vintage ECGminer code - needs work
     """
     rp_at_right = ref_pulse_present == 2
     INI, MID, END = (0, 1, 2)
     LIMIT = min([len(signal) for signal in raw_signals])
-    PIXEL_EPS = 38.5 # MAGIC NUMBER: 5mm in pixels + 1 in generated images, hardcoded for now
-    # Check if ref pulse is at right side or left side of the ECG
-    furthest_right_pixels = [pulso[-1].y for pulso in raw_signals]
+    # scale the maximum amount of pixels to search for reference pulses by duration of the signal
+    max_pulse_width = int(max(len(signal) for signal in raw_signals)/(duration/0.2 + 1))
+    # area around baseline to consider "at" baseline (I think), set to half the height of 
+    # the reference pulse
+    PIXEL_EPS = max_pulse_width - 1
+    # use first pixel in row as baseline - old version used furthest right, but led to issues
+    # should probably use furthest right if ref pulse at right
+    furthest_left_pixels = [pulso[0].y for pulso in raw_signals]
 
-    # TODO: no accounting for reference pulses at right currently
     direction = (
         range(-1, -LIMIT, -1) if rp_at_right else range(LIMIT)
     )
@@ -75,7 +79,7 @@ def remove_pulses(raw_signals: Iterable[Iterable[Point]], ref_pulse_present: int
     for i in direction:
         y_coords = [
             pulso[i].y - ini
-            for pulso, ini in zip(raw_signals, furthest_right_pixels)
+            for pulso, ini in zip(raw_signals, furthest_left_pixels)
         ]
         y_coords = sorted(y_coords)
         at_v0 = any([abs(y) <= PIXEL_EPS for y in y_coords])
@@ -95,6 +99,9 @@ def remove_pulses(raw_signals: Iterable[Iterable[Point]], ref_pulse_present: int
             ini_count -= 1
         elif pulse_pos == END:
             ini_count -= 1
+        if abs(i) > max_pulse_width*1.5: # failsafe to make sure we don't clip more than logical
+            cut = i
+            break
     try:
         # Slice signal
         signal_slice = (
@@ -110,7 +117,7 @@ def remove_pulses(raw_signals: Iterable[Iterable[Point]], ref_pulse_present: int
             for rs in raw_signals
         ]
         ref_pulses = [
-            (furthest_right_pixels[i], ref_pulses[i][-1])
+            (furthest_left_pixels[i], ref_pulses[i][-1])
             for i in range(len(raw_signals))
         ]
     except TypeError:
@@ -176,7 +183,7 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
         ref_pulse_present = 0
 
     if ref_pulse_present:
-        vectorized_signals, ref_pulses = remove_pulses(signal_coords, ref_pulse_present)
+        vectorized_signals, ref_pulses = remove_pulses(signal_coords, ref_pulse_present, max_duration)
     else: # Slice signal
         signal_slice = (
             slice(None, None)
@@ -258,12 +265,20 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
             
             # replace y value with first pixel (approx. roi) for this row
             signal_adjusted = np.abs(signal - first_pixels[r])
-            if len(shared_points) > len(signal)*0.2: # >20% overlap
+            signal_other_line_adjusted = np.abs(signal - first_pixels[j])
+            if len(shared_points) > len(signal)*0.1: # >10% overlap
+                # Check a sliding window of the signal
                 # Only zero if this signal's median y-value is much closer to another line's 
                 # first pixel: ie we suspect it's jumped lines
-                if np.median(signal - first_pixels[j]) < np.median(signal - first_pixels[r]):
+                window = int(grid_size_px*2) # two grid squares
+                window_medians = np.median(np.lib.stride_tricks.sliding_window_view(signal_adjusted, 
+                                                                                (window,)), axis=1)
+                window_medians_other_line = np.median(np.lib.stride_tricks.sliding_window_view(
+                                                   signal_other_line_adjusted, (window,)), axis=1)
+                if any(window_medians_other_line < window_medians):
                     signal = np.zeros(len(signal))   
-                    zeroed = True          
+                    zeroed = True 
+                    break
         
         if not zeroed: 
             # Scale signal with ref pulses
