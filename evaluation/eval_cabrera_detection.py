@@ -1,66 +1,22 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Jun 14 12:46:39 2024
+Created on Fri May 24 12:42:14 2024
 
 @author: hssdwo
 """
 
-# input - list of points in a row
-#1.convert the points into a signal - this is probably already done in ecg-miner
+# -*- coding: utf-8 -*-
+"""
+Created on Fri May 24 09:15:21 2024
 
-#%%
+@author: hssdwo
+"""
+import os
 import numpy as np
-import pickle
 from scipy.signal import find_peaks
+import pickle
+import matplotlib.pyplot as plt
 from digitization.ECGminer.assets.Point import Point
-
-format_3x4 = [
-    ['Lead.I', 'Lead.aVR','Lead.V1', 'Lead.V4'],
-    ['Lead.II', 'Lead.aVL', 'Lead.V2', 'Lead.V5'],
-    ['Lead.III', 'Lead.aVF', 'Lead.V3', 'Lead.V6'],
-]
-
-format_3x4_cab = [
-    ['Lead.aVL', 'Lead.II','Lead.V1', 'Lead.V4'],
-    ['Lead.I', 'Lead.aVF', 'Lead.V2', 'Lead.V5'],
-    ['Lead.-aVR', 'Lead.III', 'Lead.V3', 'Lead.V6'],
-]
-
-format_6x2 = [
-    ['Lead.I', 'Lead.V1'],
-    ['Lead.II', 'Lead.V2'],
-    ['Lead.III', 'Lead.V3'],
-    ['Lead.aVR', 'Lead.V4'],
-    ['Lead.aVL', 'Lead.V5'],
-    ['Lead.aVF', 'Lead.V6'],
-]
-
-format_12x1 = [
-    'Lead.I',
-    'Lead.II',
-    'Lead.III',
-    'Lead.aVR',
-    'Lead.aVL',
-    'Lead.aVF',
-    'Lead.V1',
-    'Lead.V2',
-    'Lead.V3',
-    'Lead.V4',
-    'Lead.V5',
-    'Lead.V6',
-]
-
-
-format_6x2_cab = [
-    ['Lead.aVL', 'Lead.V1'],
-    ['Lead.I', 'Lead.V2'],
-    ['Lead.-aVR', 'Lead.V3'],
-    ['Lead.II', 'Lead.V4'],
-    ['Lead.aVF', 'Lead.V5'],
-    ['Lead.III', 'Lead.V6'],
-]
-
-# TODO: fix to automatically detect more rows
 
 def get_roi(image, n = 4):
     """
@@ -163,30 +119,66 @@ def extract_rows(image, thresh = 50, plot_output = True):
             y = y+1
             match = 0
             while match == 0:
+                
+                # get distances between possible matches
+                dists = []
+                candidates_rep = []
+                signal_col_temp = [i[0] for i in signal_col]
                 candidates = np.where(test_im[:,y] == 0)[0]
-                dists = np.concatenate((candidates - top_line, candidates - bottom_line))
-                candidates = np.concatenate((candidates, candidates))
+                for i in signal_col_temp:
+                    temp_dist = np.subtract(candidates, i)
+                    dists.append(temp_dist)
+                    candidates_rep.append(candidates)
+                dists= [x for xs in dists for x in xs]
+                dists = np.array(dists)
+                
+                candidates = [x for xs in candidates_rep for x in xs]
+                candidates = np.array(candidates)
+                
                 if np.min(abs(dists))<thresh:                    
                     #bit of voodoo here to try to make sure that we favour returning towards baseline when there is a choice
                     dist_idx = np.where(abs(dists) == min(abs(dists)))[0]
+
                     if len(dist_idx)>1:
                         #if there is more than one minimum, select the one that takes us closer to the baseline
                         x = candidates[dist_idx]
                         i = np.argmin(abs(x-row))
                         x = x[i]
+                            
                     else:
-                        x = candidates[dist_idx][0]     
+                        x = candidates[dist_idx][0]
+                        #print(x)
                     signal_col = []
                     signal_col.append([x,y])
                     match = 1
                 elif y == endcol:
                     match = 1
-                else: #skip a column and try again
-                    y = y+1
+                else:
+                    #check whether ecg has returned to near baseline (new lead) - if so, reset x_idx
+                    check_col = test_im[(row-thresh):(row+thresh),y+1]
+                    x = np.where(check_col == 0)[0]
+                    if len(x) > 0:
+                        x_idx = row-thresh+x[0]
+                        x = x_idx
+                        match = 1
+                    else: #skip a column and try again
+                        y = y+1
+                        
+                        
+                        
                     
         #sanitise the list
         signal_flat = [x for xs in signal for x in xs]
         s.append(signal_flat)
+        #optional : plot output
+        if plot_output:
+            output = np.ones((test_im.shape[0], test_im.shape[1]))
+            for i in range(len(signal_flat)):
+                x = signal_flat[i][0]
+                y = signal_flat[i][1]
+                output[x,y] = 0
+            plt.figure()
+            plt.imshow(output) 
     return s, rois
         
 """convert ecg sparse matrices into ecg miner format"""
@@ -211,16 +203,6 @@ def signal_to_miner(signals, rois):
         all_sigs.append(raw_s)
     return all_sigs
 
-#%%
-file = "C:/Users/hssdwo/Downloads/images.pkl"
-with open(file, 'rb') as f:
-    data = pickle.load(f)
-
-test_im = data[5]
-signals, rois = extract_rows(test_im, thresh = 50, plot_output = False)
-raw_s = signal_to_miner(signals, rois)
-
-#%%
 def point_to_matrix(signals):
     #convert list of points into matrix of signals - only contains points that overlap in all raws
     max_x = 10000
@@ -230,12 +212,12 @@ def point_to_matrix(signals):
         if row_max < max_x:
             max_x = row_max
     
-    signal_arr = np.zeros([rows, (max_x + 2)]) #TODO: check that this works for all cases. adding 1 broke...
     
+    signal_arr = np.zeros([rows, (max_x + 2)]) #TODO: check that this works for all cases. adding 1 broke...
+
     for i in range(rows):
         signal_x = [p.x for p in signals[i]]
         signal_y = [p.y for p in signals[i]]
-        
         
         for idx, j in enumerate(signal_x):
             signal_arr[i, j] = signal_y[idx]
@@ -246,83 +228,108 @@ def point_to_matrix(signals):
     signal_arr = np.delete(signal_arr, idx, 1)
     
     return signal_arr
+            
+## --------------------------------------------------- main starts here ---------------------------------------------------------------------#
 
-#%%
-"""
-This takes in a N-row array corresponding to the ECGs found by the line tracing algorithm.
-Input:
-    - signal_arr: list of ECG signals in the ecg-miner Point object format
-    - THRESH: The user parameter THRESH is the average per-column difference allowed between the rows to be accepted as the rhythm
-    - layout: normal or cabrera, derived from cabrera_detection function
-Output: list of strings (rhythm strip lead name) in order from top to bottom of image.
+file = "C:/Users/hssdwo/Downloads/images.pkl"
 
 
-TODO: lots of repeating code in the IF - refactor if there is time
-"""
+image_folder = "C:/Users/hssdwo/Documents/GitHub/PhysionetChallenge2024/temp_data/masks"
 
-def detect_rhythm_strip(signal_arr, THRESH = 1, layout = 'normal'):
+files = os.listdir(image_folder)
+num = 100
+files = files[0:num]
+fails = []
+true_pos = 0
+
+
+for file in files:
+    full_path = image_folder + '/' + file
+
+    test_im = np.load(full_path)
+
+    print('extract signal and output in Point format')
+    #test_im = data[0]
+    signals, rois = extract_rows(test_im, thresh = 50, plot_output = False)
+    raw_s = signal_to_miner(signals, rois)
+    
+    print('turn raw signals into a matrix of signals')
+    
+    #TODO: FIXME - some error in here
+    signal_arr = point_to_matrix(raw_s)
+    #plt.plot(signal_arr[0,:])
+    #plt.plot(signal_arr[1,:])
+    #plt.plot(signal_arr[2,:])
+    #plt.plot(signal_arr[3,:])
+    #plt.show()
+    
+    
     NROWS = len(signals)
-
+    
+    #THRESH is a user parameter
+    THRESH = 1
+    
     #2.for each signal, get its np.diff - this converts from pixel coordinates to relative coordinates
     diff_signals = np.diff(signal_arr)
-    reference = []
+    # reference = []
+    
+    from scipy.signal import correlate, correlation_lags
+    NCOLS = 4
+    ref = np.size(diff_signals,1)
+    col_width = ref//NCOLS
+    
+    print('correlation between positions {pos1: [0,2], pos2: [0,1]} standard:{lead III, lead aVR}, cabrera:{lead -aVR, leadII')
+    
+    pos1 = diff_signals[0,1:col_width]
+    pos2 = diff_signals[1,1:col_width]
+    pos3 = diff_signals[2,1:col_width]
+    pos4 = diff_signals[0,col_width:2*col_width]
+    pos5 = diff_signals[1,col_width:2*col_width]
+    pos6 = diff_signals[2,col_width:2*col_width]
+    
+    test = correlate(pos1, pos2, mode='same', method='auto')
+    idx = np.where(abs(test)==max(abs(test)))[0]
+    corr1 = test[idx][0]
+    test = correlate(pos2, pos3, mode='same', method='auto')
+    idx = np.where(abs(test)==max(abs(test)))[0]
+    corr2 = test[idx][0]
+    test = correlate(pos3, pos4, mode='same', method='auto')
+    idx = np.where(abs(test)==max(abs(test)))[0]
+    corr3 = test[idx][0]
+    test = correlate(pos4, pos5, mode='same', method='auto')
+    idx = np.where(abs(test)==max(abs(test)))[0]
+    corr4 = test[idx][0]
+    test = correlate(pos5, pos6, mode='same', method='auto')
+    idx = np.where(abs(test)==max(abs(test)))[0]
+    corr5 = test[idx][0]
+    
+    test = correlate(pos5, pos1, mode='same', method='auto')
+    idx = np.where(abs(test)==max(abs(test)))[0]
+    c_corr1 = test[idx][0]
+    test = correlate(pos1, -pos4, mode='same', method='auto')
+    idx = np.where(abs(test)==max(abs(test)))[0]
+    c_corr2 = test[idx][0]
+    test = correlate(-pos4, pos2, mode='same', method='auto')
+    idx = np.where(abs(test)==max(abs(test)))[0]
+    c_corr3 = test[idx][0]
+    test = correlate(pos2, pos6, mode='same', method='auto')
+    idx = np.where(abs(test)==max(abs(test)))[0]
+    c_corr4 = test[idx][0]
+    test = correlate(pos6, pos3, mode='same', method='auto')
+    idx = np.where(abs(test)==max(abs(test)))[0]
+    c_corr5 = test[idx][0]
+    
+    a = np.std([corr1, corr2, corr3, corr4, corr5])
+    b = np.std([c_corr1, c_corr2, c_corr3, c_corr4, c_corr5])
+    #print(a)
+    #print(b)
+    
+    if a>b:
+        print('standard')
+        true_pos = true_pos + 1
+    else:
+        print('cabrera')
+        fails.append(file)
 
-    if NROWS <=6: # if there are reference pulses, then we assume that the layout is in 3x4 format
-        #assume 3x4 format:
-        ECG_ROWS = 3
-        ECG_COLS = 4
-        test_grid = np.zeros([ECG_ROWS,ECG_COLS])
-        for i in range(ECG_ROWS, NROWS):
-            main_ecg = diff_signals[0:ECG_ROWS,:] # 12 leads are contained in the top 3 rows
-            ref = diff_signals[i,:]
-            col_width = len(ref)//ECG_COLS
-            
-            # compare the ith row to the top 3 rows - this currently assumes they are all the same length.
-            test = abs(main_ecg - ref)
-            
-            for j in range(ECG_ROWS):
-                for k in range(ECG_COLS):
-                    start = col_width*k
-                    fin = col_width*(k+1)-1
-                    test_grid[j,k] = sum(test[j][start:fin]) / col_width
-            
-            # find the minimum value of test_grid. If minimum value is less than threshold, report j,k.
-            if (np.min(test_grid) < THRESH): # i.e. on average, maximum of 1 pixel difference
-                x,y = np.where(test_grid == np.min(test_grid))
-                if layout == 'cabrera':
-                    reference.append(format_3x4_cab[x[0]][y[0]]) # get corresponding label
-                else:    
-                    reference.append(format_3x4[x[0]][y[0]]) # get corresponding label
-                    
-    
-        #for the special case of 4 rows, and the auto finder fails - assume that the rhythm strip is lead II
-        if NROWS == 4 & len(reference) == 0:
-            reference.append('Lead.II')
-                
-    ## TODO  - extend to work with 6x2 format. Code below might work, but not tested
-    elif NROWS <=11: # if there are reference pulses, then we assume that the layout is in 6x2 format
-        ECG_ROWS = 6
-        ECG_COLS = 2
-        for i in range(ECG_ROWS, NROWS):
-            main_ecg = diff_signals[0:ECG_ROWS,:] # 12 leads are contained in the top 6 rows
-            ref = diff_signals[i,:]
-            col_width = len(ref)//ECG_COLS
-            
-            # compare the ith row to the top 6 rows
-            test = main_ecg - ref
         
-            for j in range(ECG_ROWS):
-                for k in range(ECG_COLS):
-                    start = col_width*k
-                    fin = col_width*(k+1)-1
-                    test_grid[j,k] = sum(test[j][start:fin]) / col_width
-    
-            # find the minimum value of test_grid. If minimum value is less than threshold, report j,k.
-            if (np.min(test_grid) < THRESH): # i.e. on average, maximum of 1 pixel difference
-                x,y = np.where(test_grid == np.min(test_grid))
-                if layout == 'cabrera':
-                    reference.append(format_6x2_cab[x[0]][y[0]]) # get corresponding label
-                else:    
-                    reference.append(format_6x2[x[0]][y[0]]) # get corresponding label
-    
-    return reference
+accuracy = true_pos/num
