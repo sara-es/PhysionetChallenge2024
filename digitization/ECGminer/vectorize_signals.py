@@ -152,8 +152,11 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
     2. Check if reference pulses are present in the ECG signals (based on pulse_pos from Dave's
         work in pulse_detect.py)
     3. Remove them from pixel list if so with remove_pulses
-    3. Calculate signal scaling factor (gridsize) from the median total number of pixels the 
+    4. Calculate signal scaling factor (gridsize) from the median total number of pixels the 
     signal covers horizontally
+    5. Interpolate signals to correct number of samples
+    6. Detect layout and rhythm leads
+    7. Vectorize and scale signals, add to dataframe in correct order based on layout 
 
     Args:
         signal_coords: Iterable[Iterable[Point]], x and y coordinates of the signals.
