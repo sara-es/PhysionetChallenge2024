@@ -121,7 +121,7 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
     snrs = []  
     stats = []
     
-    for i in range(200): # seems to crash after ~200 or so - I blame tkinter
+    for i in range(len(ids)): # care, seems to crash after plotting ~200 or so - I blame tkinter
         # print(image_ids[i])
         image_info = {}
         image_info["record"] = records[i]
