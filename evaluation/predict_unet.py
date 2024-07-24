@@ -93,9 +93,8 @@ if __name__ == '__main__':
 
     # unet_model = model_persistence.load_models("model", True, 
     #                     models_to_load=['digitization_model'])
-    
     unet_model = model_persistence.load_checkpoint_dict("digitization/model_checkpoints", 
-                                                        "UNET_256_checkpoint", True)
+                                                        "UNET_run1_256_aug_checkpoint", True)
 
     num_images_to_generate = 0 # int, set to 0 if data has already been generated to speed up testing time
 

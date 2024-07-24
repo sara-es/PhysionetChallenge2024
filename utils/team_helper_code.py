@@ -79,10 +79,12 @@ def check_dirs_for_ids(ids, dir1, dir2, verbose):
     id_set = set([f.split('-')[0] for f in ids])
 
     dir1_files = os.listdir(dir1)
+    dir1_files = [f.split('.')[0] for f in dir1_files] # file endings
     dir1_set = set([f.split('-')[0] for f in dir1_files])
     dir2_set = set()
     if dir2:
         dir2_files = os.listdir(dir2)
+        dir2_files = [f.split('.')[0] for f in dir2_files] # file endings
         dir2_set = set([f.split('-')[0] for f in dir2_files])
 
     if dir2:
