@@ -144,9 +144,8 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
     is_generated_image: bool = True) -> Tuple[np.array, float, int]:
     """
     Vectorize the signals, normalizing them and storing them in a dataframe.
-    Assumes signals are in format (2, 4, N) where the first dimension corresponds to 
-    (x, y) coordinates, 4 is the number of rows, and N is the length of the signal (number of
-    samples)
+    Assumes signals are in format (4, N, Point) where 4 is the number of rows, N is the length of the
+    signal (number of samples), and Point is a named tuple object with x and y coordinates.
     
     1. Extract only raw coordinate (pixel) values 
     2. Check if reference pulses are present in the ECG signals (based on pulse_pos from Dave's
