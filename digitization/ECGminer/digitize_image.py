@@ -22,6 +22,12 @@ def digitize_image_unet(restored_image, sig_len=1000, max_duration=10, is_genera
         3. convert into individual ECG channels and convert from pixels to mV
     
     """
+    #TODO: remove this fudge once the u-net is fixed
+    restored_image[:,0] = 0
+    restored_image[:,-1] = 0
+    restored_image[0,:] = 0
+    restored_image[-1,:] = 0
+    
     # Invert the colours
     restored_image = abs(restored_image - 1)*255
     # convert greyscale to rgb
@@ -37,6 +43,7 @@ def digitize_image_unet(restored_image, sig_len=1000, max_duration=10, is_genera
     # returns x and y coordinates of the traces in order
     # raises DigitizationError if failure occurs.
     # hardcoded n_lines=4 for now because constant layout+rhythm
+    # TODO: get rows of data from yolo
     signal_coords, rois = extract_signals.extract_row_signals(ecg_crop, n_lines=4)
 
     # check for reference pulses, then convert to digitized signals
