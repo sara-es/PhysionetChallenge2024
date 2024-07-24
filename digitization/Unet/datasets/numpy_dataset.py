@@ -24,8 +24,8 @@ class numpy_dataset(Dataset):  # Inherit from Dataset class
         if self.transform:
             val = torch.rand(1)
             if val > 0.5:   # Augment with probability 0.5
-                options = ['jitter', 'blur', 'noise', 'rotation']
-                choice = torch.randint(low=0, high=4, size=(1,))
+                options = ['jitter', 'blur', 'noise', 'rotation', 'scale']
+                choice = torch.randint(low=0, high=len(options), size=(1,))
                 option = options[choice]
                 if option == 'jitter':
                     jitter = transforms.ColorJitter(brightness=.5, hue=.3)
@@ -40,6 +40,10 @@ class numpy_dataset(Dataset):  # Inherit from Dataset class
                 elif option == 'noise':
                     noise = torch.randn(x.shape)
                     x = x + noise
+                elif option == 'scale':
+                    scaler = transforms.RandomAffine(degrees=0, translate=None, scale=(0.5, 1.5))     # Nearest neighbour interpolation by standard, use that for now 
+                    x = scaler(x)
+                    y = scaler(y)
         return x, y
 
     def __len__(self):
