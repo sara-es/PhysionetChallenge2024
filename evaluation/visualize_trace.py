@@ -24,6 +24,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from PIL import Image
 import cv2
+import json
 
 import team_code, helper_code
 from evaluation import eval_utils
@@ -121,116 +122,120 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
     stats = []
     
     for i in range(200): # seems to crash after ~200 or so - I blame tkinter
-        try:
-            # print(image_ids[i])
-            image_info = {}
-            image_info["record"] = records[i]
-            # set up mosaic for original image, u-net output with trace, ground truth signal, 
-            # and reconstructed signal
-            mosaic = plt.figure(layout="tight", figsize=(18, 13))
-            axd = mosaic.subplot_mosaic([
-                                            ['original_image', 'ecg_plots'],
-                                            ['trace', 'ecg_plots']
-                                        ])
-            # load image
-            # TODO: this assumes image needs no preprocessing, or preprocessing has already been done
-            with Image.open(os.path.join(test_images_dir, image_ids[i] + '.png')) as img:
-                axd['original_image'].axis('off')
-                axd['original_image'].imshow(img, cmap='gray')
+        # print(image_ids[i])
+        image_info = {}
+        image_info["record"] = records[i]
+        # set up mosaic for original image, u-net output with trace, ground truth signal, 
+        # and reconstructed signal
+        mosaic = plt.figure(layout="tight", figsize=(18, 13))
+        axd = mosaic.subplot_mosaic([
+                                        ['original_image', 'ecg_plots'],
+                                        ['trace', 'ecg_plots']
+                                    ])
+        # load image
+        # TODO: this assumes image needs no preprocessing, or preprocessing has already been done
+        with Image.open(os.path.join(test_images_dir, image_ids[i] + '.png')) as img:
+            axd['original_image'].axis('off')
+            axd['original_image'].imshow(img, cmap='gray')
 
-            # load u-net output
-            unet_image_path = os.path.join(unet_outputs_dir, unet_ids[i] + '.npy')
-            with open(unet_image_path, 'rb') as f:
-                unet_image = np.load(f)
-            # digitize signal from u-net ouput
-            record_path = os.path.join(wfdb_records_dir, records[i]) 
-            header_txt = helper_code.load_header(record_path)
-            reconstructed_signal, raw_signals, gridsize = team_code.reconstruct_signal(records[i], unet_image, 
-                                    header_txt, reconstructed_signal_dir, save_signal=True)
-            trace = get_trace(unet_image, raw_signals)
-            
-            # plot trace of signal from u-net output
-            # axd['trace'].xaxis.set_visible(False)
-            # axd['trace'].yaxis.set_visible(False)
-            axd['trace'].imshow(trace.data, cmap='gray')
+        # load u-net output
+        unet_image_path = os.path.join(unet_outputs_dir, unet_ids[i] + '.npy')
+        with open(unet_image_path, 'rb') as f:
+            unet_image = np.load(f)
+        # digitize signal from u-net ouput
+        record_path = os.path.join(wfdb_records_dir, records[i]) 
+        header_txt = helper_code.load_header(record_path)
+        reconstructed_signal, raw_signals, gridsize = team_code.reconstruct_signal(records[i], unet_image, 
+                                header_txt, reconstructed_signal_dir, save_signal=True)
+        trace = get_trace(unet_image, raw_signals)
+        
+        # plot trace of signal from u-net output
+        # axd['trace'].xaxis.set_visible(False)
+        # axd['trace'].yaxis.set_visible(False)
+        axd['trace'].imshow(trace.data, cmap='gray')
 
-            # load ground truth signal
-            label_signal, label_fields = helper_code.load_signals(
-                                            os.path.join(wfdb_records_dir, records[i]))
-            # load reconstructed signal - this is to ensure format is the same as ground truth
-            output_signal, output_fields = helper_code.load_signals(
-                                            os.path.join(reconstructed_signal_dir, records[i]))
-            
-            output_signal, output_fields, label_signal, label_fields = \
-                eval_utils.match_signal_lengths(reconstructed_signal, output_fields, 
-                                                label_signal, label_fields)
-            label_signal = eval_utils.trim_label_signal(label_signal, 
-                                                        label_fields["sig_name"], 
-                                                        int(label_fields["sig_len"])/4, 
-                                                        rhythm=['II'])
-            
-            # calculate reconstruction SNR
-            mean_snr, mean_snr_median, mean_ks_metric, mean_asci_metric, \
-                mean_weighted_absolute_difference_metric = eval_utils.single_signal_snr(output_signal,
-                            output_fields, label_signal, label_fields, records[i], extra_scores=True)
-            gridsize = f'{gridsize:.2f}'
+        # load ground truth signal
+        label_signal, label_fields = helper_code.load_signals(
+                                        os.path.join(wfdb_records_dir, records[i]))
+        # load reconstructed signal - this is to ensure format is the same as ground truth
+        output_signal, output_fields = helper_code.load_signals(
+                                        os.path.join(reconstructed_signal_dir, records[i]))
+        
+        output_signal, output_fields, label_signal, label_fields = \
+            eval_utils.match_signal_lengths(reconstructed_signal, output_fields, 
+                                            label_signal, label_fields)
+        label_signal = eval_utils.trim_label_signal(label_signal, 
+                                                    label_fields["sig_name"], 
+                                                    int(label_fields["sig_len"])/4, 
+                                                    rhythm=['II'])
+        
+        # load rotation angle info from json
+        config_file = os.path.join(test_images_dir, image_ids[i] + '.json')
+        with open(config_file, 'r') as f:
+            config = json.load(f)
+        true_gridsize = config['x_grid']
+        dc_pulse = config['dc_pulse']
+        
+        # calculate reconstruction SNR
+        mean_snr, mean_snr_median, mean_ks_metric, mean_asci_metric, \
+            mean_weighted_absolute_difference_metric = eval_utils.single_signal_snr(output_signal,
+                        output_fields, label_signal, label_fields, records[i], extra_scores=True)
+        gridsize = f'{gridsize:.2f}'
 
-            labels = None
-            # optional: classify signal
-            # labels = team_code.classify_signals(records[i], reconstructed_signal_dir, resnet_model, 
-            #                                     dx_classes, verbose=True)
-            
-            description_string = f"""{records[i]} ({label_fields['fs']} Hz)
+        labels = None
+        # optional: classify signal
+        # labels = team_code.classify_signals(records[i], reconstructed_signal_dir, resnet_model, 
+        #                                     dx_classes, verbose=True)
+        
+        description_string = f"""{records[i]} ({label_fields['fs']} Hz)
     Reconstruction SNR: {mean_snr:.2f}
     Gridsize: {gridsize}
     {label_fields['comments'][1:-1]}
     Predicted labels: {labels}"""
-        
-            # plot ground truth and reconstructed signal
-            fig, axs = plt.subplots(reconstructed_signal.shape[1], 1, figsize=(9, 12.5), sharex=True)
-            fig.subplots_adjust(hspace=0.1)
-            fig.suptitle(description_string)
-            # fig.text(0.5, 0.95, description_string, ha='center')
-            for j in range(reconstructed_signal.shape[1]):
-                if j == 0:
-                    axs[j].plot(label_signal[:, j], label='Ground Truth Signal')
-                    axs[j].plot(reconstructed_signal[:, j], label='Reconstructed Signal', alpha=0.8)
-                    axs[j].legend(loc='upper right')
-                else:
-                    axs[j].plot(label_signal[:, j])
-                    axs[j].plot(reconstructed_signal[:, j], alpha=0.8)
-                axs[j].set_ylabel(f'{label_fields["sig_name"][j]}', rotation='horizontal')
-                # axs[j].set_yrotation(0)
-            fig.canvas.draw()
-            axd['ecg_plots'].axis('off')
-            axd['ecg_plots'].imshow(fig.canvas.renderer.buffer_rgba())
+    
+        # plot ground truth and reconstructed signal
+        fig, axs = plt.subplots(reconstructed_signal.shape[1], 1, figsize=(9, 12.5), sharex=True)
+        fig.subplots_adjust(hspace=0.1)
+        fig.suptitle(description_string)
+        # fig.text(0.5, 0.95, description_string, ha='center')
+        for j in range(reconstructed_signal.shape[1]):
+            if j == 0:
+                axs[j].plot(label_signal[:, j], label='Ground Truth Signal')
+                axs[j].plot(reconstructed_signal[:, j], label='Reconstructed Signal', alpha=0.8)
+                axs[j].legend(loc='upper right')
+            else:
+                axs[j].plot(label_signal[:, j])
+                axs[j].plot(reconstructed_signal[:, j], alpha=0.8)
+            axs[j].set_ylabel(f'{label_fields["sig_name"][j]}', rotation='horizontal')
+            # axs[j].set_yrotation(0)
+        fig.canvas.draw()
+        axd['ecg_plots'].axis('off')
+        axd['ecg_plots'].imshow(fig.canvas.renderer.buffer_rgba())
 
-            # save everything in one image
-            filename = f"{records[i]}_reconstruction.png"
-            plt.figure(mosaic)
-            plt.savefig(os.path.join(visualization_save_dir, filename))
-
-            image_info["snr"] = mean_snr
-            image_info["snr_median"] = mean_snr_median
-            image_info["mean_ks_metric"] = mean_ks_metric
-            image_info["mean_asci_metric"] = mean_asci_metric
-            image_info["mean_weighted_absolute_difference_metric"] = mean_weighted_absolute_difference_metric
-            image_info["estimated_gridsize"] = gridsize
-
-            snrs.append(mean_snr)
-            stats.append(image_info)
-            if mean_snr < 3.5:
-                print(f"Low SNR for {records[i]}: {mean_snr:.2f}")
-
-        except Exception as e:
-            print(f"Error plotting signals for {records[i]}: {e}")
-            continue
+        # save everything in one image
+        filename = f"{records[i]}_reconstruction.png"
+        plt.figure(mosaic)
+        plt.savefig(os.path.join(visualization_save_dir, filename))
         plt.close()
+
+        image_info["snr"] = mean_snr
+        image_info["snr_median"] = mean_snr_median
+        image_info["mean_ks_metric"] = mean_ks_metric
+        image_info["mean_asci_metric"] = mean_asci_metric
+        image_info["mean_weighted_absolute_difference_metric"] = mean_weighted_absolute_difference_metric
+        image_info["estimated_gridsize"] = gridsize
+        image_info["actual_gridsize"] = true_gridsize
+        image_info["reference_pulse"] = dc_pulse
+
+        snrs.append(mean_snr)
+        stats.append(image_info)
+        if mean_snr < 3.5:
+            print(f"Low SNR for {records[i]}: {mean_snr:.2f}")
 
     print(f"Average SNR: {np.mean(snrs):.2f}")
     df = pd.DataFrame(stats)
     os.makedirs(os.path.join("evaluation", "data"), exist_ok=True)
-    df.to_csv(os.path.join("evaluation", "data", "snr_new_line_trace_force_cut_rp.csv"), index=False)
+    df.to_csv(os.path.join("evaluation", "data", "snr_mixed_ref_pulses.csv"), index=False)
 
 
 if __name__ == "__main__":
@@ -238,7 +243,9 @@ if __name__ == "__main__":
     # unet_outputs_folder = os.path.join("test_data", "unet_outputs")
     unet_outputs_folder = os.path.join("temp_data", "masks")
     reconstructed_signal_dir = os.path.join("temp_data", "reconstructed_signals")
+    os.makedirs(reconstructed_signal_dir, exist_ok=True)
     visualization_save_folder = os.path.join("evaluation", "trace_visualizations")
+    os.makedirs(visualization_save_folder, exist_ok=True)
 
     visualize_trace(test_images_folder, 
                     unet_outputs_folder, 

@@ -217,11 +217,11 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
         # HACK BELOW
         # This adds a few pixels to the start of the signal, because the image-kit generator
         # overlaps the ecg and the reference pulses slightly. On real images, we should NOT do this!
-        # if ref_pulse_generated == 1: # ref pulses at left, pad start of signal
-        #     buffer = [signal[0]]*9
+        # if ref_pulse_present == 1: # ref pulses at left, pad start of signal
+        #     buffer = [signal[0]]*5
         #     signal = buffer + signal
-        # if ref_pulse_generated == 2: # ref pulses are right, pad end of signal (CHECK IF THIS IS NEEDED)
-        #     buffer = [signal[-1]]*9
+        # if ref_pulse_present == 2: # ref pulses are right, pad end of signal (CHECK IF THIS IS NEEDED)
+        #     buffer = [signal[-1]]*5
         #     signal = signal + buffer
         # END HACK
 
@@ -236,7 +236,7 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
     )
     
     # save leftmost pixels for later use
-    # these turn out to be the *top* of the reference pulses, usually
+    # these turn out to be the base of the reference pulses, usually
     first_pixels = [pulso[0].y for pulso in signal_coords] 
     # Reference pulses
     # the difference between v0 and v1 should be two square grid blocks
@@ -282,22 +282,27 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
                     zeroed = True 
                     break
         
-        if not zeroed: 
-            # Scale signal with ref pulses
-            signal = [(volt_0 - y) * (1 / (volt_0 - volt_1)) for y in signal]
-            # use the baseline of the reference pulse, or the first plotted pixel, as the baseline
-            # alternate option no longer used: use the median of the signal
-            first_pixel_scaled = (volt_0 - first_pixels[r]) * (1 / (volt_0 - volt_1))
-            signal = signal - first_pixel_scaled 
+        if not zeroed:
+            if ref_pulse_present:
+                # Scale signal with ref pulses
+                signal = [(volt_0 - y) * (1 / (volt_0 - volt_1)) for y in signal]
+                # use the baseline of the reference pulse, or the first plotted pixel, as the baseline
+                first_pixel_scaled = (volt_0 - first_pixels[r]) * (1 / (volt_0 - volt_1))
+                signal = signal - first_pixel_scaled 
+            else:
+                # use the median of the signal as the baseline
+                signal = [(volt_0 - y) * (1 / (volt_0 - volt_1)) for y in signal]
+                signal = signal - np.median(signal)
         
         # remove single pixel spikes from lead delimiters in middle of signals
-        if c == 0: # furthest left column
-            signal[-1] = signal[-2]
-        elif c == NROWS - 1: # furthest right column
-            signal[0] = signal[1]
-        else: # middle columns
-            signal[0] = signal[1]
-            signal[-1] = signal[-2]
+        pixels_to_cutoff = 5
+        if c == 0 and not rhythm: # furthest left column
+            signal[-pixels_to_cutoff:] = 0
+        elif c == NROWS: # furthest right column
+            signal[:pixels_to_cutoff] = 0
+        elif not rhythm: # middle columns
+            signal[:pixels_to_cutoff] = 0
+            signal[-pixels_to_cutoff:] = 0
 
         # Round voltages to 4 decimals
         signal = np.round(signal, 4)
