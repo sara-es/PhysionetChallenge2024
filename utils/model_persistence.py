@@ -42,25 +42,31 @@ def load_checkpoint_dict(folder, name, verbose=False):
     'optimizer_state_dict', and 'loss'.
     """
     import torch
+    import torch.optim as optim
     from digitization.Unet.ECGunet import BasicResUNet
     cuda = torch.cuda.is_available()
 
     fn = os.path.join(folder, name)
-    # TODO hard coded here, need to fix saving/loading
-    fn = os.path.join('model', 'pretrained', "UNET_run1_256_checkpoint")
-    # try:
     # Load the model
     unet = BasicResUNet(3, 2, nbs=[1, 1, 1, 1], init_channels=16, cbam=False)
+    optimizer = optim.AdamW(params=unet.parameters())
     if cuda:
         unet = unet.cuda()
     if verbose:
         print('Loading U-net Weights...')
-    encoder_dict = unet.state_dict()
-    pretrained_dict = torch.load(fn)['model_state_dict']
-    pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in encoder_dict}
-    if verbose:  
-        print('weights loaded unet = ', len(pretrained_dict), '/', len(encoder_dict))
-    unet.load_state_dict(torch.load(fn)['model_state_dict'])
+    try:
+        checkpoint = torch.load(fn)
+        unet.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        epoch_reached = checkpoint['epoch']
+        loss_store = [[checkpoint['loss'], None]]
+        if verbose:
+            print(f'{len(checkpoint["model_state_dict"])}/{len(unet.state_dict())} weights ' +\
+                    f'loaded from {fn}. Starting from epoch {epoch_reached}.',
+                    flush=True)
+    except Exception as e:
+        print(e)
+        print(f'Could not load U-net checkpoint from {fn}.')
     return unet
 
 

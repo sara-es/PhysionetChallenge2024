@@ -71,7 +71,7 @@ def predict_single_image(image_id, im_patch_dir, unet, original_image_size=(1700
     return predicted_im
 
 
-def batch_predict_full_images(ids_to_predict, patch_dir, unet_state_dict, save_pth, 
+def batch_predict_full_images(ids_to_predict, patch_dir, unet, save_pth, 
                               verbose, save_all=True):
     """
     Mostly for testing - assumes we have labels for accuracy score and have already generated 
@@ -87,7 +87,6 @@ def batch_predict_full_images(ids_to_predict, patch_dir, unet_state_dict, save_p
         print(f"Testing on {len(ids_to_predict)} images with {len(ids)} total patches.")
 
     # Load the model
-    unet = Unet.utils.load_unet_from_state_dict(unet_state_dict)
     dice_list = np.zeros(len(ids_to_predict))
 
     for i, image_id in tqdm(enumerate(ids_to_predict), desc='Running U-net on images', 

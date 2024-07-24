@@ -3,8 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 base_path = "G:\\PhysionetChallenge2024\\temp_data\\"
-dir_path = base_path + "masks"
-out_path = base_path + "mask_pngs"
+dir_path = base_path + "unet_outputs"
+out_path = base_path + "unet_outputs_imgs"
 os.makedirs(out_path, exist_ok=True)
 
 os.listdir(dir_path)

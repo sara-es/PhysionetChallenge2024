@@ -7,7 +7,7 @@
 
 ## Preprocessing/Image cleaning
 - image scaling
-- layout detection/validation
+- layout detection/validation: YOLO
 - eval script to show/test both above
 
 ## Reconstruction
