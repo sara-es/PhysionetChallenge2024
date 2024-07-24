@@ -31,7 +31,9 @@ def is_pulse(
 
 def row_pulse_pos(
     signal: np.array,
+    expected_pulse_width : int,
     scan_perc : float = 0.1,
+    is_generated : bool = True
 ) -> int:
     """
 
@@ -41,8 +43,12 @@ def row_pulse_pos(
     # get left hand segment
     left_segment = signal[0:scan_length]
     right_segment = signal[-scan_length:]
-    is_left = is_pulse(left_segment, baseline)
-    is_right = is_pulse(right_segment, baseline)
+    is_left = is_pulse(left_segment, baseline, 
+                       min_height=expected_pulse_width-10, 
+                       min_width=expected_pulse_width-10)
+    is_right = is_pulse(right_segment, baseline, 
+                        min_height=expected_pulse_width-10, 
+                        min_width=expected_pulse_width-10)
 
     if is_left & is_right:
         # triggers sometimes when the end of the signal is the same height as the reference pulse
@@ -50,7 +56,7 @@ def row_pulse_pos(
         return 1 
     elif is_left:
         return 1 
-    elif is_right:
+    elif is_right and not is_generated: # generator never puts ref pulses on the right
         return 2
     else:
         return 0 # will be False if bool
@@ -66,11 +72,9 @@ def remove_pulses(raw_signals: Iterable[Iterable[Point]], ref_pulse_present: int
     LIMIT = min([len(signal) for signal in raw_signals])
     # scale the maximum amount of pixels to search for reference pulses by duration of the signal
     max_pulse_width = int(max(len(signal) for signal in raw_signals)/(duration/0.2 + 1))
-    # area around baseline to consider "at" baseline (I think), set to half the height of 
-    # the reference pulse
-    PIXEL_EPS = max_pulse_width - 1
+    PIXEL_EPS = 5 # OG ecg-miner constant
     # use first pixel in row as baseline - old version used furthest right, but led to issues
-    # should probably use furthest right if ref pulse at right
+    # TODO should probably use furthest right if ref pulse at right
     furthest_left_pixels = [pulso[0].y for pulso in raw_signals]
 
     direction = (
@@ -167,6 +171,7 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
     max_len = max(map(lambda signal: len(signal), signals))
     raw_signals = np.zeros((len(signals), max_len))
     pulses =  np.zeros(len(signals))
+    expected_pulse_width = int(max(len(signal) for signal in raw_signals)/(max_duration/0.2 + 1))
 
     for i in range(len(signals)):
         signal = [-p.y for p in signals[i]] # invert y coords (coords *down* from top)
@@ -175,7 +180,7 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
         raw_signals[i, :] = interpolator(
             np.linspace(0, max_len-1, max_len) # xnew, returns ynew
         ) 
-        pulses[i] = (row_pulse_pos(raw_signals[i, :]))
+        pulses[i] = (row_pulse_pos(raw_signals[i, :], expected_pulse_width, generated_image))
 
     # if we think we've found reference pulses in 2 or more rows, they're probably present
     if sum(pulses == 1) >= 2:
@@ -243,7 +248,8 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
     if ref_pulse_present == 2:
         first_pixels = [pulso[-1].y for pulso in signal_coords]
     else:
-        first_pixels = [pulso[0].y for pulso in signal_coords] 
+        first_pixels = [pulso[0].y for pulso in signal_coords]
+    
     # the difference between v0 and v1 should be two square grid blocks
     volt_0 = 2*grid_size_px
     volt_1 = 0
@@ -267,6 +273,7 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
 
         # Get correspondent part of the signal for current lead
         signal = interp_signals[r, :]
+        full_signal_median = np.median(signal)
         obs_num = len(signal) // (1 if rhythm else NCOLS)
         signal = signal[c * obs_num : (c + 1) * obs_num]
 
@@ -303,9 +310,10 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
                 signal = signal - first_pixel_scaled 
             else:
                 # use the median of the signal as the baseline
-                signal = [(volt_0 - y) * (1 / (volt_0 - volt_1)) for y in signal]
-                signal = signal - np.median(signal)
-        
+                signal = [(volt_0 - (y)) * (1 / (volt_0 - volt_1)) for y in signal]
+                median_scaled = (volt_0 - full_signal_median) * (1 / (volt_0 - volt_1))
+                signal = signal - median_scaled
+                
         # remove single pixel spikes from lead delimiters in middle of signals
         if generated_image:
             pixels_to_cutoff = 5
