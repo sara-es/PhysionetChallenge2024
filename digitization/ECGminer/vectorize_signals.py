@@ -6,6 +6,7 @@ from digitization.ECGminer.assets.DigitizationError import DigitizationError
 from digitization.ECGminer.assets.Point import Point
 from digitization.ECGminer.assets.Format import Format
 from digitization.ECGminer.assets.Lead import Lead
+from digitization.ECGminer import layout
 
 
 def is_pulse(
@@ -134,8 +135,8 @@ def remove_pulses(raw_signals: Iterable[Iterable[Point]], ref_pulse_present: int
     return (signals, ref_pulses)
 
 
-def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_duration: int
-    ) -> Tuple[np.array, float, int]:
+def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_duration: int,
+    generated_image: bool = True) -> Tuple[np.array, float, int]:
     """
     Vectorize the signals, normalizing them and storing them in a dataframe.
     Assumes signals are in format (2, 4, N) where the first dimension corresponds to 
@@ -156,9 +157,9 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
 
     Returns:
         np.array: Vectorized signals.
+        vectorized_signals: Iterable[Iterable[Point]], x and y coordinates of the signals with
+            reference pulses removed.
         gridsize: float, scaling factor for the signals.
-        ref_pulse_present: int, 0 if no reference pulses, 1 if present on left, 2 if present 
-            at right
     """
 
     signal_slice = slice(0, None)
@@ -192,21 +193,23 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
         )
         vectorized_signals = [rs[signal_slice] for rs in signal_coords]
 
+    #### START OF VECTORIZE
+    if generated_image: # we know the generator only uses certain parameters
+        NROWS, NCOLS = (3, 4) 
+        ORDER = Format.STANDARD 
+    else: 
+        NROWS = 3 # ATTENTION: LAYOUT HARD CODED FOR NOW, may have more if multiple rhythm leads 
+        NCOLS = 4 # We know Challenge team will only use 3x4 format
+        ORDER = Format.STANDARD # ATTENTION: LAYOUT HARD CODED FOR NOW, alternative: Format.CABRERA
+
     # Now that we've stripped out the reference pulses, calculate grid size and re-interpolate to correct
     # number of samples (this could definitely be done more efficiently)
-
-    #### START OF VECTORIZE
-    # Pad all signals to closest multiple number of ECG ncols
-    NROWS, NCOLS = (3, 4) # ATTENTION: LAYOUT HARD CODED FOR NOW
-    ORDER = Format.STANDARD # ATTENTION: LAYOUT HARD CODED FOR NOW, alternative: Format.CABRERA
-    rhythm_leads = [Lead.II] # ATTENTION: RHYTHM LEAD HARD CODED FOR NOW
     max_len = max(map(lambda signal: len(signal), vectorized_signals))
-    max_diff = max_len % NCOLS
-    max_pad = 0 if max_diff == 0 else NCOLS - max_diff
-
     grid_size_px = max_len / (max_duration/0.2) # 0.2 s per square
 
-    # hack to force correct sampling frequency
+    # TODO: check if all rows are the same length, pad if not
+
+    # Force correct sampling frequency/number of samples
     total_obs = int(sig_len)
     # Linear interpolation to get a certain number of observations
     interp_signals = np.empty((len(vectorized_signals), total_obs))
@@ -229,16 +232,18 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
         interp_signals[i, :] = interpolator(
             np.linspace(0, len(signal) - 1, total_obs)
         )
-    ecg_data = pd.DataFrame(
-        np.nan,
-        index=np.arange(total_obs),
-        columns=[lead.name for lead in Format.STANDARD],
-    )
+
+    # Detect rhythm leads
+    rhythm_leads = layout.detect_rhythm_strip(interp_signals, THRESH=1)
+    if rhythm_leads != [Lead.II]:
+        print(f'ALTERNATIVE RHYTHM LEAD DETECTED: {rhythm_leads}')
     
-    # save leftmost pixels for later use
-    # these turn out to be the base of the reference pulses, usually
-    first_pixels = [pulso[0].y for pulso in signal_coords] 
     # Reference pulses
+    # save the base of the reference pulses for scaling the signals
+    if ref_pulse_present == 2:
+        first_pixels = [pulso[-1].y for pulso in signal_coords]
+    else:
+        first_pixels = [pulso[0].y for pulso in signal_coords] 
     # the difference between v0 and v1 should be two square grid blocks
     volt_0 = 2*grid_size_px
     volt_1 = 0
@@ -246,6 +251,13 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
         raise DigitizationError(
             f"Reference pulses have not been detected correctly"
         )
+    
+    # Create dataframe and populate with signals
+    ecg_data = pd.DataFrame(
+        np.nan,
+        index=np.arange(total_obs),
+        columns=[lead.name for lead in Format.STANDARD],
+    )
 
     for i, lead in enumerate(ORDER):
         zeroed = False
@@ -295,14 +307,15 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
                 signal = signal - np.median(signal)
         
         # remove single pixel spikes from lead delimiters in middle of signals
-        pixels_to_cutoff = 5
-        if c == 0 and not rhythm: # furthest left column
-            signal[-pixels_to_cutoff:] = 0
-        elif c == NROWS: # furthest right column
-            signal[:pixels_to_cutoff] = 0
-        elif not rhythm: # middle columns
-            signal[:pixels_to_cutoff] = 0
-            signal[-pixels_to_cutoff:] = 0
+        if generated_image:
+            pixels_to_cutoff = 5
+            if c == 0 and not rhythm: # furthest left column
+                signal[-pixels_to_cutoff:] = 0
+            elif c == NROWS: # furthest right column
+                signal[:pixels_to_cutoff] = 0
+            elif not rhythm: # middle columns
+                signal[:pixels_to_cutoff] = 0
+                signal[-pixels_to_cutoff:] = 0
 
         # Round voltages to 4 decimals
         signal = np.round(signal, 4)

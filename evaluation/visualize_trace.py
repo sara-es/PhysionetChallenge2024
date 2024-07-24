@@ -126,12 +126,6 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
         image_info = {}
         image_info["record"] = records[i]
 
-        # load image
-        # this assumes image needs no preprocessing, or preprocessing has already been done
-        with Image.open(os.path.join(test_images_dir, image_ids[i] + '.png')) as img:
-            axd['original_image'].axis('off')
-            axd['original_image'].imshow(img, cmap='gray')
-
         # load u-net output
         unet_image_path = os.path.join(unet_outputs_dir, unet_ids[i] + '.npy')
         with open(unet_image_path, 'rb') as f:
@@ -178,6 +172,12 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
                                             ['original_image', 'ecg_plots'],
                                             ['trace', 'ecg_plots']
                                         ])
+            # load image
+            # this assumes image needs no preprocessing, or preprocessing has already been done
+            with Image.open(os.path.join(test_images_dir, image_ids[i] + '.png')) as img:
+                axd['original_image'].axis('off')
+                axd['original_image'].imshow(img, cmap='gray')
+
             # plot trace of signal from u-net output
             trace = get_trace(unet_image, raw_signals)
             axd['trace'].xaxis.set_visible(False)

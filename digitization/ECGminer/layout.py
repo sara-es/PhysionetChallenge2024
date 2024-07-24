@@ -7,6 +7,7 @@ Created on Fri Jun 14 12:46:39 2024
 
 #%%
 import numpy as np
+from digitization.ECGminer.assets.Lead import Lead
 
 #%%
 def point_to_matrix(signals):
@@ -43,11 +44,15 @@ The user parameter THRESH is the average per-column difference allowed between t
 """
 
 def detect_rhythm_strip(signal_arr, THRESH = 1):
+    """
+    Parameters
+        signal_arr: np.array
+    """
     # TODO: move this constant to somewhere sensible if needed
     format_3x4 = [
-        ['Lead.I', 'Lead.aVR','Lead.V1', 'Lead.V4'],
-        ['Lead.II', 'Lead.aVL', 'Lead.V2', 'Lead.V5'],
-        ['Lead.III', 'Lead.aVF', 'Lead.V3', 'Lead.V6'],
+        [Lead.I, Lead.aVR,Lead.V1, Lead.V4],
+        [Lead.II, Lead.aVL, Lead.V2, Lead.V5],
+        [Lead.III, Lead.aVF, Lead.V3, Lead.V6],
     ]
 
     # format_6x2 = [
@@ -73,20 +78,17 @@ def detect_rhythm_strip(signal_arr, THRESH = 1):
     #     'Lead.V5',
     #     'Lead.V6',
     # ]
+
+    n_rows = signal_arr.shape[0]
     
-    NROWS = len(signals)
-
-    #THRESH is a user parameter
-    THRESH = 1
-
     #2.for each signal, get its np.diff - this converts from pixel coordinates to relative coordinates
     diff_signals = np.diff(signal_arr)
     reference = []
 
-    if NROWS <=6: # if there are reference pulses, then we assume that the layout is in 3x4 format
+    if n_rows <=6: # if there are reference pulses, then we assume that the layout is in 3x4 format
         NCOLS = 4
         test_grid = np.zeros([3,NCOLS])
-        for i in range(3, NROWS):
+        for i in range(3, n_rows):
             main_ecg = diff_signals[0:3,:]
             ref = diff_signals[i,:]
             col_width = len(ref)//NCOLS
@@ -106,8 +108,8 @@ def detect_rhythm_strip(signal_arr, THRESH = 1):
                 reference.append(format_3x4[x[0]][y[0]]) # get corresponding label
     
     #for the special case of 4 rows, and the auto finder fails - assume that the rhythm strip is lead II
-    if NROWS == 4 & len(reference) == 0:
-        reference.append('Lead.II')
+    if n_rows == 4 & len(reference) == 0:
+        reference.append(Lead.II)
                 
     ## TODO  - extend to work with 6x2 format. Code below might work, but not tested
     
