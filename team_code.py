@@ -286,14 +286,9 @@ def reconstruct_signal(record, unet_image, header_txt,
     max_duration = int(signal_length/fs)
     # max duration on images cannot exceed 10s as per Challenge team
     max_duration = 10 if max_duration > 10 else max_duration 
-    reconstructed_signal, isQuality, raw_signals, gridsize  = ECGminer.digitize_image_unet(unet_image, 
+    reconstructed_signal, raw_signals, gridsize  = ECGminer.digitize_image_unet(unet_image, 
                                     sig_len=signal_length, max_duration=max_duration)
     reconstructed_signal = np.asarray(np.nan_to_num(reconstructed_signal))
-
-    # if signal quality is bad
-    if isQuality == False:
-        # reconstructed_signal = np.zeros_like(reconstructed_signal)
-        print(f"Signal quality for record {record} is bad.")
 
     # save reconstructed signal and copied header file in the same folder
     if save_signal:

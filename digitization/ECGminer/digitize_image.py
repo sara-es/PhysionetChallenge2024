@@ -39,14 +39,11 @@ def digitize_image_unet(restored_image, sig_len=1000, max_duration=10):
     # hardcoded n_lines=4 for now because constant layout+rhythm
     signal_coords, rois = extract_signals.extract_row_signals(ecg_crop, n_lines=4)
 
-    # DW: Add in ECG SQI here - not the most logical place, but SQI requires signal in pixel coordinates
-    isQuality = extract_signals.ecg_sqi(signal_coords, rois)
-
     # check for reference pulses, then convert to digitized signals
     # returns array of digitized signals, original signal coordinates, and gridsize
     # gridsize: float, scaling factor for the signals in pixel units
     digitised_signals, raw_signals, gridsize = vectorize_signals.vectorize(signal_coords, 
                                                                 sig_len, max_duration)
 
-    return digitised_signals, isQuality, raw_signals, gridsize
+    return digitised_signals, raw_signals, gridsize
 
