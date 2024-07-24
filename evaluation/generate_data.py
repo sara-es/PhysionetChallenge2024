@@ -42,13 +42,18 @@ def generate_training_data(data_folder, output_folder, verbose, max_samples):
     img_gen_params.wrinkles = True
     img_gen_params.print_header = True
     img_gen_params.augment = True
-    # img_gen_params.calibration_pulse = 1
+    # img_gen_params.rotate = 8
+    # even with seed, pulse is not deterministic, must be 0 or 1 to match masks
+    img_gen_params.calibration_pulse = 1
     img_gen_params.store_config = 2
+    img_gen_params.seed = 42
     img_gen_params.input_directory = data_folder
     img_gen_params.output_directory = images_folder
 
     # set params for generating masks
     mask_gen_params = generator.MaskArgs()
+    mask_gen_params.seed = 42
+    mask_gen_params.calibration_pulse = 1 # must be 0 or 1
     mask_gen_params.input_directory = data_folder
     mask_gen_params.output_directory = masks_folder
 

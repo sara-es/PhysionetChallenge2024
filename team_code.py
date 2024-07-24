@@ -23,7 +23,7 @@ import preprocessing
 from utils import team_helper_code, constants, model_persistence
 from digitization import Unet, ECGminer
 from classification import seresnet18
-import generator, preprocessing, classification
+import generator, preprocessing, digitization, classification
 import generator.gen_ecg_images_from_data_batch
 from evaluation import eval_utils
 
@@ -262,7 +262,6 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
         else:
             LOAD_PATH_UNET = chkpt_path
 
-
     image_patch_folder = os.path.join(patch_folder, 'image_patches')
     mask_patch_folder = os.path.join(patch_folder, 'label_patches')
 
@@ -283,19 +282,20 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
 def reconstruct_signal(record, unet_image, header_txt, 
                        reconstructed_signals_folder, save_signal=True):
     """
+    reconstruct signals from u-net outputs
 
+    Returns:
+        reconstructed_signal: pandas dataframe, reconstructed signal
+        raw_signals: np.array, raw signals in pixel coords
+        gridsize: float, scaling factor for the signals in pixel units
     """
-
-    # TODO: get gridsize from header file
-    # alternately can pass original image in as an argument to this function and extract
-    # gridsize from the image here
-    ###### FIXME hardcoded gridsize for now ######
-    gridsize = 37.5
-
-    # reconstruct signals from u-net outputs
     signal_length = helper_code.get_num_samples(header_txt)
-    reconstructed_signal, trace = ECGminer.digitize_image_unet(unet_image, gridsize, 
-                                                               sig_len=signal_length)
+    fs = helper_code.get_sampling_frequency(header_txt)
+    max_duration = int(signal_length/fs)
+    # max duration on images cannot exceed 10s as per Challenge team
+    max_duration = 10 if max_duration > 10 else max_duration 
+    reconstructed_signal, raw_signals, gridsize  = ECGminer.digitize_image_unet(unet_image, 
+                                    sig_len=signal_length, max_duration=max_duration)
     reconstructed_signal = np.asarray(np.nan_to_num(reconstructed_signal))
 
     # save reconstructed signal and copied header file in the same folder
@@ -306,8 +306,8 @@ def reconstruct_signal(record, unet_image, header_txt,
         helper_code.save_signals(output_record_path, reconstructed_signal, comments)
 
     # TODO: adapt self.postprocessor.postprocess to work for different layouts
-
-    return reconstructed_signal, trace
+    # return raw_signals and gridsize for external evaluation
+    return reconstructed_signal, raw_signals, gridsize
 
 
 def train_classification_model(records_folder, verbose, records_to_process=None):
@@ -349,65 +349,6 @@ def train_classification_model(records_folder, verbose, records_to_process=None)
         print("Finished training classification model.")
     
     return resnet_model, uniq_labels
-
-
-def preprocess_images(raw_images_folder, processed_images_folder, verbose, 
-                      records_to_process=None):
-    """
-    CURRENTLY NOT USED
-    
-    Preprocess images found in raw_images_folder and save them in processed_images_folder.
-    Optionally provide a list of a subset of records to process (records_to_process).
-
-    Preprocessing steps currently implemented:
-        - resize images to a standard size
-    
-    TODO:
-        - determine grid size of the image and save it to either the original header file 
-        (will need to pass in the header file path, wfdb_records_folder) or a new file
-    """
-    if not records_to_process:
-        records_to_process = helper_code.find_records(raw_images_folder)
-    
-    for i in tqdm(range(len(records_to_process)), desc='Preprocessing images', disable=not verbose):
-        record = records_to_process[i] 
-        #raw_image_path = os.path.join(raw_images_folder, record + '.png')
-        
-        # load raw image
-        record_path = os.path.join(raw_images_folder, record)
-        # TODO below commented line returns a PIL image and I had trouble working with it - may want to check this?
-        # image = helper_code.load_images(record_image)[0] 
-        record_image_name = team_helper_code.find_available_images(
-                            [record], raw_images_folder, verbose)[0] # returns list
-        with open(os.path.join(raw_images_folder, record_image_name + ".png"), 'rb') as f:
-            image = plt.imread(f)
-
-        # resize image if needed
-        # TODO this breaks
-        # image = preprocessing.resize_image(image)
-        
-        # get and save the gridsize
-        grayscale_image = preprocessing.cepstrum_grid_detection.image_to_grayscale_array(image)
-        
-        # TODO: fix get_rotation_angle - it breaks for tiny_test/hr_gt/01017_hr
-        rot_angle, gridsize = preprocessing.cepstrum_grid_detection.get_rotation_angle(grayscale_image)
-        
-        # set image to the rotated image
-        image = sp.ndimage.rotate(image, rot_angle, axes=(1, 0), reshape=True)
-        image = (image * 255).astype(np.uint8) # convert back to uint8
-
-        # save processed image
-        processed_image = os.path.join(processed_images_folder, record_image_name + '.png')
-        with open(processed_image, 'wb') as f:
-            plt.imsave(f, image, cmap='gray')
-        # image.save(processed_image,"PNG") # check this works? Note: it does not work
-
-        # save header file with gridsize to processed_images_folder
-        header_txt = helper_code.load_header(record_path)
-        output_record_path = os.path.join(processed_images_folder, record)
-        helper_code.save_header(output_record_path, header_txt)
-        team_helper_code.save_gridsize(output_record_path, gridsize)
-        team_helper_code.save_rotation(output_record_path, rot_angle)
 
 
 def unet_reconstruct_single_image(record, model, verbose, delete_patches=True):
@@ -458,7 +399,7 @@ def unet_reconstruct_single_image(record, model, verbose, delete_patches=True):
     # reconstruct signal from u-net output image
     # load header file to save with reconstructed signal
     header_txt = helper_code.load_header(record)
-    reconstructed_signal, trace = reconstruct_signal(record_id, predicted_image, 
+    reconstructed_signal, raw_signals, _ = reconstruct_signal(record_id, predicted_image, 
                                                      header_txt,
                                                      reconstructed_signals_folder, 
                                                      save_signal=True)
