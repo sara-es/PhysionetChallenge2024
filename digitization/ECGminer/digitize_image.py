@@ -9,7 +9,7 @@ from digitization.ECGminer.Preprocessor import Preprocessor
 from digitization.ECGminer import extract_signals, vectorize_signals
 
 
-def digitize_image_unet(restored_image, sig_len=1000, max_duration=10):
+def digitize_image_unet(restored_image, sig_len=1000, max_duration=10, is_generated_image=True):
     """ 
     digitize_image_unet takes the output of the u-net
 
@@ -43,7 +43,8 @@ def digitize_image_unet(restored_image, sig_len=1000, max_duration=10):
     # returns array of digitized signals, original signal coordinates, and gridsize
     # gridsize: float, scaling factor for the signals in pixel units
     digitised_signals, raw_signals, gridsize = vectorize_signals.vectorize(signal_coords, 
-                                                                sig_len, max_duration)
+                                                                sig_len, max_duration,
+                                                                is_generated_image)
 
     return digitised_signals, raw_signals, gridsize
 

@@ -32,8 +32,8 @@ def is_pulse(
 def row_pulse_pos(
     signal: np.array,
     expected_pulse_width : int,
+    is_generated : bool = True,
     scan_perc : float = 0.1,
-    is_generated : bool = True
 ) -> int:
     """
 
@@ -57,6 +57,7 @@ def row_pulse_pos(
     elif is_left:
         return 1 
     elif is_right and not is_generated: # generator never puts ref pulses on the right
+        print("RP found on right, but not left.")
         return 2
     else:
         return 0 # will be False if bool
@@ -140,7 +141,7 @@ def remove_pulses(raw_signals: Iterable[Iterable[Point]], ref_pulse_present: int
 
 
 def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_duration: int,
-    generated_image: bool = True) -> Tuple[np.array, float, int]:
+    is_generated_image: bool = True) -> Tuple[np.array, float, int]:
     """
     Vectorize the signals, normalizing them and storing them in a dataframe.
     Assumes signals are in format (2, 4, N) where the first dimension corresponds to 
@@ -180,7 +181,7 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
         raw_signals[i, :] = interpolator(
             np.linspace(0, max_len-1, max_len) # xnew, returns ynew
         ) 
-        pulses[i] = (row_pulse_pos(raw_signals[i, :], expected_pulse_width, generated_image))
+        pulses[i] = (row_pulse_pos(raw_signals[i, :], expected_pulse_width, is_generated_image))
 
     # if we think we've found reference pulses in 2 or more rows, they're probably present
     if sum(pulses == 1) >= 2:
@@ -217,7 +218,7 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
         # HACK BELOW
         # This adds a few pixels to the start of the signal, because the image-kit generator
         # overlaps the ecg and the reference pulses slightly. On real images, we should NOT do this!
-        if generated_image:
+        if is_generated_image:
             if ref_pulse_present == 1: # ref pulses at left, pad start of signal
                 buffer = [signal[0]]*2
                 signal = buffer + signal
@@ -232,19 +233,19 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
         )
 
     # Layout detection
-    if generated_image: # we know the generator only uses certain parameters
+    if is_generated_image: # we know the generator only uses certain parameters
         NROWS, NCOLS = (3, 4) 
-        ORDER = Format.STANDARD 
+        is_cabrera = False
     else: 
         NROWS = 3 # ATTENTION: LAYOUT HARD CODED FOR NOW, may have more if multiple rhythm leads 
         NCOLS = 4 # We know Challenge team will only use 3x4 format
-        ORDER = Format.CABRERA if layout.cabrera_detector(interp_signals, NCOLS) else Format.STANDARD
-    if ORDER == Format.CABRERA:
-        print('Cabrera format detected!')
-    # Detect rhythm leads
-    rhythm_leads = layout.detect_rhythm_strip(interp_signals, THRESH=1)
-    if rhythm_leads != [Lead.II]:
-        print(f'ALTERNATIVE RHYTHM LEAD DETECTED: {rhythm_leads}')
+        is_cabrera = layout.cabrera_detector(interp_signals, NCOLS)
+    ORDER = Format.CABRERA if is_cabrera else Format.STANDARD
+    # if is_cabrera:
+    #     print('Cabrera format detected!')
+    rhythm_leads = layout.detect_rhythm_strip(interp_signals, is_cabrera, THRESH=1)
+    # if rhythm_leads != [Lead.II]:
+    #     print(f'ALTERNATIVE RHYTHM LEAD DETECTED: {rhythm_leads}')
     
     # Reference pulses
     # save the base of the reference pulses for scaling the signals
@@ -318,7 +319,7 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
                 signal = signal - median_scaled
                 
         # remove single pixel spikes from lead delimiters in middle of signals
-        if generated_image:
+        if is_generated_image:
             pixels_to_cutoff = 6
             if c == 0 and not rhythm: # furthest left column
                 signal[-pixels_to_cutoff:] = 0
