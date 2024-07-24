@@ -27,21 +27,21 @@ def generate_data(data_folder, model_folder, verbose):
 
     records = helper_code.find_records(data_folder)
     num_records = len(records)
-    records = shuffle(records, random_state=42)[:50] # test on a tiny number of records for now
+    records = shuffle(records, random_state=42)[:100] # test on a tiny number of records for now
 
     if num_records == 0:
         raise FileNotFoundError('No data were provided.')
 
-    images_folder = os.path.join("test_rot_data", "images")
-    masks_folder = os.path.join("test_rot_data", "masks")
-    patch_folder = os.path.join("test_rot_data", "patches")
-    unet_output_folder = os.path.join("test_rot_data", "unet_outputs")
+    images_folder = os.path.join("temp_data", "images")
+    masks_folder = os.path.join("temp_data", "masks")
+    patch_folder = os.path.join("temp_data", "patches")
+    # unet_output_folder = os.path.join("temp_data", "unet_outputs")
     # reconstructed_signals_folder = os.path.join("test_rot_data", "reconstructed_signals")
 
     os.makedirs(images_folder, exist_ok=True)
     os.makedirs(masks_folder, exist_ok=True)
     os.makedirs(patch_folder, exist_ok=True)
-    os.makedirs(unet_output_folder, exist_ok=True)
+    # os.makedirs(unet_output_folder, exist_ok=True)
     # os.makedirs(reconstructed_signals_folder, exist_ok=True)
 
     # params for generating images
@@ -50,14 +50,18 @@ def generate_data(data_folder, model_folder, verbose):
     img_gen_params.wrinkles = True
     img_gen_params.print_header = True
     img_gen_params.augment = True
-    img_gen_params.rotate = 8
-    img_gen_params.calibration_pulse = 0.5
+    # img_gen_params.rotate = 8
+    # even with seed, pulse  is not deterministic, must be 0 or 1 to match masks
+    img_gen_params.calibration_pulse = 1
     img_gen_params.store_config = 2
+    img_gen_params.seed = 42
     img_gen_params.input_directory = data_folder
     img_gen_params.output_directory = images_folder
 
     # set params for generating masks
     mask_gen_params = generator.MaskArgs()
+    mask_gen_params.seed = 42
+    mask_gen_params.calibration_pulse = 1 # must be 0 or 1
     mask_gen_params.input_directory = data_folder
     mask_gen_params.output_directory = masks_folder
 
@@ -75,29 +79,29 @@ def generate_data(data_folder, model_folder, verbose):
                                      patch_folder, verbose, max_samples=False)
     
     # load u-net
-    models = model_persistence.load_models(model_folder, verbose, models_to_load=['digitization_model'])
-    unet_state_dict = models['digitization_model']
-    # checkpoint = torch.load("model\\UNET_256_checkpoint")
-    # unet_state_dict = checkpoint['model_state_dict']
-    dice_list = Unet.batch_predict_full_images(records, patch_folder, unet_state_dict, 
-                                   unet_output_folder, verbose, save_all=True)
-    print(np.asarray(dice_list).mean())
+    # models = model_persistence.load_models(model_folder, verbose, models_to_load=['digitization_model'])
+    # unet_state_dict = models['digitization_model']
+    # # checkpoint = torch.load("model\\UNET_256_checkpoint")
+    # # unet_state_dict = checkpoint['model_state_dict']
+    # dice_list = Unet.batch_predict_full_images(records, patch_folder, unet_state_dict, 
+    #                                unet_output_folder, verbose, save_all=True)
+    # print(np.asarray(dice_list).mean())
 
     # reconstruct_signals
-    if verbose:
-        print("Reconstructing signals from u-net outputs...")
-    reconstructed_signals = []
-    for record in tqdm(records):
-        # load u-net outputs
-        record_id = team_helper_code.find_available_images(
-                            [record], unet_output_folder, verbose)[0] # returns list
-        unet_image_path = os.path.join(unet_output_folder, record_id + '.npy')
-        with open(unet_image_path, 'rb') as f:
-            unet_image = np.load(f)
+    # if verbose:
+    #     print("Reconstructing signals from u-net outputs...")
+    # reconstructed_signals = []
+    # for record in tqdm(records):
+    #     # load u-net outputs
+    #     record_id = team_helper_code.find_available_images(
+    #                         [record], unet_output_folder, verbose)[0] # returns list
+    #     unet_image_path = os.path.join(unet_output_folder, record_id + '.npy')
+    #     with open(unet_image_path, 'rb') as f:
+    #         unet_image = np.load(f)
 
-        # save unet output as image to check (can comment this out if not needed)
-        with open(unet_image_path.replace('.npy', '.png'), 'wb') as f:
-            plt.imsave(f, unet_image, cmap='gray')
+    #     # save unet output as image to check (can comment this out if not needed)
+    #     with open(unet_image_path.replace('.npy', '.png'), 'wb') as f:
+    #         plt.imsave(f, unet_image, cmap='gray')
 
         # reconstruct signal
         # load header file to save with reconstructed signal
