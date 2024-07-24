@@ -1,11 +1,9 @@
 ## Image generation (image-kit)
 - different layouts
-- vertical bars in ecg
 **Low prio:**
 - handwriting or approximation thereof
 - add artefacts (e.g. tipp-ex) to generated images
 - different gap sizes between leads in case of no rhythm strip
-- different resolutions/image size?
 
 ## Preprocessing/Image cleaning
 - image scaling
@@ -13,9 +11,10 @@
 - eval script to show/test both above
 
 ## Reconstruction
-**Low prio:**
-- signal quality metric for reconstructed signal: return nans if reconstruction has failed (+lead arithmetic for redundancy/error checking in reconstruction)
-- check if using first pixel of each lead as a baseline improves SNR
+- classifier for real vs generated images
+- cabrera detection 
+- gaps between leads ?
+- fine tune magic numbers on generated images in vectorize_signals.py: can pad signals based on "xgap" in generator
 - header/text extraction for features 
 
 ## Unet
