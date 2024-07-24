@@ -122,7 +122,7 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
     stats = []
     
     for i in range(len(ids)): # care, seems to crash after plotting ~200 or so - I blame tkinter
-        # print(image_ids[i])
+        print(image_ids[i])
         image_info = {}
         image_info["record"] = records[i]
 
@@ -237,7 +237,7 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
     print(f"Average SNR: {np.mean(snrs):.2f}")
     df = pd.DataFrame(stats)
     os.makedirs(os.path.join("evaluation", "data"), exist_ok=True)
-    df.to_csv(os.path.join("evaluation", "data", "snr_mixed_ref_pulses.csv"), index=False)
+    df.to_csv(os.path.join("evaluation", "data", "snr_mixed_ref_pulses_whole_signal_baseline_add_buffer.csv"), index=False)
 
 
 if __name__ == "__main__":
@@ -248,7 +248,7 @@ if __name__ == "__main__":
     os.makedirs(reconstructed_signal_dir, exist_ok=True)
     visualization_save_folder = os.path.join("evaluation", "trace_visualizations")
     os.makedirs(visualization_save_folder, exist_ok=True)
-    save_image_threshold = 3.5 # snr threshold below which images will be saved for visualization
+    save_image_threshold = 10 # snr threshold below which images will be saved for visualization
 
     visualize_trace(test_images_folder, 
                     unet_outputs_folder, 

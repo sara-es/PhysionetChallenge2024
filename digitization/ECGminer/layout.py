@@ -7,6 +7,7 @@ Created on Fri Jun 14 12:46:39 2024
 
 #%%
 import numpy as np
+from scipy.signal import correlate
 from digitization.ECGminer.assets.Lead import Lead
 
 #%%
@@ -80,7 +81,7 @@ def detect_rhythm_strip(signal_arr, THRESH = 1):
     # ]
 
     n_rows = signal_arr.shape[0]
-    
+
     #2.for each signal, get its np.diff - this converts from pixel coordinates to relative coordinates
     diff_signals = np.diff(signal_arr)
     reference = []
@@ -133,3 +134,58 @@ def detect_rhythm_strip(signal_arr, THRESH = 1):
     # To differentiate between standard and cabrera, compare similarity of lead III and aVF
     
     return reference
+
+
+#%%
+def cabrera_detector(signal, NCOLS = 4):
+     diff_signals = np.diff(signal)
+     ref = np.size(diff_signals,1)
+     col_width = ref//NCOLS
+ 
+     if NCOLS == 4:
+         pos1 = diff_signals[0,1:col_width]
+         pos2 = diff_signals[1,1:col_width]
+         pos3 = diff_signals[2,1:col_width]
+         pos4 = diff_signals[0,col_width:2*col_width]
+         pos5 = diff_signals[1,col_width:2*col_width]
+         pos6 = diff_signals[2,col_width:2*col_width]
+     
+         test = correlate(pos1, pos2, mode='same', method='auto')
+         idx = np.where(abs(test)==max(abs(test)))[0]
+         corr1 = test[idx][0]
+         test = correlate(pos2, pos3, mode='same', method='auto')
+         idx = np.where(abs(test)==max(abs(test)))[0]
+         corr2 = test[idx][0]
+         test = correlate(pos3, pos4, mode='same', method='auto')
+         idx = np.where(abs(test)==max(abs(test)))[0]
+         corr3 = test[idx][0]
+         test = correlate(pos4, pos5, mode='same', method='auto')
+         idx = np.where(abs(test)==max(abs(test)))[0]
+         corr4 = test[idx][0]
+         test = correlate(pos5, pos6, mode='same', method='auto')
+         idx = np.where(abs(test)==max(abs(test)))[0]
+         corr5 = test[idx][0]
+     
+         test = correlate(pos5, pos1, mode='same', method='auto')
+         idx = np.where(abs(test)==max(abs(test)))[0]
+         c_corr1 = test[idx][0]
+         test = correlate(pos1, -pos4, mode='same', method='auto')
+         idx = np.where(abs(test)==max(abs(test)))[0]
+         c_corr2 = test[idx][0]
+         test = correlate(-pos4, pos2, mode='same', method='auto')
+         idx = np.where(abs(test)==max(abs(test)))[0]
+         c_corr3 = test[idx][0]
+         test = correlate(pos2, pos6, mode='same', method='auto')
+         idx = np.where(abs(test)==max(abs(test)))[0]
+         c_corr4 = test[idx][0]
+         test = correlate(pos6, pos3, mode='same', method='auto')
+         idx = np.where(abs(test)==max(abs(test)))[0]
+         c_corr5 = test[idx][0]
+     
+         a = np.std([corr1, corr2, corr3, corr4, corr5])
+         b = np.std([c_corr1, c_corr2, c_corr3, c_corr4, c_corr5])
+
+     if a>b:
+         return False
+     else:
+         return True

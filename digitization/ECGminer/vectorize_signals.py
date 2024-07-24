@@ -199,14 +199,6 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
         vectorized_signals = [rs[signal_slice] for rs in signal_coords]
 
     #### START OF VECTORIZE
-    if generated_image: # we know the generator only uses certain parameters
-        NROWS, NCOLS = (3, 4) 
-        ORDER = Format.STANDARD 
-    else: 
-        NROWS = 3 # ATTENTION: LAYOUT HARD CODED FOR NOW, may have more if multiple rhythm leads 
-        NCOLS = 4 # We know Challenge team will only use 3x4 format
-        ORDER = Format.STANDARD # ATTENTION: LAYOUT HARD CODED FOR NOW, alternative: Format.CABRERA
-
     # Now that we've stripped out the reference pulses, calculate grid size and re-interpolate to correct
     # number of samples (this could definitely be done more efficiently)
     max_len = max(map(lambda signal: len(signal), vectorized_signals))
@@ -225,12 +217,13 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
         # HACK BELOW
         # This adds a few pixels to the start of the signal, because the image-kit generator
         # overlaps the ecg and the reference pulses slightly. On real images, we should NOT do this!
-        # if ref_pulse_present == 1: # ref pulses at left, pad start of signal
-        #     buffer = [signal[0]]*5
-        #     signal = buffer + signal
-        # if ref_pulse_present == 2: # ref pulses are right, pad end of signal (CHECK IF THIS IS NEEDED)
-        #     buffer = [signal[-1]]*5
-        #     signal = signal + buffer
+        if generated_image:
+            if ref_pulse_present == 1: # ref pulses at left, pad start of signal
+                buffer = [signal[0]]*2
+                signal = buffer + signal
+            if ref_pulse_present == 2: # ref pulses are right, pad end of signal (CHECK IF THIS IS NEEDED)
+                buffer = [signal[-1]]*2
+                signal = signal + buffer
         # END HACK
 
         interpolator = sp.interpolate.interp1d(np.arange(len(signal)), signal)
@@ -238,6 +231,16 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
             np.linspace(0, len(signal) - 1, total_obs)
         )
 
+    # Layout detection
+    if generated_image: # we know the generator only uses certain parameters
+        NROWS, NCOLS = (3, 4) 
+        ORDER = Format.STANDARD 
+    else: 
+        NROWS = 3 # ATTENTION: LAYOUT HARD CODED FOR NOW, may have more if multiple rhythm leads 
+        NCOLS = 4 # We know Challenge team will only use 3x4 format
+        ORDER = Format.CABRERA if layout.cabrera_detector(interp_signals, NCOLS) else Format.STANDARD
+    if ORDER == Format.CABRERA:
+        print('Cabrera format detected!')
     # Detect rhythm leads
     rhythm_leads = layout.detect_rhythm_strip(interp_signals, THRESH=1)
     if rhythm_leads != [Lead.II]:
@@ -316,7 +319,7 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
                 
         # remove single pixel spikes from lead delimiters in middle of signals
         if generated_image:
-            pixels_to_cutoff = 5
+            pixels_to_cutoff = 6
             if c == 0 and not rhythm: # furthest left column
                 signal[-pixels_to_cutoff:] = 0
             elif c == NROWS: # furthest right column
