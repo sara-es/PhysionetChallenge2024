@@ -170,7 +170,7 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
         true_gridsize = config['x_grid']
         dc_pulse = config['dc_pulse']
         
-        if save_images or mean_snr < 4:
+        if mean_snr < save_image_threshold:
             # set up mosaic for original image, u-net output with trace, ground truth signal, 
             # and reconstructed signal
             mosaic = plt.figure(layout="tight", figsize=(18, 13))
@@ -248,11 +248,11 @@ if __name__ == "__main__":
     os.makedirs(reconstructed_signal_dir, exist_ok=True)
     visualization_save_folder = os.path.join("evaluation", "trace_visualizations")
     os.makedirs(visualization_save_folder, exist_ok=True)
-    save_all_images = True # save all images (True), or only ones with poor snr (False)
+    save_image_threshold = 3.5 # snr threshold below which images will be saved for visualization
 
     visualize_trace(test_images_folder, 
                     unet_outputs_folder, 
                     reconstructed_signal_dir,
                     wfdb_records_dir=test_images_folder,
                     visualization_save_dir=visualization_save_folder,
-                    save_images=save_all_images)
+                    save_images=save_image_threshold)
