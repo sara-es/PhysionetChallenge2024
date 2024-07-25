@@ -184,8 +184,8 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
     
     # train U-net
     args = Unet.utils.Args()
-    args.train_val_prop = 1.0 # we want to train on all available data
-    args.epochs = 50 # SET THIS IN FINAL SUBMISSION
+    args.train_val_prop = 0.8
+    # args.epochs = 1 # SET THIS IN FINAL SUBMISSION
     checkpoint_folder = os.path.join('digitization', 'model_checkpoints')
     unet_model = train_unet(records_to_process, patch_folder, checkpoint_folder, verbose, args=args, 
                             warm_start=True)
@@ -208,34 +208,35 @@ def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder
 
     # params for generating images
     img_gen_params = generator.DefaultArgs()
-    img_gen_params.seed = seed
+    img_gen_params.input_directory = wfdb_records_folder
+    img_gen_params.output_directory = images_folder
     img_gen_params.random_bw = 0.2
     img_gen_params.wrinkles = True
     img_gen_params.print_header = True
     img_gen_params.augment = True
-    img_gen_params.calibration_pulse = 1
-    img_gen_params.input_directory = wfdb_records_folder
-    img_gen_params.output_directory = images_folder
+    img_gen_params.calibration_pulse = 0
 
     # set params for generating masks
     mask_gen_params = generator.MaskArgs()
-    mask_gen_params.seed = seed
-    mask_gen_params.calibration_pulse = 1
     mask_gen_params.input_directory = wfdb_records_folder
     mask_gen_params.output_directory = masks_folder
+    mask_gen_params.calibration_pulse = 0
 
-    # generate images and masks WITH and WITHOUT reference pulse
-    split = int(len(records_to_process)/2)
+    # generate images - params done manually because the generator doesn't implement seed correctly
+    split = int(len(records_to_process)/4) # 25% no calibration pulse, 25% no noise/wrinkles
     records_to_process = shuffle(records_to_process)
     if verbose:
         print("Generating images from wfdb files...")
     generator.gen_ecg_images_from_data_batch.run(img_gen_params, records_to_process[:split])
-    img_gen_params.calibration_pulse = 0
-    generator.gen_ecg_images_from_data_batch.run(img_gen_params, records_to_process[split:])
+    img_gen_params.calibration_pulse = 1
+    generator.gen_ecg_images_from_data_batch.run(img_gen_params, records_to_process[split:int(split*3)])
+    img_gen_params.wrinkles = False
+    img_gen_params.augment = False
+    generator.gen_ecg_images_from_data_batch.run(img_gen_params, records_to_process[int(split*3):])
     if verbose:
         print("Generating masks from wfdb files...")
     generator.gen_ecg_images_from_data_batch.run(mask_gen_params, records_to_process[:split])
-    mask_gen_params.calibration_pulse = 0
+    mask_gen_params.calibration_pulse = 1
     generator.gen_ecg_images_from_data_batch.run(mask_gen_params, records_to_process[split:])
 
     # generate patches
@@ -244,12 +245,21 @@ def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder
 
 
 def train_unet(record_ids, patch_folder, model_folder, verbose, 
-               args=None, max_train_samples=5000, warm_start=True, delete_patches=True):
+               args=None, max_train_samples=8000, warm_start=True, delete_patches=True):
     """
     Train the U-Net model from patches and save the resulting model. 
     Note that no validation is done by default - during the challenge we will want to train
     on all available data. Manually set args.train_val_prop to a value between 0 and 1 to
     enforce validation.
+
+    Params:
+        record_ids: list of str, record IDs to train on
+        patch_folder: str, path to folder with image and mask patches
+        model_folder: str, path to folder to save model checkpoints
+        verbose: bool
+        args: Unet.utils.Args, default None
+        max_train_samples: int, default 10000. Number of PATCHES (not records) to use for training
+          and validation. Set to False to use all available patches.
     """
     if not args: # use default args if none are provided
         args = Unet.utils.Args()

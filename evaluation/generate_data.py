@@ -22,7 +22,7 @@ def generate_training_data(data_folder, output_folder, verbose, max_samples):
 
     records = helper_code.find_records(data_folder)
     if max_samples is not None:
-        records = shuffle(records, random_state=42)[:max_samples]
+        records = shuffle(records, random_state=42)[800:max_samples]
     num_records = len(records)
 
     if num_records == 0:
@@ -39,12 +39,12 @@ def generate_training_data(data_folder, output_folder, verbose, max_samples):
     # params for generating images
     img_gen_params = generator.DefaultArgs()
     img_gen_params.random_bw = 0.2
-    img_gen_params.wrinkles = True
-    img_gen_params.print_header = True
+    img_gen_params.wrinkles = False
+    img_gen_params.print_header = False
     img_gen_params.augment = True
     # img_gen_params.rotate = 8
     # even with seed, pulse is not deterministic, must be 0 or 1 to match masks
-    img_gen_params.calibration_pulse = 1
+    img_gen_params.calibration_pulse = 0
     img_gen_params.store_config = 2
     img_gen_params.seed = 42
     img_gen_params.input_directory = data_folder
@@ -53,7 +53,7 @@ def generate_training_data(data_folder, output_folder, verbose, max_samples):
     # set params for generating masks
     mask_gen_params = generator.MaskArgs()
     mask_gen_params.seed = 42
-    mask_gen_params.calibration_pulse = 1 # must be 0 or 1
+    mask_gen_params.calibration_pulse = 0 # must be 0 or 1
     mask_gen_params.input_directory = data_folder
     mask_gen_params.output_directory = masks_folder
 
@@ -79,7 +79,7 @@ if __name__ == "__main__":
     # data_folder = os.path.join("test_data", "images")
     output_folder_prefix = "temp_data" # will create images, masks, patches subfolders here
     verbose = True
-    max_samples = 200 # set to None to train on all available
+    max_samples = 900 # set to None to train on all available
 
     # training data: no rotation on images, also generates json with config.
     # patches images and masks, but does not run unet
