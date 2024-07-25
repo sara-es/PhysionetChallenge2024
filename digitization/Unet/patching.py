@@ -71,13 +71,12 @@ def depatchify(patches, size=(256,256), image_shape=(1700, 2200)):
     """
     Depatchify the patches of predicted labels back into the original image shape
     Meant for numpy arrays (2D/flat)
-    TODO generalize any image size
     """
     row_patches = np.ceil(image_shape[0]/size[0]).astype(int)
     col_patches = np.ceil(image_shape[1]/size[1]).astype(int)
     max_width = row_patches*size[0]
     max_height = col_patches*size[1]
-    image = np.ones((max_width, max_height))
+    image = np.zeros((max_width, max_height))
 
     i = 0
     for row in range(0, row_patches):
