@@ -28,6 +28,12 @@ def is_pulse(
             return True
     return False
 
+def right_check(signal: np.array, min_height: int = 25):
+    segment =  signal[-5:-1]
+    seg_range = max(segment) - min(segment)
+    if seg_range > min_height:
+        return True
+    return False
 
 def row_pulse_pos(
     signal: np.array,
@@ -49,14 +55,19 @@ def row_pulse_pos(
     is_right = is_pulse(right_segment, baseline, 
                         min_height=expected_pulse_width-10, 
                         min_width=expected_pulse_width-10)
+    
+    is_right_2 = right_check(right_segment)
 
-    if is_left & is_right:
+    if is_left and is_right and not is_right_2:
         # triggers sometimes when the end of the signal is the same height as the reference pulse
         # should assume it's a mistake, but this causes issues. Instead, assume it's on the left.
-        return 1 
+        return 1
+    elif is_left and is_right and is_right_2:
+        return 2
     elif is_left:
         return 1 
-    elif is_right and not is_generated: # generator never puts ref pulses on the right
+    # RHS is relatively rare, so add another check that there is a right pulse
+    elif is_right and not is_generated and is_right_2: # generator never puts ref pulses on the right
         print("RP found on right, but not left.")
         return 2
     else:
