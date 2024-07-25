@@ -7,9 +7,11 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from digitization.Unet.ECGunet import BasicResUNet
 from digitization.Unet.datasets.PatchDataset import PatchDataset
+from digitization.Unet import entropy_estimator
 from digitization import Unet
 from utils import team_helper_code
 from tqdm import tqdm
+
 
 def normal_predict(model, test_loader, have_labels=False):
     cuda = torch.cuda.is_available()
@@ -88,6 +90,7 @@ def batch_predict_full_images(ids_to_predict, patch_dir, unet, save_pth,
 
     # Load the model
     dice_list = np.zeros(len(ids_to_predict))
+    entropy_list = np.zeros(len(ids_to_predict))
 
     for i, image_id in tqdm(enumerate(ids_to_predict), desc='Running U-net on images', 
                             disable=not verbose, total=len(ids_to_predict)):
@@ -100,6 +103,7 @@ def batch_predict_full_images(ids_to_predict, patch_dir, unet, save_pth,
 
         results, orig, true = normal_predict(unet, test_dataloader, have_labels=True)
         dice_list[i] = calculate_dice(true, results)
+        entropy_list[i] = entropy_estimator.entropy_est(results)
 
         results = results.squeeze()
         results = np.argmax(results, axis=1)
@@ -114,7 +118,7 @@ def batch_predict_full_images(ids_to_predict, patch_dir, unet, save_pth,
             with open(os.path.join(save_pth, image_id + '.npy'), 'wb') as f:
                 np.save(f , predicted_im)
 
-    return dice_list
+    return dice_list, entropy_list
 
 
 

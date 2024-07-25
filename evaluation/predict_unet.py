@@ -9,6 +9,7 @@ import generator
 from digitization import Unet
 from utils import constants, team_helper_code, model_persistence
 from evaluation import eval_utils
+import pandas as pd
 
 
 def generate_and_predict_unet_batch(images_folder, mask_folder, patch_folder,
@@ -59,8 +60,12 @@ def generate_and_predict_unet_batch(images_folder, mask_folder, patch_folder,
                                                                  images_folder, 
                                                                  mask_folder, verbose)
 
-    dice_list = Unet.batch_predict_full_images(records_to_process, patch_folder, unet_model, 
+    dice_list, entropy_list = Unet.batch_predict_full_images(records_to_process, patch_folder, unet_model, 
                                    unet_output_folder, verbose, save_all=True)
+    
+    # save record name, dice list and entropy list to csv
+    df = pd.DataFrame({'record': records_to_process, 'dice': dice_list, 'entropy': entropy_list})
+    df.to_csv(os.path.join(unet_output_folder, 'dice_entropy.csv'), index=False)
 
     # optional: delete training images and masks, patches, and u-net outputs
     if delete_images:
