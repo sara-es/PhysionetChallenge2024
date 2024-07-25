@@ -15,11 +15,11 @@ from utils import team_helper_code
 class Args:
     # Store lots of the parameters that we might need to train the model
     def __init__(self):
-        self.batch_size = 64
+        self.batch_size = 32
         self.log_interval = 50
         self.learning_rate = 0.5e-3
         self.epochs = 50
-        self.train_val_prop = 1.0 # Set to 1.0 for no validation (train on all data)
+        self.train_val_prop = 0.8 # Set to 1.0 for no validation (train on all data)
         self.patience = 25 # Early stopping patience
         self.channels_first = True
         self.diff_model_flag = False
@@ -77,7 +77,7 @@ def patch_split_from_ids(ids, im_patch_path, lab_patch_path, train_prop, verbose
     im_patch_path (str): path to image patches
     lab_patch_path (str): path to label patches
     train_prop (float in range [0,1]): proportion of patches to use for training
-    max_samples (int): maximum number of samples to use for training and validation
+    max_samples (int): maximum number of samples (patches) to use for training and validation
     """
     im_patch_files = sorted(os.listdir(im_patch_path))
     # make sure there's an associated set of image and label patches for every requested ID
@@ -85,16 +85,10 @@ def patch_split_from_ids(ids, im_patch_path, lab_patch_path, train_prop, verbose
 
     # there are ~64 patches for each image, shuffle by id to avoid data leakage
     ids = shuffle(list(ids), random_state=42)
-
-    if max_samples and max_samples < len(ids):
-        train_prop = int(max_samples * train_prop)
-        img_id_train = ids[:train_prop]
-        img_id_test = ids[train_prop:max_samples]
-    else:
-        n_images = len(ids)
-        train_prop = int(n_images * train_prop)
-        img_id_train = ids[:train_prop]
-        img_id_test = ids[train_prop:]
+    n_images = len(ids)
+    split_idx = int(n_images * train_prop)
+    img_id_train = ids[:split_idx]
+    img_id_test = ids[split_idx:]
 
     # find all patches for each image id in the train and test sets
     id_train = [f for f in im_patch_files if f.split('-')[0] in img_id_train]
@@ -102,6 +96,12 @@ def patch_split_from_ids(ids, im_patch_path, lab_patch_path, train_prop, verbose
         id_test = [f for f in im_patch_files if f.split('-')[0] in img_id_test]
     else:
         id_test = []
+
+    if max_samples and max_samples < len(im_patch_files):
+        n_train_samples = int(max_samples * train_prop)
+        n_test_samples = max_samples - n_train_samples
+        id_train = shuffle(id_train)[:n_train_samples]
+        id_test = shuffle(id_test)[:n_test_samples]
 
     return id_train, id_test
 

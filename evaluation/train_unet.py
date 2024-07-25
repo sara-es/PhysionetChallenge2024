@@ -53,9 +53,9 @@ def train_unet(data_folder, model_folder, verbose, num_images_to_generate=0):
     # train u-net
     args = Unet.utils.Args()
     args.train_val_prop = 0.8
-    args.epochs = 50
+    args.epochs = 150
     unet_model = team_code.train_unet(train_records, patch_folder, model_folder, verbose, 
-                         args=args, warm_start=True, max_train_samples=False, delete_patches=False)
+                         args=args, warm_start=False, max_train_samples=10000, delete_patches=False)
 
     # save trained u-net
     model_persistence.save_model_torch(unet_model, 'digitization_model', model_folder)

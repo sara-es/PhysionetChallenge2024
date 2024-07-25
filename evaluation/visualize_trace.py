@@ -237,7 +237,7 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
     print(f"Average SNR: {np.mean(snrs):.2f}")
     df = pd.DataFrame(stats)
     os.makedirs(os.path.join("evaluation", "data"), exist_ok=True)
-    df.to_csv(os.path.join("evaluation", "data", "snr_mixed_ref_pulses_whole_signal_baseline_add_buffer.csv"), index=False)
+    df.to_csv(os.path.join("evaluation", "data", "snr.csv"), index=False)
 
 
 if __name__ == "__main__":

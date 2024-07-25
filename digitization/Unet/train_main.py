@@ -84,6 +84,9 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
                CHK_PATH_UNET, LOSS_PATH, LOAD_PATH_UNET, verbose, 
                max_samples=False,
                ):
+    """
+    Note max_samples is number of PATCHES to use, not images.
+    """
     cuda = torch.cuda.is_available()
     device = torch.device("cuda" if cuda else "cpu")
 
