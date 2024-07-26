@@ -412,7 +412,7 @@ def train_classification_model(records_folder, verbose, records_to_process=None)
     if verbose:
         print("Training SE-ResNet classification model...")
     resnet_model = seresnet18.train_model(
-                                all_data, multilabels, uniq_labels, verbose, epochs=5, 
+                                all_data, multilabels, uniq_labels, verbose, epochs=50, 
                                 validate=False)
     
     if verbose:
