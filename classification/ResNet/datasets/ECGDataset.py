@@ -12,26 +12,28 @@ def get_transforms(dataset_type):
     ''' Get transforms for ECG data based on the dataset type (train, validation, test)
     '''
     # TODO: change seq_length to be more than 10 seconds
-    seq_length = 4096
+    seq_length = 1024 
+    fs = 100
     normalizetype = '0-1'
     
     data_transforms = {
         'train': Compose([
             #RandomClip(w=seq_length),
-            DigitizationClip(w=seq_length),
+            DigitizationClip(w=seq_length, fs=fs),
             Normalize(normalizetype),
             Retype() 
         ], p = 1.0),
         'val': Compose([
             #TODO: check whether DigitizationClip is needed?
-            DigitizationClip(w=seq_length),
+            DigitizationClip(w=seq_length, fs=fs),
             #ValClip(w=seq_length),
             Normalize(normalizetype),
             Retype()
         ], p = 1.0),
         # no need for crops, as this should take in the result of digitization step
         'test': Compose([
-            ValClip(w=seq_length),
+            #ValClip(w=seq_length),
+            DigitizationClip(w=seq_length, fs=fs),
             Normalize(normalizetype),
             Retype()
         ], p = 1.0)
