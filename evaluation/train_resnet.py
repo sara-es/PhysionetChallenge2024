@@ -1,4 +1,4 @@
-import sys, os, numpy as np
+import sys, os, numpy as np, pickle
 sys.path.append(os.path.join(sys.path[0], '..'))
 import joblib
 import team_code, helper_code
@@ -7,6 +7,7 @@ from digitization import Unet
 import classification
 from classification import seresnet18
 from utils import model_persistence
+from sklearn.model_selection import train_test_split
 
 
 def split_data(data_folder, tts=0.8, max_samples=None):
@@ -24,15 +25,16 @@ def split_data(data_folder, tts=0.8, max_samples=None):
         records = shuffle(records, random_state=42)[:max_samples]
         num_records = len(records)
     
-    records = shuffle(records)
-    train_records = records[:int(tts*num_records)]
-    val_records = records[int(tts*num_records):]
+    train_records, val_records = train_test_split(records, shuffle=True, train_size=tts, random_state=2024)
+   # records = shuffle(records)
+   # train_records = records[:int(tts*num_records)]
+    #val_records = records[int(tts*num_records):]
 
     return train_records, val_records
 
 
 def eval_resnet(data_folder, records, resnet_model, classes, verbose, max_samples=None):
-    
+
     input_labels = []
     output_labels = []
     for r in records:
@@ -44,16 +46,18 @@ def eval_resnet(data_folder, records, resnet_model, classes, verbose, max_sample
             print(f"Predicted labels: {labels}")
 
         actual_labels = helper_code.load_labels(os.path.join(data_folder, r))
-        print('Actual labels', actual_labels)
         
-        actual_labels_bin = np.zeros(len(classes))
-        for l in actual_labels:
-            if l in classes:
-                index = np.where(classes == l)[0]
-                actual_labels_bin[index] = 1
-        print(actual_labels_bin, pred_dx)
-        input_labels.append(actual_labels_bin)
-        output_labels.append(pred_dx)
+        if actual_labels and not '' in actual_labels:
+            input_labels.append(actual_labels)
+            output_labels.append(labels)
+
+    """
+    with open('input_labels.pkl', 'wb') as f:
+        pickle.dump(input_labels, f)
+
+    with open('output_labels.pkl', 'wb') as f:
+        pickle.dump(output_labels, f)
+    """
 
     f_measure, _, _ = helper_code.compute_f_measure(input_labels, output_labels)
     print('F-measure = ', f_measure)
@@ -70,6 +74,16 @@ def main(data_folder, model_folder, verbose, max_samples=None):
     train_records, val_records = split_data(data_folder, tts=0.8, max_samples=max_samples)
     print(f"Num of training records: {len(train_records)} // Num of val records: {len(val_records)}")
 
+    """
+    # Save the training files list to a pickle file
+    with open('training_files.pkl', 'wb') as f:
+        pickle.dump(train_records, f)
+
+    # Save the test files list to a pickle file
+    with open('test_files.pkl', 'wb') as f:
+        pickle.dump(val_records, f)
+    """
+
     # train classification model
     resnet_model, uniq_labels = team_code.train_classification_model(
         data_folder, verbose, records_to_process=train_records)
@@ -84,8 +98,21 @@ def main(data_folder, model_folder, verbose, max_samples=None):
 
 if __name__ == "__main__":
     data_folder = os.path.join(os.getcwd(), "ptb-xl", "records100")
-    model_folder = os.path.join(os.getcwd(), "model")
-    verbose = True
-    max_samples = 20 # limit n_samples for fast testing, set to None to use all samples
+    model_folder = os.path.join(os.getcwd(), "resnet_model")
+    os.makedirs(model_folder, exist_ok=True)
+    verbose = False
+    max_samples = None # limit n_samples for fast testing, set to None to use all samples
 
     main(data_folder, model_folder, verbose, max_samples)
+
+    """
+    with open('test_files.pkl', 'rb') as f:
+        records = pickle.load(f)
+
+    models = model_persistence.load_models(model_folder, verbose, models_to_load=['classification_model', 'dx_classes'])
+    
+    resnet_model = models['classification_model']
+    classes = models['dx_classes']
+    
+    eval_resnet(data_folder, records, resnet_model, classes, verbose)
+    """
