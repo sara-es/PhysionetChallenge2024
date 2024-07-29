@@ -7,6 +7,7 @@
 
 ## Preprocessing/Image cleaning
 - layout detection/validation: YOLO
+- rotation testing
 
 ## Reconstruction
 - classifier for real vs generated images
@@ -34,3 +35,6 @@
 5. no cabrera option
 6. deterministic rhythm lead order
 7. affine transformation on generated images + reconstruction tweaks
+
+## TINY TESTSET
+- occlude non-plotted data
