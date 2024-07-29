@@ -26,6 +26,7 @@ from classification import seresnet18
 import generator, preprocessing, digitization, classification
 import generator.gen_ecg_images_from_data_batch
 from evaluation import eval_utils
+from digitization.ECGminer.assets.DigitizationError import SignalExtractionError
 
 ################################################################################
 #
@@ -179,16 +180,22 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
     generate_unet_training_data(data_folder, images_folder, 
                                 masks_folder, patch_folder, 
                                 verbose, records_to_process=records_to_process)
-    if verbose:
-        print(f'Done.')
     
-    # train U-net
+    # train classifier for real vs. generated data
+
+
+    # train U-net: generated data
     args = Unet.utils.Args()
     args.train_val_prop = 0.8
-    # args.epochs = 1 # SET THIS IN FINAL SUBMISSION
+    # args.epochs = 1 # REMOVE THIS IN FINAL SUBMISSION
     checkpoint_folder = os.path.join('digitization', 'model_checkpoints')
     unet_model = train_unet(records_to_process, patch_folder, checkpoint_folder, verbose, args=args, 
                             warm_start=True)
+    
+    # train U-net: real data
+
+
+
     if verbose:
         print(f'Done.')
     
@@ -213,7 +220,7 @@ def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder
     img_gen_params.random_bw = 0.2
     img_gen_params.wrinkles = True
     img_gen_params.print_header = True
-    img_gen_params.augment = True
+    img_gen_params.augment = False
     img_gen_params.calibration_pulse = 0
 
     # set params for generating masks
@@ -226,26 +233,35 @@ def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder
     split = int(len(records_to_process)/4) # 25% no calibration pulse, 25% no noise/wrinkles
     records_to_process = shuffle(records_to_process)
     if verbose:
-        print("Generating images from wfdb files...")
+        print("Generating images from wfdb files (set 1/3)...")
     generator.gen_ecg_images_from_data_batch.run(img_gen_params, records_to_process[:split])
     img_gen_params.calibration_pulse = 1
+    if verbose:
+        print("Generating images from wfdb files (set 2/3)...")
     generator.gen_ecg_images_from_data_batch.run(img_gen_params, records_to_process[split:int(split*3)])
     img_gen_params.wrinkles = False
     img_gen_params.augment = False
+    if verbose:
+        print("Generating images from wfdb files (set 3/3)...")
     generator.gen_ecg_images_from_data_batch.run(img_gen_params, records_to_process[int(split*3):])
     if verbose:
-        print("Generating masks from wfdb files...")
+        print("Generating masks from wfdb files (set 1/2)...")
     generator.gen_ecg_images_from_data_batch.run(mask_gen_params, records_to_process[:split])
     mask_gen_params.calibration_pulse = 1
+    if verbose:
+        print("Generating masks from wfdb files (set 2/2)...")
     generator.gen_ecg_images_from_data_batch.run(mask_gen_params, records_to_process[split:])
 
     # generate patches
     Unet.patching.save_patches_batch(records_to_process, images_folder, masks_folder, patch_size,
                                      patch_folder, verbose, max_samples=False)
+    
+    if verbose:
+        print(f'Done.')
 
 
 def train_unet(record_ids, patch_folder, model_folder, verbose, 
-               args=None, max_train_samples=8000, warm_start=True, delete_patches=True):
+               args=None, max_train_samples=20000, warm_start=True, delete_patches=True):
     """
     Train the U-Net model from patches and save the resulting model. 
     Note that no validation is done by default - during the challenge we will want to train
@@ -258,8 +274,9 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
         model_folder: str, path to folder to save model checkpoints
         verbose: bool
         args: Unet.utils.Args, default None
-        max_train_samples: int, default 10000. Number of PATCHES (not records) to use for training
-          and validation. Set to False to use all available patches.
+        max_train_samples: int, default 20000 (approximately 300 images). Number of PATCHES 
+          (not records) to use for training and validation. Set to False to use all available 
+          patches.
     """
     if not args: # use default args if none are provided
         args = Unet.utils.Args()
@@ -312,8 +329,12 @@ def reconstruct_signal(record, unet_image, header_txt,
     max_duration = int(signal_length/fs)
     # max duration on images cannot exceed 10s as per Challenge team
     max_duration = 10 if max_duration > 10 else max_duration 
-    reconstructed_signal, raw_signals, gridsize  = ECGminer.digitize_image_unet(unet_image, 
-                                    sig_len=signal_length, max_duration=max_duration)
+    try:
+        reconstructed_signal, raw_signals, gridsize  = ECGminer.digitize_image_unet(unet_image, 
+                                        sig_len=signal_length, max_duration=max_duration)
+    except SignalExtractionError as e:
+        print(f"Error in digitizing signal: {e}")
+        return None, None, None
     reconstructed_signal = np.asarray(np.nan_to_num(reconstructed_signal))
 
     # save reconstructed signal and copied header file in the same folder
@@ -323,7 +344,6 @@ def reconstruct_signal(record, unet_image, header_txt,
         comments = [l for l in header_txt.split('\n') if l.startswith('#')]
         helper_code.save_signals(output_record_path, reconstructed_signal, comments)
 
-    # TODO: adapt self.postprocessor.postprocess to work for different layouts
     # return raw_signals and gridsize for external evaluation
     return reconstructed_signal, raw_signals, gridsize
 

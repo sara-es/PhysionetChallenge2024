@@ -6,9 +6,7 @@
 - different gap sizes between leads in case of no rhythm strip
 
 ## Preprocessing/Image cleaning
-- image scaling
 - layout detection/validation: YOLO
-- eval script to show/test both above
 
 ## Reconstruction
 - classifier for real vs generated images
@@ -16,17 +14,23 @@
 - gaps between leads ?
 - fine tune magic numbers on generated images in vectorize_signals.py: can pad signals based on "xgap" in generator
 - header/text extraction for features 
+- check dc offset
 
 ## Unet
-- scaling in training process
-- domain adaptation
-- re-train with black rectangles in image generation
-- confidence measure per image
+- implementation of two models for real and generated images
 
 ## Classification
-- resnet missing feature flags + features for height/weight 
 - training data is 2.5s per lead (non-concurrent)
 - train resnet checkpoint
 **Low prio:**
 - ensemble resnet
 - check model on both 100 Hz and 500 Hz data 
+
+# submissions list
+1. digitization as-is: assumes all generated images
+2. classifier for real vs. generated images + yolo for row count
+3. same as (2) with request to train from scratch
+4. optimise SQI
+5. no cabrera option
+6. deterministic rhythm lead order
+7. affine transformation on generated images + reconstruction tweaks
