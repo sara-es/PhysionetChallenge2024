@@ -14,7 +14,7 @@ A small subset of data and labels have been provided in the `tiny_testset` folde
 
     python train_model.py -d tiny_testset/hr_gt -m model -v
 
-    python run_model.py -d tiny_testset/hr_hidden_clean -m model -o tiny_testset/test_outputs -v -f
+    python run_model.py -d tiny_testset/hr_hidden -m model -o tiny_testset/test_outputs -v -f
 
     python evaluate_model.py -d tiny_testset/hr_gt -o tiny_testset/test_outputs
 
