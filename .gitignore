@@ -174,3 +174,4 @@ u-net/
 /runs
 /test_rot_data
 /jobscripts/logs
+/yolo_data
