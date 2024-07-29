@@ -37,6 +37,24 @@ def normal_predict(model, test_loader, have_labels=False):
     if have_labels:
         true = np.array(true)
 
+    # # randomly save some patch results for comparison
+    # results = pred.squeeze()
+    # results = np.argmax(results, axis=1)
+    # true_patches = np.ones_like(results)
+    # orig_patches = orig.squeeze().transpose(0, 2, 3, 1)
+
+    # for patch in range(results.shape[0]):
+    #     fig, ax = plt.subplots(1, 3, figsize=(15, 5))
+    #     ax[0].imshow(results[patch], cmap='gray')
+    #     ax[0].set_title('Predicted Image')
+    #     ax[1].imshow(true_patches[patch], cmap='gray')
+    #     ax[1].set_title('True Image')
+    #     ax[2].imshow(orig_patches[patch], cmap='gray')
+    #     ax[2].set_title('Original Image')
+    #     # save the plot
+    #     results_path = os.path.join("test_data", "patch_results")
+    #     plt.savefig(os.path.join(results_path, '0-' + str(patch) + '.png'))
+
     return pred, orig, true
 
 
@@ -63,10 +81,11 @@ def predict_single_image(image_id, im_patch_dir, unet, original_image_size=(1700
     patches = os.listdir(im_patch_dir)
     patch_ids = [f for f in patches if f.split('_')[0] == image_id]
 
-    test_dataset = PatchDataset(patch_ids, im_patch_dir, None, train=False, transform=None)
+    label_patch_dir = os.path.join(im_patch_dir, 'label_patches')
+    test_dataset = PatchDataset(patch_ids, im_patch_dir, None, train=False, transform=False)
     test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=0)
 
-    results, _, _ = normal_predict(unet, test_dataloader, have_labels=True)
+    results, _, _ = normal_predict(unet, test_dataloader, have_labels=False)
 
     results = results.squeeze()
     results = np.argmax(results, axis=1)
@@ -100,7 +119,7 @@ def batch_predict_full_images(ids_to_predict, patch_dir, unet, save_pth,
         patch_ids = sorted(patch_ids)
         # train = True here because we want to load the labels for accuracy score
         test_dataset = PatchDataset(patch_ids, im_patch_dir, label_patch_dir, train=True, 
-                                    transform=None)
+                                    transform=True)
         test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=0)
 
         results, orig, true = normal_predict(unet, test_dataloader, have_labels=True)

@@ -96,16 +96,14 @@ def save_patches_single_image(record_id, image, label, patch_size, im_patch_save
     for i in range(len(im_patches)):
         im_patch = im_patches[i]
         k = f'{record_id}_{i:03d}'
-        np.save(os.path.join(im_patch_save_path, k), im_patch, )
-        if label:
+        np.save(os.path.join(im_patch_save_path, k), im_patch)
+        if label is not None:
             lab_patch = label_patches[i]
             np.save(os.path.join(lab_patch_save_path, k), lab_patch)
 
 
 def save_patches_batch(ids, image_path, label_path, patch_size, patch_save_path, verbose, 
-                       max_samples=False):
-    if max_samples:
-        ids = ids[:max_samples]
+                       max_samples=False): # max_samples is not used
     im_patch_path = os.path.join(patch_save_path, 'image_patches')
     lab_patch_path = os.path.join(patch_save_path, 'label_patches')
     os.makedirs(im_patch_path, exist_ok=True)

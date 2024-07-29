@@ -9,7 +9,7 @@ import torchvision.transforms as transforms
 import torchio as tio
 
 class PatchDataset(Dataset):  # Inherit from Dataset class
-    def __init__(self, ids, im_patch_dir, label_patch_dir, train=True, transform=None):
+    def __init__(self, ids, im_patch_dir, label_patch_dir, train=True, transform=False):
         self.ids = ids
         self.im_patch_dir = im_patch_dir
         self.label_patch_dir = label_patch_dir
