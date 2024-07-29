@@ -6,9 +6,7 @@ import numpy as np
 import pandas as pd
 from digitization.ECGminer.assets.Image import Image
 from digitization.ECGminer.Preprocessor import Preprocessor
-from digitization.ECGminer.assets.DigitizationError import SignalExtractionError
 from digitization.ECGminer import extract_signals, vectorize_signals
-from digitization.ECGminer.assets.Format import Format
 
 
 def digitize_image_unet(restored_image, sig_len=1000, max_duration=10, is_generated_image=True):
@@ -47,6 +45,6 @@ def digitize_image_unet(restored_image, sig_len=1000, max_duration=10, is_genera
     digitised_signals, raw_signals, gridsize = vectorize_signals.vectorize(signal_coords, 
                                                                 sig_len, max_duration,
                                                                 is_generated_image)
-  
+    
     return digitised_signals, raw_signals, gridsize
 
