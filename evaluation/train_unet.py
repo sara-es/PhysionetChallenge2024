@@ -21,11 +21,9 @@ def train_unet(data_folder, model_folder, verbose, num_images_to_generate=0):
         raise FileNotFoundError('No data were provided.')
     
     # Get the file paths of signals
-    tts = 1
-    records = shuffle(records, random_state=42)
+    train_records = shuffle(records, random_state=42)
+    train_records = shuffle(train_records, random_state=42)
     num_records = len(records)
-    train_records = records[:int(tts*num_records)]
-    val_records = records[int(tts*num_records):]
 
     print(train_records[:5])
 
@@ -44,6 +42,7 @@ def train_unet(data_folder, model_folder, verbose, num_images_to_generate=0):
     print(data_folder)
 
     if num_images_to_generate > 0:
+        train_records = train_records[:num_images_to_generate]
         # generate images and masks for training u-net; generate patches
         print(f"Generating {num_images_to_generate} images and masks...")
         team_code.generate_unet_training_data(data_folder, images_folder, 
@@ -52,10 +51,10 @@ def train_unet(data_folder, model_folder, verbose, num_images_to_generate=0):
     
     # train u-net
     args = Unet.utils.Args()
-    args.train_val_prop = 0.8
-    args.epochs = 150
+    args.epochs = 500
+    args.augmentation = True
     unet_model = team_code.train_unet(train_records, patch_folder, model_folder, verbose, 
-                         args=args, warm_start=False, max_train_samples=10000, delete_patches=False)
+                         args=args, warm_start=True, max_train_samples=30000, delete_patches=False)
 
     # save trained u-net
     model_persistence.save_model_torch(unet_model, 'digitization_model', model_folder)
