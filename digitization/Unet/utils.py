@@ -17,9 +17,9 @@ class Args:
     def __init__(self):
         self.batch_size = 32
         self.log_interval = 50
-        self.learning_rate = 0.5e-3
-        self.epochs = 50
-        self.train_val_prop = 0.8 # Set to 1.0 for no validation (train on all data)
+        self.learning_rate = 1e-4
+        self.epochs = 500
+        self.train_val_prop = 0.9 # Set to 1.0 for no validation (train on all data)
         self.patience = 25 # Early stopping patience
         self.channels_first = True
         self.diff_model_flag = False
