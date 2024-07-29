@@ -106,9 +106,6 @@ def run_models(record, digitization_model, classification_model, verbose):
     # Load the digitization model.
     unet_model = Unet.utils.load_unet_from_state_dict(digitization_model)
 
-    # Preprocess the image to get rotation angle
-    # preprocess_with_unet_predict(record, unet_model, verbose)
-
     # Run the digitization model; if you did not train this model, then you can set signal=None.
     signal, reconstructed_signal_dir = unet_reconstruct_single_image(record, unet_model, verbose, 
                                                                  delete_patches=True)
@@ -398,7 +395,9 @@ def unet_reconstruct_single_image(record, model, verbose, delete_patches=True):
         delete_patches: bool, whether to delete patches after processing    
     """
     # get image from image_path
-    image = helper_code.load_images(record)[0]
+    image_path = team_helper_code.load_image_paths(record)[0]
+    with open(image_path, 'rb') as f:
+        image = plt.imread(f)
     record_id = os.path.split(record)[-1].split('.')[0]
 
     # hard code some folder paths for now
@@ -407,46 +406,50 @@ def unet_reconstruct_single_image(record, model, verbose, delete_patches=True):
     os.makedirs(patch_folder, exist_ok=True)
     os.makedirs(reconstructed_signals_folder, exist_ok=True)
 
+    # load header file to save with reconstructed signal
+    header_txt = helper_code.load_header(record)
+
     # patchify image
-    image = np.asarray(image) # convert to numpy array
     Unet.patching.save_patches_single_image(record_id, image, None, 
                                             patch_size=constants.PATCH_SIZE,
                                             im_patch_save_path=patch_folder,
                                             lab_patch_save_path=None)
 
     # predict on patches, recover u-net output image
-    predicted_image = Unet.predict_single_image(record_id, patch_folder, model,
+    predicted_mask = Unet.predict_single_image(record_id, patch_folder, model,
                                                 original_image_size=image.shape[:2])
     
     # rotate reconstructed u-net output to original orientation
-    predicted_image, rot_angle = preprocessing.column_rotation(record_id, predicted_image,
-                                                    angle_range=(-45, 45), verbose=verbose)
+    rotated_mask, rot_angle = preprocessing.column_rotation(record_id, predicted_mask,
+                                                    angle_range=(-20, 20), verbose=verbose)
     
-    if rot_angle != 0: # re-patch and predict on the rotated image (TODO: check if necessary)
-        image = sp.ndimage.rotate(image, rot_angle, axes=(1, 0), reshape=True)
-        Unet.patching.save_patches_single_image(record_id, image, None, 
-                                            patch_size=constants.PATCH_SIZE,
-                                            im_patch_save_path=patch_folder,
-                                            lab_patch_save_path=None)
-
-        # predict on patches, recover u-net output image
-        predicted_image = Unet.predict_single_image(record_id, patch_folder, model,
-                                                original_image_size=image.shape[:2])
-
-    # reconstruct signal from u-net output image
-    # load header file to save with reconstructed signal
-    header_txt = helper_code.load_header(record)
-    reconstructed_signal, raw_signals, _ = reconstruct_signal(record_id, predicted_image, 
+    if rot_angle != 0: # currently just rotate the mask, do no re-predict   
+        try: # sometimes this fails, if there are edge effects
+            reconstructed_signal, raw_signals, _ = reconstruct_signal(record_id, rotated_mask, 
                                                      header_txt,
                                                      reconstructed_signals_folder, 
                                                      save_signal=True)
-    # if reconstructed_signal is None and trace is None:
-
+            predicted_mask = rotated_mask # to save later, optional
+        except Exception as e: # in that case try it with the original (non-rotated) mask
+            if verbose:
+                print(f"Error reconstructing signal after rotating image {image_path}: {e}")
+            reconstructed_signal, raw_signals, _ = reconstruct_signal(record_id, predicted_mask, 
+                                                     header_txt,
+                                                     reconstructed_signals_folder, 
+                                                     save_signal=True)        
+    else: # no rotation needed
+        reconstructed_signal, raw_signals, _ = reconstruct_signal(record_id, predicted_mask, 
+                                                     header_txt,
+                                                     reconstructed_signals_folder, 
+                                                     save_signal=True)
 
     # optional: delete patches
     if delete_patches:
         for im in os.listdir(patch_folder):
             os.remove(os.path.join(patch_folder, im))
+
+    # with open(os.path.join(reconstructed_signals_folder, record_id + '.npy'), 'wb') as f:
+    #     np.save(f, predicted_mask)
 
     # return reconstructed signal
     return reconstructed_signal, reconstructed_signals_folder
