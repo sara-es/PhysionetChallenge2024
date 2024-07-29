@@ -12,6 +12,8 @@ from digitization import Unet
 from utils import team_helper_code
 from tqdm import tqdm
 
+import matplotlib.pyplot as plt
+
 
 def normal_predict(model, test_loader, have_labels=False):
     cuda = torch.cuda.is_available()
@@ -90,7 +92,7 @@ def batch_predict_full_images(ids_to_predict, patch_dir, unet, save_pth,
 
     # Load the model
     dice_list = np.zeros(len(ids_to_predict))
-    entropy_list = np.zeros(len(ids_to_predict))
+    entropy_list = []
 
     for i, image_id in tqdm(enumerate(ids_to_predict), desc='Running U-net on images', 
                             disable=not verbose, total=len(ids_to_predict)):
@@ -103,7 +105,7 @@ def batch_predict_full_images(ids_to_predict, patch_dir, unet, save_pth,
 
         results, orig, true = normal_predict(unet, test_dataloader, have_labels=True)
         dice_list[i] = calculate_dice(true, results)
-        entropy_list[i] = entropy_estimator.entropy_est(results)
+        entropy_list.append(entropy_estimator.entropy_est(results, reduce=True))
 
         results = results.squeeze()
         results = np.argmax(results, axis=1)
@@ -111,13 +113,32 @@ def batch_predict_full_images(ids_to_predict, patch_dir, unet, save_pth,
         if save_all:
             save_chance = 1
         else:
-            # randomly save some images
+            # randomly save some full images
             save_chance = np.random.rand()
         if save_chance > 0.9:
             predicted_im = Unet.patching.depatchify(results, results.shape[1:])
             with open(os.path.join(save_pth, image_id + '.npy'), 'wb') as f:
                 np.save(f , predicted_im)
 
+        # # randomly save some patch results for comparison
+        # true_patches = np.argmax(true.squeeze(), axis=1)
+        # orig_patches = orig.squeeze().transpose(0, 2, 3, 1)
+
+        # for patch in range(results.shape[0]):
+        #     save_chance = np.random.rand()
+        #     if save_chance > 0.95:
+        #         fig, ax = plt.subplots(1, 3, figsize=(15, 5))
+        #         ax[0].imshow(results[patch], cmap='gray')
+        #         ax[0].set_title('Predicted Image')
+        #         ax[1].imshow(true_patches[patch], cmap='gray')
+        #         ax[1].set_title('True Image')
+        #         ax[2].imshow(orig_patches[patch], cmap='gray')
+        #         ax[2].set_title('Original Image')
+        #         # save the plot
+        #         results_path = os.path.join("test_data", "patch_results")
+        #         plt.savefig(os.path.join(results_path, image_id +  '-' + str(patch) + '.png'))
+
+    entropy_list = np.array(entropy_list)
     return dice_list, entropy_list
 
 

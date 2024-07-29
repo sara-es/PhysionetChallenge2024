@@ -10,6 +10,9 @@ from digitization.Unet.datasets.PatchDataset import PatchDataset
 from digitization.Unet import utils
 from digitization.Unet import Unet
 
+import matplotlib.pyplot as plt
+import os
+
 
 def train_epoch(args, model, train_loader, optimizer, criterion, epoch, verbose):
     cuda = torch.cuda.is_available()
@@ -17,6 +20,12 @@ def train_epoch(args, model, train_loader, optimizer, criterion, epoch, verbose)
     total_loss = 0
     model.train()
     batches = 0
+
+    pred = []
+    true = []
+    orig = []
+
+
     for batch_idx, (data, target) in enumerate(train_loader):
         target = target.type(torch.LongTensor)
         if cuda:
@@ -43,12 +52,27 @@ def train_epoch(args, model, train_loader, optimizer, criterion, epoch, verbose)
                     epoch, (batch_idx+1) * len(data), len(train_loader.dataset),
                            100. * (batch_idx+1) / len(train_loader), loss.item()), flush=True)
             del loss
+
+    # # Return some example images, for debugging
+    #     random_chance = np.random.rand()
+    #     if random_chance > 0.99:
+    #         idx = np.random.randint(0, data.size()[0])
+    #         pred.append(x.detach().cpu().numpy()[idx])
+    #         orig.append(data.detach().cpu().numpy()[idx])
+    #         true.append(target.detach().cpu().numpy()[idx])
+    # pred = np.array(pred)
+    # orig = np.array(orig)
+    # true = np.array(true)
+
     av_loss = total_loss / batches
     av_loss_copy = np.copy(av_loss.detach().cpu().numpy())
 
     del av_loss
     print('\nTraining set: Average loss: {:.4f}'.format(av_loss_copy,  flush=True))
-    return av_loss_copy
+
+
+
+    return av_loss_copy, pred, orig, true
 
 
 def val_epoch(args, model, val_loader, criterion, epoch, verbose):
@@ -111,7 +135,7 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
     epoch_reached = 1
     loss_store = []  
     optimizer = optim.AdamW(lr=args.learning_rate, params=unet.parameters())
-    early_stopping = utils.EarlyStopping(args.patience, verbose=False)
+    early_stopping = utils.EarlyStopping(args.patience, verbose=verbose)
 
     if cuda:
         unet = unet.cuda()
@@ -153,7 +177,7 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
     for epoch in range(epoch_reached, args.epochs+1):
         if verbose:
             print('Epoch ', epoch, '/', args.epochs, flush=True)
-        loss = Unet.train_epoch(args, unet, train_dataloader, optimizer, crit, epoch, verbose)
+        loss, pred, orig, true = Unet.train_epoch(args, unet, train_dataloader, optimizer, crit, epoch, verbose)
         if args.train_val_prop < 1.0:
             val_loss = Unet.val_epoch(args, unet, val_dataloader, crit, epoch, verbose)
             if verbose:
@@ -162,6 +186,24 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
             val_loss = 0
         loss_store.append([loss, val_loss])
         np.save(LOSS_PATH, np.array(loss_store))
+
+        # # Save some example images, for debugging
+        # pred_patches = np.argmax(pred.squeeze(), axis=1)
+        # true_patches = np.argmax(true.squeeze(), axis=1)
+        # orig_patches = orig.squeeze().transpose(0, 2, 3, 1)
+
+        # for patch in range(orig.shape[0]):
+        #     fig, ax = plt.subplots(1, 3, figsize=(15, 5), num=patch, clear=True)
+        #     ax[0].imshow(pred_patches[patch], cmap='gray')
+        #     ax[0].set_title('Predicted Image')
+        #     ax[1].imshow(true_patches[patch], cmap='gray')
+        #     ax[1].set_title('True Image')
+        #     ax[2].imshow(orig_patches[patch])
+        #     ax[2].set_title('Original Image')
+        #     # save the plot
+        #     results_path = os.path.join("G:\\PhysionetChallenge2024", "temp_data", "patch_results")
+        #     plt.savefig(os.path.join(results_path, 'epoch_' + str(epoch) +  '-' + str(patch) + '.png'))
+        #     plt.close()
 
         # Decide whether the model should stop training or not
         early_stopping(val_loss, unet, epoch, optimizer, loss, CHK_PATH_UNET)

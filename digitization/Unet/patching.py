@@ -123,12 +123,16 @@ def save_patches_batch(ids, image_path, label_path, patch_size, patch_save_path,
         with open(img_pth, 'rb') as f:
             image = plt.imread(f)
         label = np.load(lab_pth, allow_pickle=True)
+        # if image.shape[:-1] != label.shape:
+        #     print(f"{id} image shape: {image.shape}, labels shape: {label.shape}")
 
         im_patches, label_patches = patchify(image, label, size=(patch_size,patch_size))
         
         for i in range(len(im_patches)):
             im_patch = im_patches[i]
             lab_patch = label_patches[i]
+            # if im_patch.shape[:-1] != lab_patch.shape:
+            #     print(f"Image patch shape: {im_patch.shape}, Label patch shape: {lab_patch.shape}")
             k = f'_{i:03d}'
             np.save(os.path.join(im_patch_path, id + k), im_patch)
             np.save(os.path.join(lab_patch_path, id + k), lab_patch)
