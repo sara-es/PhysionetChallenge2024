@@ -187,9 +187,7 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
     # train U-net: generated data
     args = Unet.utils.Args()
     args.train_val_prop = 0.8
-    # args.epochs = 1 # REMOVE THIS IN FINAL SUBMISSION
-    checkpoint_folder = os.path.join('digitization', 'model_checkpoints')
-    unet_model = train_unet(records_to_process, patch_folder, checkpoint_folder, verbose, args=args, 
+    unet_model = train_unet(records_to_process, patch_folder, model_folder, verbose, args=args, 
                             warm_start=True)
     
     # train U-net: real data
@@ -291,6 +289,7 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
     if warm_start:
         chkpt_path = os.path.join('digitization', 'model_checkpoints', 
                                       'UNET_'+ str(patchsize) + '_checkpoint')
+        args.patience = 5 # decrease patience if using a pretrained model
         if not os.path.exists(chkpt_path):
             print(f"Warm start requested but no checkpoint found at {LOAD_PATH_UNET}, " +\
                   "training U-net from scratch.")

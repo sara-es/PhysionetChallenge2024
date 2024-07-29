@@ -147,7 +147,6 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
             unet.load_state_dict(checkpoint['model_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             epoch_reached = checkpoint['epoch']
-            loss_store = [[checkpoint['loss'], None]]
             if verbose:
                 print(f'{len(checkpoint["model_state_dict"])}/{len(unet.state_dict())} weights ' +\
                         f'loaded from {LOAD_PATH_UNET}. Starting from epoch {epoch_reached}.',
@@ -156,6 +155,17 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
             print(e)
             print(f'Could not load U-net checkpoint from {LOAD_PATH_UNET}. '+\
                    'Training from scratch...', flush=True)
+        try:
+            with open(LOSS_PATH + '.npy', 'rb') as f:
+                loss_store = np.load(f, allow_pickle=True)
+                print(loss_store)
+            loss_store = loss_store.tolist()
+            early_stopping.best_score = -np.min(loss_store[:, 1])
+            early_stopping.val_loss_min = np.min(loss_store[:, 1])
+        except Exception as e:
+            print(e)
+            print(f'Could not load loss history from {LOSS_PATH}. Early stopping will be delayed.',
+                  flush=True)
 
     if epoch_reached > args.epochs: 
         # checkpoint already reached the desired number of epochs, make sure we still return the model        
