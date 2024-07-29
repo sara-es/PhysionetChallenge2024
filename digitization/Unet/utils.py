@@ -64,6 +64,7 @@ class EarlyStopping:
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'loss': loss}, PTH + '_checkpoint')
+        self.val_loss_min = val_loss
 
 
 def patch_split_from_ids(ids, im_patch_path, lab_patch_path, train_prop, verbose=False, 
