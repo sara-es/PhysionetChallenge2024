@@ -70,8 +70,6 @@ def train_epoch(args, model, train_loader, optimizer, criterion, epoch, verbose)
     del av_loss
     print('\nTraining set: Average loss: {:.4f}'.format(av_loss_copy,  flush=True))
 
-
-
     return av_loss_copy, pred, orig, true
 
 
