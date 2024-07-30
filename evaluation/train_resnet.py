@@ -70,26 +70,29 @@ def main(data_folder, model_folder, verbose, max_samples=None):
     # Find the data files.
     if verbose:
         print('Finding the Challenge data...')
+    records = helper_code.find_records(data_folder)
+    num_records = len(records)
+    if num_records == 0:
+        raise FileNotFoundError('No data were provided.')
+    
+    records = shuffle(records, random_state=42)
+    train_records = records[:int(0.8*num_records)]
+    val_records = records[int(0.8*num_records):]
 
-    train_records, val_records = split_data(data_folder, tts=0.8, max_samples=max_samples)
-    print(f"Num of training records: {len(train_records)} // Num of val records: {len(val_records)}")
-
-    """
-    # Save the training files list to a pickle file
-    with open('training_files.pkl', 'wb') as f:
-        pickle.dump(train_records, f)
-
-    # Save the test files list to a pickle file
-    with open('test_files.pkl', 'wb') as f:
-        pickle.dump(val_records, f)
-    """
+    # train_records = train_records[:200]
+    # val_records = val_records[:100]
 
     # train classification model
     resnet_model, uniq_labels = team_code.train_classification_model(
         data_folder, verbose, records_to_process=train_records)
 
     # save trained classification model
-    unet_model = None
+    try:
+        model = model_persistence.load_models("model", True, 
+                            models_to_load=['digitization_model'])
+        unet_model = model['digitization_model']
+    except:
+        unet_model = None
     team_code.save_models(model_folder, unet_model, resnet_model, uniq_labels)
 
     # test model
@@ -97,10 +100,10 @@ def main(data_folder, model_folder, verbose, max_samples=None):
 
 
 if __name__ == "__main__":
-    data_folder = os.path.join(os.getcwd(), "ptb-xl", "records100")
-    model_folder = os.path.join(os.getcwd(), "resnet_model")
+    data_folder = os.path.join(os.getcwd(), "ptb-xl", "records500")
+    model_folder = os.path.join(os.getcwd(), "model")
     os.makedirs(model_folder, exist_ok=True)
-    verbose = False
+    verbose = True
     max_samples = None # limit n_samples for fast testing, set to None to use all samples
 
     main(data_folder, model_folder, verbose, max_samples)

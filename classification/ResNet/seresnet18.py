@@ -62,7 +62,7 @@ def train(model, train_loader, device, loss_fct, sigmoid, optimizer, epoch, uniq
 
     if verbose: # only need to keep track of this if we're printing it out
         running_loss = 0.0
-        batches_per_printout = 200
+        batches_per_printout = 20
         labels_all = torch.tensor((), device=device)
         logits_prob_all = torch.tensor((), device=device)
 
@@ -72,14 +72,12 @@ def train(model, train_loader, device, loss_fct, sigmoid, optimizer, epoch, uniq
             ag = ag.float().to(device) # age and gender
             labels = labels.float().to(device) # diagnoses in SNOMED CT codes 
             # TODO we should check the above - labels are not CT codes, but one-hot encoded corresponding to uniq_labels
-        
             # Core training loop
             optimizer.zero_grad()
             logits = model(ecgs, ag) 
             loss = loss_fct(logits, labels)
             loss.backward()
             optimizer.step()
-
             # Optional: print training information
             if verbose:
                 running_loss += loss.item() # CHECK THIS: this was previously loss.item() * ecgs.size(0)
@@ -150,7 +148,7 @@ def test(model, test_loader, device, sigmoid, verbose):
 
 def initialise_with_eval(train_data, train_labels, val_data, val_labels, device, batch_size=5):
     # Load the datasets       
-    training_set = ECGDataset(train_data, get_transforms('train'), train_labels)
+    training_set = ECGDataset(train_data, 'train', train_labels)
     train_dl = DataLoader(training_set,
                           batch_size=batch_size,
                           shuffle=True,
@@ -158,7 +156,7 @@ def initialise_with_eval(train_data, train_labels, val_data, val_labels, device,
                           pin_memory=(True if device == 'cuda' else False),
                           drop_last=True)
 
-    validation_set = ECGDataset(val_data, get_transforms('val'), val_labels) 
+    validation_set = ECGDataset(val_data, 'val', val_labels) 
     validation_files = validation_set.data
     val_dl = DataLoader(validation_set,
                         batch_size=1,
@@ -171,7 +169,7 @@ def initialise_with_eval(train_data, train_labels, val_data, val_labels, device,
 
 
 def initialise_train_only(train_data, train_labels, device, batch_size=5):
-    training_set = ECGDataset(train_data, get_transforms('train'), train_labels)
+    training_set = ECGDataset(train_data, 'train', train_labels)
     train_dl = DataLoader(training_set,
                           batch_size=batch_size,
                           shuffle=True,
@@ -236,6 +234,7 @@ def train_model(data, multilabels, uniq_labels, verbose, epochs=5, validate=True
             # Training ResNet model(s) on the training data and evaluating on the validation set
             # Need to include unique labels here for F-measure calculation
             for epoch in range(1, epochs+1):
+                print(f'Epoch {epoch}/{epochs}')
                 train(model, train_dl, device, criterion, sigmoid, optimizer, epoch, uniq_labels, verbose)
                 eval(model, val_dl, device, criterion, sigmoid, epoch, uniq_labels, verbose)
     
@@ -245,6 +244,7 @@ def train_model(data, multilabels, uniq_labels, verbose, epochs=5, validate=True
         train_dl = initialise_train_only(data, multilabels, device, batch_size=64)
         
         for epoch in range(1, epochs+1):
+            print(f'Epoch {epoch}/{epochs}')
             train(model, train_dl, device, criterion, sigmoid, optimizer, epoch, uniq_labels, verbose)
 
     return model.state_dict()
@@ -273,7 +273,7 @@ def predict_proba(saved_model, data, classes, verbose, multi_dx_threshold=0.5):
         device = torch.device("cpu")
     
     # Load the test data
-    test_set = ECGDataset(data, get_transforms('test'))
+    test_set = ECGDataset(data, 'test')
     test_loader = DataLoader(test_set,
                          batch_size=1,
                          shuffle=False,
