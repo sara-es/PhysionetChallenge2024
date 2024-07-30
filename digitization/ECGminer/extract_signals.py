@@ -1,7 +1,7 @@
 import numpy as np
 import scipy as sp
 from typing import Iterable
-from digitization.ECGminer.assets.DigitizationError import DigitizationError
+from digitization.ECGminer.assets.DigitizationError import DigitizationError, SignalExtractionError
 from digitization.ECGminer.assets.Image import Image
 from digitization.ECGminer.assets.Point import Point
 
@@ -162,11 +162,15 @@ def extract_row_signals(ecg: Image, n_lines: int) -> Iterable[Iterable[Point]]:
         while y < endcol:
             # search up
             x_idx = x-1
+            if x_idx < 0:
+                raise SignalExtractionError("Signal extraction attemped to leave image bounds.")
             while test_im[x_idx, y] == 0:
                 signal_col.append([x_idx,y])
                 x_idx = x_idx-1
             # search down
             x_idx = x+1
+            if x_idx >= test_im.shape[0]:
+                raise SignalExtractionError("Signal extraction attemped to leave image bounds.")
             while test_im[x_idx, y] == 0:
                 signal_col.append([x_idx,y])
                 x_idx = x_idx+1

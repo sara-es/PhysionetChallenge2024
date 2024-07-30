@@ -51,40 +51,40 @@ def train_models(data_folder, model_folder, verbose):
     print(data_folder)
 
     # generate images and masks for training u-net; generate patches 
-    team_code.generate_unet_training_data(data_folder, images_folder, 
-                                          masks_folder, patch_folder, 
-                                          verbose, records_to_process=train_records)
+    # team_code.generate_unet_training_data(data_folder, images_folder, 
+    #                                       masks_folder, patch_folder, 
+    #                                       verbose, records_to_process=train_records)
     
     # if images and masks are already generated, use only records that are present
-    # records = helper_code.find_records(images_folder)
-    # tts = 1
-    # records = shuffle(records)
-    # train_records = records[:int(tts*num_records)]
-    # val_records = records[int(tts*num_records):]
+    records = helper_code.find_records(images_folder)
+    tts = 1
+    records = shuffle(records)
+    train_records = records[:int(tts*num_records)]
+    val_records = records[int(tts*num_records):]
 
     # train u-net
     args = Unet.utils.Args()
     args.train_val_prop = 0.8
     args.epochs = 50
     unet_model = team_code.train_unet(train_records, patch_folder, model_folder, verbose, 
-                         args=args, warm_start=False, max_train_samples=False, delete_patches=True)
+                         args=args, warm_start=True, max_train_samples=False, delete_patches=False)
 
     # save trained u-net
     model_persistence.save_model_torch(unet_model, 'digitization_model', model_folder)
 
     # generate new images, patch them, then run u-net, then
     # reconstruct signals from u-net outputs, then save reconstructed signals
-    team_code.generate_and_predict_unet_batch(data_folder, images_folder, masks_folder, patch_folder,
-                                  unet_output_folder, unet_model, reconstructed_signals_folder,
-                                  verbose, records_to_process=val_records, delete_images=True)
+    # team_code.generate_and_predict_unet_batch(data_folder, images_folder, masks_folder, patch_folder,
+    #                               unet_output_folder, unet_model, reconstructed_signals_folder,
+    #                               verbose, records_to_process=val_records, delete_images=True)
 
-    # train classification model
-    resnet_model, uniq_labels = team_code.train_classification_model(
-        data_folder, verbose, records_to_process=val_records
-        )
+    # # train classification model
+    # resnet_model, uniq_labels = team_code.train_classification_model(
+    #     data_folder, verbose, records_to_process=val_records
+    #     )
 
-    # save trained classification model
-    team_code.save_models(model_folder, unet_model, resnet_model, uniq_labels)
+    # # save trained classification model
+    # team_code.save_models(model_folder, unet_model, resnet_model, uniq_labels)
 
     # optionally display some results
 

@@ -237,18 +237,18 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
     print(f"Average SNR: {np.mean(snrs):.2f}")
     df = pd.DataFrame(stats)
     os.makedirs(os.path.join("evaluation", "data"), exist_ok=True)
-    df.to_csv(os.path.join("evaluation", "data", "snr_mixed_ref_pulses_whole_signal_baseline_add_buffer.csv"), index=False)
+    df.to_csv(os.path.join("evaluation", "data", "snr.csv"), index=False)
 
 
 if __name__ == "__main__":
     test_images_folder = os.path.join("temp_data", "images")
     # unet_outputs_folder = os.path.join("test_data", "unet_outputs")
-    unet_outputs_folder = os.path.join("temp_data", "masks")
+    unet_outputs_folder = os.path.join("temp_data", "unet_outputs")
     reconstructed_signal_dir = os.path.join("temp_data", "reconstructed_signals")
     os.makedirs(reconstructed_signal_dir, exist_ok=True)
     visualization_save_folder = os.path.join("evaluation", "trace_visualizations")
     os.makedirs(visualization_save_folder, exist_ok=True)
-    save_image_threshold = 5 # snr threshold below which images will be saved for visualization
+    save_image_threshold = 10 # snr threshold below which images will be saved for visualization
 
     visualize_trace(test_images_folder, 
                     unet_outputs_folder, 

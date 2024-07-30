@@ -1,6 +1,7 @@
 import numpy as np
 import scipy as sp
 import skimage
+from preprocessing.transforms import zero_one_rescale
 
 def column_rotation(record_id, image_mask, angle_range=(-45, 45), verbose=True):
     """
@@ -32,5 +33,6 @@ def column_rotation(record_id, image_mask, angle_range=(-45, 45), verbose=True):
             n_active_cols = idxs
             rot_angle = angle
 
-    rotated_image = sp.ndimage.rotate(image_mask, rot_angle, axes=(1, 0), reshape=True)
+    rotated_image = sp.ndimage.rotate(image_mask, rot_angle, axes=(1, 0), reshape=True, mode='nearest')
+    rotated_image = zero_one_rescale(rotated_image)
     return rotated_image, rot_angle
