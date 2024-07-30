@@ -358,7 +358,7 @@ def train_classification_model(records_folder, verbose, records_to_process=None)
                        disable=not verbose):
         # TODO need to make sure that data is interpolated/downsampled to consistent frequency
         data, label = classification.get_training_data(record, records_folder)
-        if label is None: # don't use data without labels for training
+        if label is None or '' in label: # don't use data without labels for training
             continue
 
         all_data.append(data)
@@ -376,7 +376,7 @@ def train_classification_model(records_folder, verbose, records_to_process=None)
     if verbose:
         print("Training SE-ResNet classification model...")
     resnet_model = seresnet18.train_model(
-                                all_data, multilabels, uniq_labels, verbose, epochs=5, 
+                                all_data, multilabels, uniq_labels, verbose, epochs=100, 
                                 validate=False)
     
     if verbose:

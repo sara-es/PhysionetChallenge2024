@@ -37,11 +37,15 @@ def get_training_data(record, data_folder):
     # get headers for labels and demographic info
     record_path = os.path.join(data_folder, record) 
     header_txt = helper_code.load_header(record_path)
-    labels = helper_code.load_labels(record_path)
-    if labels: # only process records with labels for training
-        # get demographic info
-        age_gender = get_demographic_features(record_path)
-        fs = helper_code.get_sampling_frequency(header_txt)
+    labels = helper_code.load_labels(record_path) # If no labels, returns ['']
+    
+    if labels:
+        if not '' in labels: # only process records with labels for training
+            # get demographic info
+            age_gender = get_demographic_features(record_path)
+            fs = helper_code.get_sampling_frequency(header_txt)
+        else:
+            return None, None
     else:
         return None, None
     
