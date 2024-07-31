@@ -7,9 +7,13 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from digitization.Unet.ECGunet import BasicResUNet
 from digitization.Unet.datasets.PatchDataset import PatchDataset
+from digitization.Unet import entropy_estimator
 from digitization import Unet
 from utils import team_helper_code
 from tqdm import tqdm
+
+import matplotlib.pyplot as plt
+
 
 def normal_predict(model, test_loader, have_labels=False):
     cuda = torch.cuda.is_available()
@@ -33,6 +37,24 @@ def normal_predict(model, test_loader, have_labels=False):
     if have_labels:
         true = np.array(true)
 
+    # # randomly save some patch results for comparison
+    # results = pred.squeeze()
+    # results = np.argmax(results, axis=1)
+    # true_patches = np.ones_like(results)
+    # orig_patches = orig.squeeze().transpose(0, 2, 3, 1)
+
+    # for patch in range(results.shape[0]):
+    #     fig, ax = plt.subplots(1, 3, figsize=(15, 5))
+    #     ax[0].imshow(results[patch], cmap='gray')
+    #     ax[0].set_title('Predicted Image')
+    #     ax[1].imshow(true_patches[patch], cmap='gray')
+    #     ax[1].set_title('True Image')
+    #     ax[2].imshow(orig_patches[patch], cmap='gray')
+    #     ax[2].set_title('Original Image')
+    #     # save the plot
+    #     results_path = os.path.join("test_data", "patch_results")
+    #     plt.savefig(os.path.join(results_path, '0-' + str(patch) + '.png'))
+
     return pred, orig, true
 
 
@@ -54,17 +76,16 @@ def predict_single_image(image_id, im_patch_dir, unet, original_image_size=(1700
     Assumes labels are not present; patches already generated and in im_patch_dir
     MODEL MUST BE PRE-LOADED UNET + STATE DICT
     Returns the predicted image as a numpy array (flat)
-    TODO: maybe just take in patches directly? Will have to change dataloaders...
     """
-    cuda = torch.cuda.is_available()
     image_id = image_id.split('_')[0]
     patches = os.listdir(im_patch_dir)
     patch_ids = [f for f in patches if f.split('_')[0] == image_id]
 
-    test_dataset = PatchDataset(patch_ids, im_patch_dir, None, train=False, transform=None)
+    label_patch_dir = os.path.join(im_patch_dir, 'label_patches')
+    test_dataset = PatchDataset(patch_ids, im_patch_dir, None, train=False, transform=False)
     test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=0)
 
-    results, _, _ = normal_predict(unet, test_dataloader, have_labels=True)
+    results, _, _ = normal_predict(unet, test_dataloader, have_labels=False)
 
     results = results.squeeze()
     results = np.argmax(results, axis=1)
@@ -73,7 +94,7 @@ def predict_single_image(image_id, im_patch_dir, unet, original_image_size=(1700
     return predicted_im
 
 
-def batch_predict_full_images(ids_to_predict, patch_dir, unet_state_dict, save_pth, 
+def batch_predict_full_images(ids_to_predict, patch_dir, unet, save_pth, 
                               verbose, save_all=True):
     """
     Mostly for testing - assumes we have labels for accuracy score and have already generated 
@@ -89,8 +110,8 @@ def batch_predict_full_images(ids_to_predict, patch_dir, unet_state_dict, save_p
         print(f"Testing on {len(ids_to_predict)} images with {len(ids)} total patches.")
 
     # Load the model
-    unet = Unet.utils.load_unet_from_state_dict(unet_state_dict)
     dice_list = np.zeros(len(ids_to_predict))
+    entropy_list = []
 
     for i, image_id in tqdm(enumerate(ids_to_predict), desc='Running U-net on images', 
                             disable=not verbose, total=len(ids_to_predict)):
@@ -98,11 +119,12 @@ def batch_predict_full_images(ids_to_predict, patch_dir, unet_state_dict, save_p
         patch_ids = sorted(patch_ids)
         # train = True here because we want to load the labels for accuracy score
         test_dataset = PatchDataset(patch_ids, im_patch_dir, label_patch_dir, train=True, 
-                                    transform=None)
+                                    transform=True)
         test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=0)
 
         results, orig, true = normal_predict(unet, test_dataloader, have_labels=True)
         dice_list[i] = calculate_dice(true, results)
+        entropy_list.append(entropy_estimator.entropy_est(results, reduce=True))
 
         results = results.squeeze()
         results = np.argmax(results, axis=1)
@@ -110,14 +132,33 @@ def batch_predict_full_images(ids_to_predict, patch_dir, unet_state_dict, save_p
         if save_all:
             save_chance = 1
         else:
-            # randomly save some images
+            # randomly save some full images
             save_chance = np.random.rand()
         if save_chance > 0.9:
             predicted_im = Unet.patching.depatchify(results, results.shape[1:])
             with open(os.path.join(save_pth, image_id + '.npy'), 'wb') as f:
                 np.save(f , predicted_im)
 
-    return dice_list
+        # # randomly save some patch results for comparison
+        # true_patches = np.argmax(true.squeeze(), axis=1)
+        # orig_patches = orig.squeeze().transpose(0, 2, 3, 1)
+
+        # for patch in range(results.shape[0]):
+        #     save_chance = np.random.rand()
+        #     if save_chance > 0.95:
+        #         fig, ax = plt.subplots(1, 3, figsize=(15, 5))
+        #         ax[0].imshow(results[patch], cmap='gray')
+        #         ax[0].set_title('Predicted Image')
+        #         ax[1].imshow(true_patches[patch], cmap='gray')
+        #         ax[1].set_title('True Image')
+        #         ax[2].imshow(orig_patches[patch], cmap='gray')
+        #         ax[2].set_title('Original Image')
+        #         # save the plot
+        #         results_path = os.path.join("test_data", "patch_results")
+        #         plt.savefig(os.path.join(results_path, image_id +  '-' + str(patch) + '.png'))
+
+    entropy_list = np.array(entropy_list)
+    return dice_list, entropy_list
 
 
 

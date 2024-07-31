@@ -19,7 +19,6 @@ opencv-python-headless
 scipy~=1.13.0
 requests~=2.31.0
 validators~=0.28.3
-opencv-python~=4.10.0.82
 imgaug~=0.4.0
 pyyaml~=6.0.1
 

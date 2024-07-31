@@ -3,33 +3,40 @@ sys.path.append(os.path.join(sys.path[0], '..'))
 
 import torch
 from torch.utils.data import Dataset
-from classification.ResNet.datasets.transforms import Compose, RandomClip, Normalize, ValClip, Retype
+from classification.ResNet.datasets.transforms import Compose, SplineInterpolation, Normalize, ValClip, Retype, DigitizationClip
 from helper_code import load_signals
 import numpy as np
 
 
-def get_transforms(dataset_type):
+def get_transforms(dataset_type, fs):
     ''' Get transforms for ECG data based on the dataset type (train, validation, test)
     '''
-    seq_length = 4096
+    # TODO: change seq_length to be more than 10 seconds
+    seq_length = 1024 
     normalizetype = '0-1'
+    new_fs = 100
     
     data_transforms = {
-        
         'train': Compose([
-            RandomClip(w=seq_length),
+            #RandomClip(w=seq_length),
+            SplineInterpolation(fs_new=new_fs, fs_old=fs),
+            DigitizationClip(w=seq_length, fs=new_fs),
             Normalize(normalizetype),
             Retype() 
         ], p = 1.0),
-        
         'val': Compose([
-            ValClip(w=seq_length),
+            #TODO: check whether DigitizationClip is needed?
+            SplineInterpolation(fs_new=new_fs, fs_old=fs),
+            DigitizationClip(w=seq_length, fs=new_fs),
+            #ValClip(w=seq_length),
             Normalize(normalizetype),
             Retype()
         ], p = 1.0),
-        
+        # no need for crops, as this should take in the result of digitization step
         'test': Compose([
-            ValClip(w=seq_length),
+            #ValClip(w=seq_length),
+            SplineInterpolation(fs_new=new_fs, fs_old=fs),
+            DigitizationClip(w=seq_length, fs=new_fs),
             Normalize(normalizetype),
             Retype()
         ], p = 1.0)
@@ -51,8 +58,8 @@ class ECGDataset(Dataset):
     def __init__(self, data, transforms, labels=None):
         self.data = [ls[0] for ls in data] # ECG paths, str
         self.fs = [ls[1] for ls in data] # fs, int
-        self.ag = [ls[2] for ls in data] # 89-year-old Male => [0.89, 0, 1]
-        self.transforms = transforms
+        self.ag = [ls[2] for ls in data] # 89-year-old Male => [0.89, 0, 1, 1, 1] with missing data flags
+        self.transforms = [get_transforms(transforms, fs) for fs in self.fs]
         self.channels = 12
         if labels is not None:
             self.labels = labels
@@ -73,7 +80,7 @@ class ECGDataset(Dataset):
         ecg = ecg.T # shape (channels, samples)
         ag = self.ag[item]
 
-        ecg = np.nan_to_num(ecg, nan=0) # HANDLING THE NAN VALUES IN SIGNAL DATA
+        ecg = self.transforms[item](ecg)
 
         if self.training:
             label_torch = self.labels[item]

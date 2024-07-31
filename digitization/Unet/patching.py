@@ -71,13 +71,12 @@ def depatchify(patches, size=(256,256), image_shape=(1700, 2200)):
     """
     Depatchify the patches of predicted labels back into the original image shape
     Meant for numpy arrays (2D/flat)
-    TODO generalize any image size
     """
     row_patches = np.ceil(image_shape[0]/size[0]).astype(int)
     col_patches = np.ceil(image_shape[1]/size[1]).astype(int)
     max_width = row_patches*size[0]
     max_height = col_patches*size[1]
-    image = np.ones((max_width, max_height))
+    image = np.zeros((max_width, max_height))
 
     i = 0
     for row in range(0, row_patches):
@@ -97,16 +96,14 @@ def save_patches_single_image(record_id, image, label, patch_size, im_patch_save
     for i in range(len(im_patches)):
         im_patch = im_patches[i]
         k = f'{record_id}_{i:03d}'
-        np.save(os.path.join(im_patch_save_path, k), im_patch, )
-        if label:
+        np.save(os.path.join(im_patch_save_path, k), im_patch)
+        if label is not None:
             lab_patch = label_patches[i]
             np.save(os.path.join(lab_patch_save_path, k), lab_patch)
 
 
 def save_patches_batch(ids, image_path, label_path, patch_size, patch_save_path, verbose, 
-                       max_samples=False):
-    if max_samples:
-        ids = ids[:max_samples]
+                       max_samples=False): # max_samples is not used
     im_patch_path = os.path.join(patch_save_path, 'image_patches')
     lab_patch_path = os.path.join(patch_save_path, 'label_patches')
     os.makedirs(im_patch_path, exist_ok=True)
@@ -124,12 +121,16 @@ def save_patches_batch(ids, image_path, label_path, patch_size, patch_save_path,
         with open(img_pth, 'rb') as f:
             image = plt.imread(f)
         label = np.load(lab_pth, allow_pickle=True)
+        # if image.shape[:-1] != label.shape:
+        #     print(f"{id} image shape: {image.shape}, labels shape: {label.shape}")
 
         im_patches, label_patches = patchify(image, label, size=(patch_size,patch_size))
         
         for i in range(len(im_patches)):
             im_patch = im_patches[i]
             lab_patch = label_patches[i]
+            # if im_patch.shape[:-1] != lab_patch.shape:
+            #     print(f"Image patch shape: {im_patch.shape}, Label patch shape: {lab_patch.shape}")
             k = f'_{i:03d}'
             np.save(os.path.join(im_patch_path, id + k), im_patch)
             np.save(os.path.join(lab_patch_path, id + k), lab_patch)
