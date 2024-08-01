@@ -23,6 +23,8 @@ import preprocessing
 from utils import team_helper_code, constants, model_persistence
 from digitization import Unet, ECGminer
 from classification import seresnet18
+from classification import utils
+from classification.ResNet.resnet_args import Resnet_args
 import generator, preprocessing, digitization, classification
 import generator.gen_ecg_images_from_data_batch
 from evaluation import eval_utils
@@ -69,7 +71,7 @@ def train_models(data_folder, model_folder, verbose):
     if verbose:
         print('Training the classification model...')
 
-    classification_model, classes = train_classification_model(data_folder, verbose, 
+    classification_model, classes = train_classification_model(data_folder, model_folder, verbose, 
                                                                records_to_process=None)
 
     if verbose:
@@ -92,11 +94,30 @@ def train_models(data_folder, model_folder, verbose):
 # code, but do *not* change the arguments of this function. If you do not train one of the models,
 # then you can return None for the model.
 def load_models(model_folder, verbose):
-    models = model_persistence.load_models(model_folder, verbose, 
-                        models_to_load=['digitization_model', 'classification_model', 'dx_classes'])
-    digitization_model = models['digitization_model']
-    # classification_model = models['classification_model', 'dx_classes']
-    return digitization_model, models
+
+    # Digitalization model
+    digitization_model = model_persistence.load_models(model_folder, verbose, 
+                                                        models_to_load=['digitization_model'])
+    digitization_model = digitization_model['digitization_model']
+
+    # Classification model(s)
+
+    # Check the arguments whether you trained one model or multiple
+    # If kfold used => multiple models to load (names should include split<i> where i=1,...,k)
+    args = Resnet_args()
+    if args.kfold: 
+        model_names = [f.replace('.pth', '') for f in os.listdir(model_folder) if 'split' in f]
+        model_names.append('dx_classes')
+        classification_models = []
+        for m in model_names:
+            classification_models.append(model_persistence.load_models(model_folder, verbose, 
+                                                        models_to_load=[m]))
+
+    else:
+        classification_models = model_persistence.load_models(model_folder, verbose, 
+                                               models_to_load=['classification_model', 'dx_classes'])
+
+    return digitization_model, classification_models
 
 
 # Run your trained digitization model. This function is *required*. You should edit this function
@@ -108,15 +129,18 @@ def run_models(record, digitization_model, classification_model, verbose):
 
     # Run the digitization model; if you did not train this model, then you can set signal=None.
     signal, reconstructed_signal_dir = unet_reconstruct_single_image(record, unet_model, verbose, 
-                                                                 delete_patches=True)
+                                                                     delete_patches=True)
     
-    # Load the classification model and classes.
-    resnet_model = classification_model['classification_model']
-    dx_classes = classification_model['dx_classes']
-    
+    # If ´classification_model´ is a list, there is multiple models trained and one dictionary for dx_classes
+    if isinstance(classification_model, list):
+        dx_classes = [d['dx_classes'] for d in classification_model if 'dx_classes' in d][0]
+        classification_model = [d for d in classification_model if 'dx_classes' not in d]
+    else:
+        dx_classes = classification_model['dx_classes']
+        classification_model = classification_model['classification_model']
+
     # Run the classification model; if you did not train this model, then you can set labels=None.
-    labels = classify_signals(record, reconstructed_signal_dir, resnet_model, 
-                                dx_classes, verbose=verbose)
+    labels = classify_signal(record, reconstructed_signal_dir, classification_model, dx_classes, verbose=verbose)
     
     # delete any temporary files
     for f in os.listdir(reconstructed_signal_dir):
@@ -136,8 +160,13 @@ def save_models(model_folder, digitization_model=None, classification_model=None
     if digitization_model is not None:
         model_persistence.save_model_torch(digitization_model, 'digitization_model', model_folder)
 
+    # Classification model can be None if kfold used -> models saved during training
+    # However, store the dx_classes for later    
     if classification_model is not None:
         d = {'classification_model': classification_model, 'dx_classes': classes}
+        model_persistence.save_models(d, model_folder, verbose=False)
+    else:
+        d = {'dx_classes': classes}
         model_persistence.save_models(d, model_folder, verbose=False)
         
 
@@ -344,11 +373,16 @@ def reconstruct_signal(record, unet_image, header_txt,
     return reconstructed_signal, raw_signals, gridsize
 
 
-def train_classification_model(records_folder, verbose, records_to_process=None):
+def train_classification_model(records_folder, model_folder, verbose, records_to_process=None):
     """
     Extracts features and labels from headers, then one-hot encodes labels and trains the
     SE-ResNet model.
     """
+
+    # Loading the params for the resnet model
+    args = Resnet_args()
+    args.model_folder = model_folder
+
     if not records_to_process:
         records_to_process = helper_code.find_records(records_folder)
 
@@ -375,9 +409,9 @@ def train_classification_model(records_folder, verbose, records_to_process=None)
 
     if verbose:
         print("Training SE-ResNet classification model...")
-    resnet_model = seresnet18.train_model(
-                                all_data, multilabels, uniq_labels, verbose, epochs=100, 
-                                validate=False)
+
+    resnet_model = seresnet18.train_model(all_data, multilabels, uniq_labels, 
+                                          args, verbose)
     
     if verbose:
         print("Finished training classification model.")
@@ -455,12 +489,37 @@ def unet_reconstruct_single_image(record, model, verbose, delete_patches=True):
     return reconstructed_signal, reconstructed_signals_folder
 
 
-def classify_signals(record_path, data_folder, resnet_model, classes, verbose):
+def classify_signal(record_path, data_folder, resnet_model, classes, verbose, decision_threshold=0.5):
+    
     # wrap in list to match training data format
     record_id = os.path.split(record_path)[-1].split('.')[0]
-    data = [classification.get_testing_data(record_id, data_folder)] 
-    pred_dx, probabilities = seresnet18.predict_proba(
-                                        resnet_model, data, classes, verbose)
+    data = [classification.get_testing_data(record_id, data_folder)]
+    
+    # Two cases: Either use multiple models and average the predictions
+    #            or use only one model to make the predictions
+    if isinstance(resnet_model, list):
+
+        pooled_probs = []
+        for model_dict in resnet_model:
+            if 'dx_classes' in model_dict:
+                continue
+
+            model_state_dict = next(iter(model_dict.values()))
+            _, probabilities = seresnet18.predict_proba(
+                                        model_state_dict, data, classes, verbose)
+
+            pooled_probs.append(probabilities)
+
+        # Average probabilities and convert to binary
+        probabilities = np.mean(pooled_probs, axis=0)
+        pred_dx = utils.multiclass_predict_from_logits(
+                classes, probabilities, decision_threshold
+            )
+
+    else:
+        pred_dx, probabilities = seresnet18.predict_proba(
+                                            resnet_model, data, classes, verbose)
+    
     labels = classes[np.where(pred_dx == 1)]
     if verbose:
         print(f"Classes: {classes}, probabilities: {probabilities}")

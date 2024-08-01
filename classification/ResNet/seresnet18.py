@@ -5,54 +5,13 @@ import numpy as np
 import torch
 from torch import nn
 from torch import optim
-from torch.utils.data import DataLoader
-
-from sklearn.model_selection import train_test_split, StratifiedKFold
-from iterstrat.ml_stratifiers import MultilabelStratifiedShuffleSplit, MultilabelStratifiedKFold # For multilabel stratification
+from torch.utils.data import DataLoader, Subset
 
 from classification.ResNet.SEResNet import ResNet, BasicBlock
-from classification.ResNet.datasets.ECGDataset import ECGDataset, get_transforms
+from classification.ResNet.datasets.ECGDataset import ECGDataset, CustomECGDataset
 from classification import utils
-
-
-def split_data(data, labels, n_splits=1):
-    """
-    Multilabel version
-    Splitting data into two sets based on number of splits that are needed
-    return indeces of the data for the splits
-    """
-    idx = np.arange(len(data))
-    split_index_list = []
-
-    if n_splits == 1: # One train/Test split
-        mss = MultilabelStratifiedShuffleSplit(n_splits = n_splits, train_size=.75, test_size=.25, random_state=2024)
-        for train_idx, test_idx in mss.split(idx, labels):
-            split_index_list.append([train_idx, test_idx])
-        
-    else: # K-Fold
-        skfold = MultilabelStratifiedKFold(n_splits = n_splits)
-        for train_idx, test_idx in skfold.split(idx, labels):
-            split_index_list.append([train_idx, test_idx])
-
-    return split_index_list
-
-
-def _split_data(data, labels, n_splits=1):  
-    # Binary version
-    idx = np.arange(len(data))
-    split_indeces = []
-
-    if n_splits == 1: # Basic train/test split
-        train_idx, test_idx = train_test_split(idx, stratify=labels, test_size=.25, random_state=2024)
-        split_indeces.append([train_idx, test_idx])
-    
-    else: # K-Fold
-        skfold = StratifiedKFold(n_splits=n_splits)
-        for train_idx, test_idx in skfold.split(idx, labels):
-            split_indeces.append([train_idx, test_idx])
-
-    return split_indeces
-
+from utils.model_persistence import save_model_torch
+from iterstrat.ml_stratifiers import MultilabelStratifiedKFold 
 
 def train(model, train_loader, device, loss_fct, sigmoid, optimizer, epoch, uniq_labels, verbose):
     """
@@ -69,15 +28,15 @@ def train(model, train_loader, device, loss_fct, sigmoid, optimizer, epoch, uniq
     with torch.set_grad_enabled(True):    
         for batch_idx, (ecgs, ag, labels) in enumerate(train_loader):
             ecgs = ecgs.float().to(device) # ECGs
-            ag = ag.float().to(device) # age and gender
-            labels = labels.float().to(device) # diagnoses in SNOMED CT codes 
-            # TODO we should check the above - labels are not CT codes, but one-hot encoded corresponding to uniq_labels
-            # Core training loop
+            ag = ag.float().to(device) # demographics
+            labels = labels.float().to(device) # diagnoses 
+
             optimizer.zero_grad()
             logits = model(ecgs, ag) 
             loss = loss_fct(logits, labels)
             loss.backward()
             optimizer.step()
+            
             # Optional: print training information
             if verbose:
                 running_loss += loss.item() # CHECK THIS: this was previously loss.item() * ecgs.size(0)
@@ -115,17 +74,20 @@ def eval(model, train_loader, device, loss_fct, sigmoid, epoch, uniq_labels, ver
 
             # Run model
             logits = model(ecgs, ag) 
+            logits_prob = sigmoid(logits)
 
             # Calculate loss, append outputs to tensors
             epoch_loss += loss_fct(logits, labels)
-            logits_prob_all = torch.cat((logits_prob_all, sigmoid(logits)), 0)  
+            logits_prob_all = torch.cat((logits_prob_all, logits_prob), 0)  
             labels_all = torch.cat((labels_all, labels), 0)
 
+    f_measure = utils.compute_classification_metrics(
+                        labels_all, logits_prob_all, uniq_labels, threshold=0.5)
     if verbose:
         epoch_loss = epoch_loss / len(train_loader.dataset)
-        f_measure = utils.compute_classification_metrics(
-                        labels_all, logits_prob_all, uniq_labels, threshold=0.5)
         print(f'Epoch {epoch}, val loss: {epoch_loss:.4f}, F-measure: {f_measure:.4f}')
+    
+    return f_measure
 
 
 def test(model, test_loader, device, sigmoid, verbose):
@@ -146,57 +108,18 @@ def test(model, test_loader, device, sigmoid, verbose):
     return logits_prob_all.cpu().detach().numpy().squeeze()
 
 
-def initialise_with_eval(train_data, train_labels, val_data, val_labels, device, batch_size=5):
-    # Load the datasets       
-    training_set = ECGDataset(train_data, 'train', train_labels)
-    train_dl = DataLoader(training_set,
-                          batch_size=batch_size,
-                          shuffle=True,
-                          num_workers=1,
-                          pin_memory=(True if device == 'cuda' else False),
-                          drop_last=True)
-
-    validation_set = ECGDataset(val_data, 'val', val_labels) 
-    validation_files = validation_set.data
-    val_dl = DataLoader(validation_set,
-                        batch_size=1,
-                        shuffle=False,
-                        num_workers=1,
-                        pin_memory=(True if device == 'cuda' else False),
-                        drop_last=True)
-    
-    return train_dl, val_dl
-
-
-def initialise_train_only(train_data, train_labels, device, batch_size=5):
-    training_set = ECGDataset(train_data, 'train', train_labels)
-    train_dl = DataLoader(training_set,
-                          batch_size=batch_size,
-                          shuffle=True,
-                          num_workers=1,
-                          pin_memory=(True if device == 'cuda' else False),
-                          drop_last=True)
-    
-    return train_dl
-
-
-def train_model(data, multilabels, uniq_labels, verbose, epochs=5, validate=True, n_splits=1):
+def train_model(data, multilabels, uniq_labels, args, verbose):
     """
     Parameters:
         data (list): list of data where [path (str), fs (int), age and sex features (np.array)]
         multilabels (list): List of multilabels, one hot encoded
         uniq_labels (list): List of unique labels as strings
+        args (Resnet_args object): Params for the resnet model
         verbose (bool): printouts?
-        epochs (int): number of epochs to train
-        validate (bool): perform validation?
     Returns:
         state_dict (pytorch model): state dictionary of the trained model
         metrics (float): F-measure (if validate=True, else None)
     """
-    # channels is just hard coded for now
-    # could also set channels = len(sig[1]['units']) where sig = helper_code.load_signal(record)
-
-    # # Consider the GPU or CPU condition
     if torch.cuda.is_available():
         device = torch.device("cuda")
         if verbose:
@@ -207,47 +130,76 @@ def train_model(data, multilabels, uniq_labels, verbose, epochs=5, validate=True
             print('Cuda not found. Using CPU.')
 
     model = ResNet(BasicBlock, [2, 2, 2, 2], 
-                in_channel=12, 
+                in_channel=args.in_channels, 
                 out_channel=len(uniq_labels))
-    # Optimizer
+
     optimizer = optim.Adam(model.parameters(), 
-                            lr=0.003,
-                            weight_decay=0.00001)
-    
+                            lr=args.learning_rate,
+                            weight_decay=args.weight_decay)
     criterion = nn.BCEWithLogitsLoss()
     sigmoid = nn.Sigmoid()
     sigmoid.to(device)
     model.to(device)
-    
-    if validate:
-        # Split data to training and validation; return indices for training and validation sets
-        # Either one stratified train/val split OR Stratified K-fold
-        # Default: one train/val split
-        split_index_list = split_data(data, multilabels, n_splits=n_splits) 
-        for train_idx, val_idx in split_index_list:
-            train_data, val_data = list(map(data.__getitem__, train_idx)), list(map(data.__getitem__, val_idx))
-            train_labels, val_labels = list(map(multilabels.__getitem__, train_idx)), list(map(multilabels.__getitem__, val_idx))
-            # Iterate over train/test splits
-            train_dl, val_dl = initialise_with_eval(train_data, train_labels, val_data, 
-                                                    val_labels, device, batch_size=5)
-            
-            # Training ResNet model(s) on the training data and evaluating on the validation set
-            # Need to include unique labels here for F-measure calculation
-            for epoch in range(1, epochs+1):
-                print(f'Epoch {epoch}/{epochs}')
-                train(model, train_dl, device, criterion, sigmoid, optimizer, epoch, uniq_labels, verbose)
-                eval(model, val_dl, device, criterion, sigmoid, epoch, uniq_labels, verbose)
-    
-    else: 
-        # Only train the model
-        # Train the model using entire data and store the state dictionary
-        train_dl = initialise_train_only(data, multilabels, device, batch_size=64)
-        
-        for epoch in range(1, epochs+1):
-            print(f'Epoch {epoch}/{epochs}')
-            train(model, train_dl, device, criterion, sigmoid, optimizer, epoch, uniq_labels, verbose)
 
-    return model.state_dict()
+    custom_dataset = CustomECGDataset(data, multilabels)
+
+    if args.kfold:
+        if verbose:
+            print(f'Performing {args.n_splits}-fold cross-validation...')
+
+        idx = np.arange(len(data))
+        skfold = MultilabelStratifiedKFold(n_splits=args.n_splits, shuffle=True, random_state=2024)
+        
+        metrics = []
+        for i, (train_idx, val_idx) in enumerate(skfold.split(idx, multilabels)):
+    
+            train_subset = Subset(custom_dataset, train_idx)
+            train_dl = DataLoader(train_subset,
+                                batch_size=args.batch_size,
+                                shuffle=True,
+                                num_workers=1,
+                                pin_memory=(True if device == 'cuda' else False),
+                                drop_last=True)
+            
+            val_subset = Subset(custom_dataset, val_idx)
+            val_dl = DataLoader(val_subset,
+                                batch_size=1,
+                                shuffle=False,
+                                num_workers=1,
+                                pin_memory=(True if device == 'cuda' else False),
+                                drop_last=True)
+            
+            for epoch in range(1, args.epochs+1):
+                print(f'Epoch {epoch}/{args.epochs}')
+                train(model, train_dl, device, criterion, sigmoid, optimizer, epoch, uniq_labels, verbose)
+                f_measure = eval(model, val_dl, device, criterion, sigmoid, epoch, uniq_labels, verbose)
+                metrics.append(f_measure)
+                
+                model_state_dict  = model.state_dict()
+                model_name = f'{epoch}-{f_measure:.4f}-split{i+1}'
+                save_model_torch(model_state_dict, model_name, args.model_folder)
+                
+        print('Averaged f-measure = ', round(np.mean(metrics), 3))
+        torch.cuda.empty_cache()
+        return None # Return None => All models are saved here already         
+
+    else: 
+        if verbose:
+            print('Training only one model with full training data...')
+        
+        train_dl = DataLoader(custom_dataset,
+                            batch_size=args.batch_size,
+                            shuffle=True,
+                            num_workers=1,
+                            pin_memory=(True if device == 'cuda' else False),
+                            drop_last=True)
+    
+        for epoch in range(1, args.epochs+1):
+            print(f'Epoch {epoch}/{args.epochs}')
+            train(model, train_dl, device, criterion, sigmoid, optimizer, epoch, uniq_labels, verbose)
+        
+        torch.cuda.empty_cache()
+        return model.state_dict()
 
 
 def predict_proba(saved_model, data, classes, verbose, multi_dx_threshold=0.5):
@@ -273,7 +225,7 @@ def predict_proba(saved_model, data, classes, verbose, multi_dx_threshold=0.5):
         device = torch.device("cpu")
     
     # Load the test data
-    test_set = ECGDataset(data, 'test')
+    test_set = CustomECGDataset(data)
     test_loader = DataLoader(test_set,
                          batch_size=1,
                          shuffle=False,

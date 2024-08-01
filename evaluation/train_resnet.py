@@ -22,46 +22,65 @@ def split_data(data_folder, tts=0.8, max_samples=None):
     
     # optionally test on a smaller number of records
     if max_samples is not None: 
-        records = shuffle(records, random_state=42)[:max_samples]
+        records = shuffle(records, random_state=2024)[:max_samples]
         num_records = len(records)
     
     train_records, val_records = train_test_split(records, shuffle=True, train_size=tts, random_state=2024)
-   # records = shuffle(records)
-   # train_records = records[:int(tts*num_records)]
-    #val_records = records[int(tts*num_records):]
 
     return train_records, val_records
 
+def run_models(record, classification_model, verbose):
+    
+    ###########################
+    ### FROM TEAM_CODE.RUN_MODELS() including only the parts for the resnet model(s)
 
-def eval_resnet(data_folder, records, resnet_model, classes, verbose, max_samples=None):
+    # If ´classification_model´ is a list, there is multiple models trained and one dictionary for dx_classes
+    if isinstance(classification_model, list):
+        dx_classes = [d['dx_classes'] for d in classification_model if 'dx_classes' in d][0]
+        classification_model = [d for d in classification_model if 'dx_classes' not in d]
+    else:
+        dx_classes = classification_model['dx_classes']
+        classification_model = classification_model['classification_model']
 
-    input_labels = []
+
+    # Run the classification model; if you did not train this model, then you can set labels=None.
+    labels = team_code.classify_signal(record, data_folder, classification_model, dx_classes, verbose=verbose)
+
+    ########
+
+    return labels
+
+def run(records, classification_model, data_folder, verbose):
+
+    num_records = len(records)
+
+    if num_records==0:
+        raise Exception('No data were provided.')
+
+    # Create a folder for the Challenge outputs if it does not already exist.
+    os.makedirs(output_folder, exist_ok=True)
+
+    # Run the team's models on the Challenge data.
+    if verbose:
+        print('Running the Challenge model(s) on the Challenge data...')
+
     output_labels = []
-    for r in records:
-        data = [classification.get_testing_data(r, data_folder)] 
-        pred_dx, probabilities = seresnet18.predict_proba(resnet_model, data, classes, verbose)
-        labels = classes[np.where(pred_dx == 1)]
+    input_labels = []
+    # Iterate over the records.
+    for i in range(num_records):
         if verbose:
-            print(f"Classes: {classes}, probabilities: {probabilities}")
-            print(f"Predicted labels: {labels}")
+            width = len(str(num_records))
+            print(f'- {i+1:>{width}}/{num_records}: {records[i]}...')
 
-        actual_labels = helper_code.load_labels(os.path.join(data_folder, r))
-        
-        if actual_labels and not '' in actual_labels:
-            input_labels.append(actual_labels)
-            output_labels.append(labels)
+        data_record = os.path.join(data_folder, records[i])
+        labels_tmp = run_models(data_record, classification_model, verbose)
+        output_labels.append(labels_tmp)
 
-    """
-    with open('input_labels.pkl', 'wb') as f:
-        pickle.dump(input_labels, f)
-
-    with open('output_labels.pkl', 'wb') as f:
-        pickle.dump(output_labels, f)
-    """
+        actual_labels_tmp = helper_code.load_labels(os.path.join(data_folder, records[i]))
+        input_labels.append(actual_labels_tmp)
 
     f_measure, _, _ = helper_code.compute_f_measure(input_labels, output_labels)
     print('F-measure = ', f_measure)
-
 
 def main(data_folder, model_folder, verbose, max_samples=None):
     """
@@ -75,36 +94,36 @@ def main(data_folder, model_folder, verbose, max_samples=None):
     if num_records == 0:
         raise FileNotFoundError('No data were provided.')
     
-    records = shuffle(records, random_state=42)
-    train_records = records[:int(0.8*num_records)]
-    val_records = records[int(0.8*num_records):]
-
-    # train_records = train_records[:200]
-    # val_records = val_records[:100]
+    train_records, val_records = split_data(data_folder)
 
     # train classification model
     resnet_model, uniq_labels = team_code.train_classification_model(
-        data_folder, verbose, records_to_process=train_records)
+        data_folder, model_folder, verbose, records_to_process=train_records)
 
-    # save trained classification model
+    # save trained classification model(s) and also test to load the model(s)
     try:
         model = model_persistence.load_models("model", True, 
                             models_to_load=['digitization_model'])
         unet_model = model['digitization_model']
     except:
         unet_model = None
-    team_code.save_models(model_folder, unet_model, resnet_model, uniq_labels)
 
-    # test model
-    eval_resnet(data_folder, val_records, resnet_model, uniq_labels, verbose, max_samples)
+    team_code.save_models(model_folder, unet_model, resnet_model, uniq_labels)
+    digitization_model, classification_model = team_code.load_models(model_folder, verbose)
+
+    # run model(s)
+    run(val_records, classification_model, data_folder, verbose)
 
 
 if __name__ == "__main__":
-    data_folder = os.path.join(os.getcwd(), "ptb-xl", "records500")
-    model_folder = os.path.join(os.getcwd(), "model")
-    os.makedirs(model_folder, exist_ok=True)
+    data_folder = os.path.join(os.getcwd(), "tiny_testset", "hr_gt")
+    model_folder = os.path.join(os.getcwd(), "test_model")
+    output_folder = os.path.join(os.getcwd(), "tiny_testset", 'test_outputs')
     verbose = True
-    max_samples = None # limit n_samples for fast testing, set to None to use all samples
+    max_samples = 10 # limit n_samples for fast testing, set to None to use all samples
+
+    os.makedirs(model_folder, exist_ok=True)
+    os.makedirs(output_folder, exist_ok=True)
 
     main(data_folder, model_folder, verbose, max_samples)
 
