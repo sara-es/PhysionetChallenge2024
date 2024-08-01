@@ -123,7 +123,7 @@ class CustomECGDataset(Dataset):
             path, old_fs, demographics = self.data[item]
             ecg, _ = load_signals(path) # shape (samples, channels)
         else:
-            ecg, old_fs, demographics = self.labels[item]
+            ecg, old_fs, demographics = self.data[item]
         
         ecg = ecg.T
         transforms = gather_transforms(old_fs)
