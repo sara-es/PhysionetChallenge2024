@@ -69,8 +69,8 @@ def eval(model, train_loader, device, loss_fct, sigmoid, epoch, uniq_labels, ver
     with torch.no_grad():
         for i, (ecgs, ag, labels) in enumerate(train_loader):
             ecgs = ecgs.float().to(device)
-            ag = ag.float().to(device) # age and gender
-            labels = labels.float().to(device) # diagnoses in SNOMED CT codes  
+            ag = ag.float().to(device) # demographics
+            labels = labels.float().to(device) # diagnoses 
 
             # Run model
             logits = model(ecgs, ag) 
@@ -174,10 +174,11 @@ def train_model(data, multilabels, uniq_labels, args, verbose):
                 train(model, train_dl, device, criterion, sigmoid, optimizer, epoch, uniq_labels, verbose)
                 f_measure = eval(model, val_dl, device, criterion, sigmoid, epoch, uniq_labels, verbose)
                 metrics.append(f_measure)
-                
-                model_state_dict  = model.state_dict()
-                model_name = f'{epoch}-{f_measure:.4f}-split{i+1}'
-                save_model_torch(model_state_dict, model_name, args.model_folder)
+
+                if epoch == args.epochs:
+                    model_state_dict  = model.state_dict()
+                    model_name = f'{epoch}-{f_measure:.4f}-split{i+1}'
+                    save_model_torch(model_state_dict, model_name, args.model_folder)
                 
         print('Averaged f-measure = ', round(np.mean(metrics), 3))
         torch.cuda.empty_cache()
