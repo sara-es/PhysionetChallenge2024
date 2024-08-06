@@ -176,3 +176,4 @@ u-net/
 /test_rot_data
 /jobscripts/logs
 /yolo_data
+digitization/model_checkpoints/traced_model.pt
