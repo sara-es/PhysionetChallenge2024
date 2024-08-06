@@ -1,1 +1,1 @@
-from digitization.YOLOv7 import train
+from digitization.YOLOv7 import train, test, detect

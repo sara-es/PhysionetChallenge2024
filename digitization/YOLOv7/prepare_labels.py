@@ -1,7 +1,7 @@
 import os
 import json
 
-def prepare_label_text(metadata, lead_text_label=0, short_lead_label=0, long_lead_label=1):
+def prepare_label_text(metadata, lead_text_label=None, short_lead_label=0, long_lead_label=1):
     """
     Get the bounding box from the json file and convert it to xywh format.
     xywh is <x_center, y_center, width, height>
@@ -18,17 +18,18 @@ def prepare_label_text(metadata, lead_text_label=0, short_lead_label=0, long_lea
 
     for lead in metadata["leads"]:
         # lead names
-        # x_min = lead["text_bounding_box"]["0"][1] / image_width
-        # x_max = lead["text_bounding_box"]["2"][1] / image_width
-        # y_min = lead["text_bounding_box"]["0"][0] / image_height
-        # y_max = lead["text_bounding_box"]["2"][0] / image_height
+        if lead_text_label is not None:
+            x_min = lead["text_bounding_box"]["0"][1] / image_width
+            x_max = lead["text_bounding_box"]["2"][1] / image_width
+            y_min = lead["text_bounding_box"]["0"][0] / image_height
+            y_max = lead["text_bounding_box"]["2"][0] / image_height
 
-        # x_center = (x_min + x_max) / 2
-        # y_center = (y_min + y_max) / 2
-        # width = x_max - x_min
-        # height = y_max - y_min
+            x_center = (x_min + x_max) / 2
+            y_center = (y_min + y_max) / 2
+            width = x_max - x_min
+            height = y_max - y_min
 
-        # out_str += f"{lead_text_label} {x_center} {y_center} {width} {height}\n"
+            out_str += f"{lead_text_label} {x_center} {y_center} {width} {height}\n"
 
         # leads
         x_min = lead["lead_bounding_box"]["0"][1] / image_width
@@ -97,12 +98,7 @@ def find_files(folder, extension_str):
 
 
 if __name__ == "__main__":
-    images_dir = os.path.join("test_data")
-    ids = find_files(images_dir, extension_str='.png')
-    json_file_dir = os.path.join("test_data", "config_files")
-    for split in ["train", "val", "test"]:
-        label_file_dir = os.path.join(images_dir, split, "labels")
-        print(f"Label dir {label_file_dir}")
-        print(f"json dir {json_file_dir}")
-        os.makedirs(label_file_dir, exist_ok=True)
-        prepare_label_files(ids, json_file_dir, label_file_dir)
+    ids = set([f.split(".")[0] for f in os.listdir("yolo_data\\val_images\\images") if f.endswith(".png")]) 
+    json_file_dir = "yolo_data\\val_images"
+    label_file_dir = "yolo_data\\val_images\\labels"
+    prepare_label_files(ids, json_file_dir, label_file_dir)

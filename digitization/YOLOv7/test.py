@@ -40,7 +40,8 @@ def test(data,
          half_precision=True,
          trace=False,
          is_coco=False,
-         v5_metric=False):
+         v5_metric=False,
+         opt=''): 
     # Initialize/load model and set device
     training = model is not None
     if training:  # called by train.py
@@ -260,21 +261,21 @@ def test(data,
         with open(pred_json, 'w') as f:
             json.dump(jdict, f)
 
-        try:  # https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocoEvalDemo.ipynb
-            from pycocotools.coco import COCO
-            from pycocotools.cocoeval import COCOeval
+        # try:  # https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocoEvalDemo.ipynb
+        #     from pycocotools.coco import COCO
+        #     from pycocotools.cocoeval import COCOeval
 
-            anno = COCO(anno_json)  # init annotations api
-            pred = anno.loadRes(pred_json)  # init predictions api
-            eval = COCOeval(anno, pred, 'bbox')
-            if is_coco:
-                eval.params.imgIds = [int(Path(x).stem) for x in dataloader.dataset.img_files]  # image IDs to evaluate
-            eval.evaluate()
-            eval.accumulate()
-            eval.summarize()
-            map, map50 = eval.stats[:2]  # update results (mAP@0.5:0.95, mAP@0.5)
-        except Exception as e:
-            print(f'pycocotools unable to run: {e}')
+        #     anno = COCO(anno_json)  # init annotations api
+        #     pred = anno.loadRes(pred_json)  # init predictions api
+        #     eval = COCOeval(anno, pred, 'bbox')
+        #     if is_coco:
+        #         eval.params.imgIds = [int(Path(x).stem) for x in dataloader.dataset.img_files]  # image IDs to evaluate
+        #     eval.evaluate()
+        #     eval.accumulate()
+        #     eval.summarize()
+        #     map, map50 = eval.stats[:2]  # update results (mAP@0.5:0.95, mAP@0.5)
+        # except Exception as e:
+        #     print(f'pycocotools unable to run: {e}')
 
     # Return results
     model.float()  # for training
@@ -287,29 +288,31 @@ def test(data,
     return (mp, mr, map50, map, *(loss.cpu() / len(dataloader)).tolist()), maps, t
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(prog='test.py')
-    parser.add_argument('--weights', nargs='+', type=str, default='yolov7.pt', help='model.pt path(s)')
-    parser.add_argument('--data', type=str, default='data/coco.yaml', help='*.data path')
-    parser.add_argument('--batch-size', type=int, default=32, help='size of each image batch')
-    parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
-    parser.add_argument('--conf-thres', type=float, default=0.001, help='object confidence threshold')
-    parser.add_argument('--iou-thres', type=float, default=0.65, help='IOU threshold for NMS')
-    parser.add_argument('--task', default='val', help='train, val, test, speed or study')
-    parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
-    parser.add_argument('--single-cls', action='store_true', help='treat as single-class dataset')
-    parser.add_argument('--augment', action='store_true', help='augmented inference')
-    parser.add_argument('--verbose', action='store_true', help='report mAP by class')
-    parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
-    parser.add_argument('--save-hybrid', action='store_true', help='save label+prediction hybrid results to *.txt')
-    parser.add_argument('--save-conf', action='store_true', help='save confidences in --save-txt labels')
-    parser.add_argument('--save-json', action='store_true', help='save a cocoapi-compatible JSON results file')
-    parser.add_argument('--project', default='runs/test', help='save to project/name')
-    parser.add_argument('--name', default='exp', help='save to project/name')
-    parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
-    parser.add_argument('--no-trace', action='store_true', help='don`t trace model')
-    parser.add_argument('--v5-metric', action='store_true', help='assume maximum recall as 1.0 in AP calculation')
-    opt = parser.parse_args()
+class OptArgs:
+    def __init__(self):
+        self.weights = 'yolov7.pt' #'model.pt path(s)'
+        self.data = 'data/coco.yaml' #'*.data path'
+        self.batch_size = 32 #'size of each image batch'
+        self.img_size = 640 #'inference size (pixels)'
+        self.conf_thres = 0.001 #'object confidence threshold'
+        self.iou_thres = 0.65 #'IOU threshold for NMS'
+        self.task = 'val' #'train, val, test, speed or study'
+        self.device = '' #'cuda device, i.e. 0 or 0,1,2,3 or cpu'
+        self.single_cls = False #'treat as single-class dataset'
+        self.augment = False #'augmented inference'
+        self.verbose = False #'report mAP by class'
+        self.save_txt = False #'save results to *.txt'
+        self.save_hybrid = False #'save label+prediction hybrid results to *.txt'
+        self.save_conf = False #'save confidences in --save-txt labels'
+        self.save_json = False #'save a cocoapi-compatible JSON results file'
+        self.project = 'runs/test' #'save to project/name'
+        self.name = 'exp' #'save to project/name'
+        self.exist_ok = False #'existing project/name ok, do not increment'
+        self.no_trace = False #'don`t trace model'
+        self.v5_metric = False #'assume maximum recall as 1.0 in AP calculation'
+
+
+def main(opt):
     opt.save_json |= opt.data.endswith('coco.yaml')
     opt.data = check_file(opt.data)  # check file
     print(opt)
@@ -330,7 +333,8 @@ if __name__ == '__main__':
              save_hybrid=opt.save_hybrid,
              save_conf=opt.save_conf,
              trace=not opt.no_trace,
-             v5_metric=opt.v5_metric
+             v5_metric=opt.v5_metric,
+             opt=opt
              )
 
     elif opt.task == 'speed':  # speed benchmarks

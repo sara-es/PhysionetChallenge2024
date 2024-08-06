@@ -1,0 +1,10 @@
+train: "G:\\PhysionetChallenge2024\\yolo_data\\train_images"
+val: "G:\\PhysionetChallenge2024\\yolo_data\\val_images"
+# test: "G:\\PhysionetChallenge2024\\yolo_data\\test_images"
+test: "G:\\PhysionetChallenge2024\\tiny_testset\\real_images"
+
+# number of classes
+nc: 2
+
+# class names
+names: ['short_lead', 'rhythm_lead']
