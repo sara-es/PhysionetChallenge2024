@@ -30,8 +30,8 @@ def run(args, records_to_process=None):
         args.header_file = os.path.join(args.input_directory, header)
         args.start_index = -1
 
-        folder_struct_list = full_header_file.split('/')[:-1]
-        args.output_directory = os.path.join(args.output_directory, '/'.join(folder_struct_list))
+        # folder_struct_list = full_header_file.split('/')[:-1]
+        # args.output_directory = os.path.join(args.output_directory, '/'.join(folder_struct_list))
         args.encoding = os.path.split(os.path.splitext(filename)[0])[1]
 
         i += run_single_file(args)

@@ -12,11 +12,11 @@ First, download this repository and install the requirements:
     
 A small subset of data and labels have been provided in the `tiny_testset` folder. If you simply want to test that your code runs on as few as 15 samples, run the following commands:
 
-    python train_model.py -d tiny_testset/lr_gt -m model -v
+    python train_model.py -d tiny_testset/hr_gt -m model -v
 
-    python run_model.py -d tiny_testset/lr_hidden_clean -m model -o tiny_testset/test_outputs
+    python run_model.py -d tiny_testset/hr_hidden -m model -o tiny_testset/test_outputs -v -f
 
-    python evaluate_model.py -d tiny_testset/lr_gt -o tiny_testset/test_outputs
+    python evaluate_model.py -d tiny_testset/hr_gt -o tiny_testset/test_outputs
 
 ## Example image sets
 `tiny_testset` contains 18 samples of ECG data files and header files:

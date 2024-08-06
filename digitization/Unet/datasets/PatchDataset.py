@@ -9,7 +9,7 @@ import torchvision.transforms as transforms
 import torchio as tio
 
 class PatchDataset(Dataset):  # Inherit from Dataset class
-    def __init__(self, ids, im_patch_dir, label_patch_dir, train=True, transform=None):
+    def __init__(self, ids, im_patch_dir, label_patch_dir, train=True, transform=False):
         self.ids = ids
         self.im_patch_dir = im_patch_dir
         self.label_patch_dir = label_patch_dir
@@ -40,22 +40,28 @@ class PatchDataset(Dataset):  # Inherit from Dataset class
         if self.transform:
             val = torch.rand(1)
             if val > 0.5:   # Augment with probability 0.5
-                options = ['jitter', 'blur', 'noise', 'rotation']
-                choice = torch.randint(low=0, high=4, size=(1,))
+                options = ['jitter', 'blur', 'noise', 'rotation', 'scale']
+                choice = torch.randint(low=0, high=len(options), size=(1,))
                 option = options[choice]
                 if option == 'jitter':
                     jitter = transforms.ColorJitter(brightness=.5, hue=.3)
                     x = jitter(x)
                 elif option == 'rotation':
                     rot = int(torch.randint(low=0, high=90, size=(1,)))
-                    x = TF.rotate(x, rot)
-                    y = TF.rotate(y, rot)
+                    x = TF.rotate(x, rot, fill=1) # patching fills empty space with 1s for images
+                    y = TF.rotate(y, rot, fill=0) # and 0s for labels
                 elif option == 'blur':
                     blurer = transforms.GaussianBlur(kernel_size=(3,3), sigma=(0.5, 0.5))
                     x = blurer(x)
                 elif option == 'noise':
                     noise = torch.randn(x.shape)
                     x = x + noise
+                elif option == 'scale':
+                    scale = float(torch.rand(1)) + 0.5
+                    scaler = transforms.RandomAffine(degrees=0, translate=None, scale=(scale, scale), fill=1) # Nearest neighbour interpolation by standard, use that for now 
+                    x = scaler(x)
+                    scaler = transforms.RandomAffine(degrees=0, translate=None, scale=(scale, scale), fill=0) # 0 fill for labels
+                    y = scaler(y)
         return x, y
 
     def __len__(self):

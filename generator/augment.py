@@ -71,7 +71,7 @@ def get_augment(input_file, output_directory, rotate=25, noise=25, crop=0.01, te
 
     images = [image[:, :, :3]]
     h, w, _ = image.shape
-    rot = random.randint(-rotate, rotate)
+    rot = rotate
     crop_sample = random.uniform(0, crop)
     #Augment in a sequential manner. Create an augmentation object
     seq = iaa.Sequential([

@@ -1,7 +1,7 @@
 import os
 import json
 
-def prepare_label_text(metadata, lead_text_label=0, short_lead_label=1, long_lead_label=2):
+def prepare_label_text(metadata, lead_text_label=0, short_lead_label=0, long_lead_label=1):
     """
     Get the bounding box from the json file and convert it to xywh format.
     xywh is <x_center, y_center, width, height>
@@ -18,17 +18,17 @@ def prepare_label_text(metadata, lead_text_label=0, short_lead_label=1, long_lea
 
     for lead in metadata["leads"]:
         # lead names
-        x_min = lead["text_bounding_box"]["0"][1] / image_width
-        x_max = lead["text_bounding_box"]["2"][1] / image_width
-        y_min = lead["text_bounding_box"]["0"][0] / image_height
-        y_max = lead["text_bounding_box"]["2"][0] / image_height
+        # x_min = lead["text_bounding_box"]["0"][1] / image_width
+        # x_max = lead["text_bounding_box"]["2"][1] / image_width
+        # y_min = lead["text_bounding_box"]["0"][0] / image_height
+        # y_max = lead["text_bounding_box"]["2"][0] / image_height
 
-        x_center = (x_min + x_max) / 2
-        y_center = (y_min + y_max) / 2
-        width = x_max - x_min
-        height = y_max - y_min
+        # x_center = (x_min + x_max) / 2
+        # y_center = (y_min + y_max) / 2
+        # width = x_max - x_min
+        # height = y_max - y_min
 
-        out_str += f"{lead_text_label} {x_center} {y_center} {width} {height}\n"
+        # out_str += f"{lead_text_label} {x_center} {y_center} {width} {height}\n"
 
         # leads
         x_min = lead["lead_bounding_box"]["0"][1] / image_width
@@ -55,27 +55,54 @@ def prepare_label_files(ids, json_file_dir, label_file_dir):
     Prepare label files for the images in the dataset.
     """
     os.makedirs(label_file_dir, exist_ok=True)
+    # delete existing labels if present to avoid confusion
+    for file in os.listdir(label_file_dir):
+        os.remove(os.path.join(label_file_dir, file))
 
-    ids = [f.split(os.sep)[-1] for f in ids] # Make sure IDs are strings and not paths
-    ids = [f[:8] for f in ids] # take the first 8 characters
-    all_files = os.listdir(json_file_dir)
-    json_filenames = [f for f in all_files if f.endswith('.json')]
-    matching_json_filenames = [f for f in json_filenames if f[:8] in ids]
-    if len(matching_json_filenames) != len(ids):
-        raise FileNotFoundError(f"Some requested json files are missing from {json_file_dir}. "+\
-                                "Please check that you have generated the json files for the images.")
+    json_ids = find_files(json_file_dir, extension_str='.json')
+    id_tails = [f[-10:] for f in ids]
+    label_ids_to_save = set(json_ids).union(set(id_tails))
+    if set(json_ids) != set(id_tails):
+        print(f"Found {len(json_ids)} json files, for {len(id_tails)} requested images.")
+        print(f"Missing json files: {set(id_tails) - set(json_ids)}")
+        print(f"Missing image files: {set(json_ids) - set(id_tails)}")
+        print(f"Some requested json files are missing from {json_file_dir}. "+\
+              f"Generating labels for {len(label_ids_to_save)} images.")
 
-    for json_file in matching_json_filenames:
-        json_path = os.path.join(json_file_dir, json_file)
+    for i, json_file in enumerate(label_ids_to_save):
+        json_path = os.path.join(json_file_dir, json_file + ".json")
         with open(json_path, 'r') as f:
             metadata = json.load(f)
         label_text = prepare_label_text(metadata)
-        with open(os.path.join(label_file_dir, json_file.replace(".json", ".txt")), 'w') as f:
+        with open(os.path.join(label_file_dir, json_file + ".txt"), 'w') as f:
             f.write(label_text)
 
 
+def find_files(folder, extension_str):
+    """
+    Find all relative file paths to files with a specific extension with respect to the root 
+    folder. e.g. if folder is "ptb-xl/records100" then records is a list of strings 
+    e.g. ["00000/00157_lr", "01000/01128_lr", ...].
+    """
+    records = set()
+    ext_len = len(extension_str)
+    for root, directories, files in os.walk(folder):
+        for file in files:
+            extension = os.path.splitext(file)[1]
+            if extension == extension_str:
+                record = os.path.relpath(os.path.join(root, file), folder)[:-ext_len]
+                records.add(record)
+    records = sorted(records)
+    return records
+
+
 if __name__ == "__main__":
-    ids = set([f.split(".")[0] for f in os.listdir("test_data\\train_images\\images") if f.endswith(".png")]) 
-    json_file_dir = "test_data\\train_images"
-    label_file_dir = "test_data\\train_images\\labels"
-    prepare_label_files(ids, json_file_dir, label_file_dir)
+    images_dir = os.path.join("test_data")
+    ids = find_files(images_dir, extension_str='.png')
+    json_file_dir = os.path.join("test_data", "config_files")
+    for split in ["train", "val", "test"]:
+        label_file_dir = os.path.join(images_dir, split, "labels")
+        print(f"Label dir {label_file_dir}")
+        print(f"json dir {json_file_dir}")
+        os.makedirs(label_file_dir, exist_ok=True)
+        prepare_label_files(ids, json_file_dir, label_file_dir)

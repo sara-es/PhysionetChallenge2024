@@ -6,6 +6,7 @@ scratch.ipynb
 *.7z
 *.png
 !tiny_testset/*/*.png
+jobscripts/
 
 
 # Byte-compiled / optimized / DLL files
@@ -169,6 +170,9 @@ u-net/
 /old_stuff
 /evaluation/data
 /temp_data
+/runs
 /test_data
 /runs
 /test_rot_data
+/jobscripts/logs
+/yolo_data

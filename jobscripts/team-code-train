@@ -1,0 +1,20 @@
+#!/bin/bash --login
+#$ -cwd              # Job will run in currect directory
+                     # Nothing specified to request more cores = default 1 core
+#$ -l nvidia_v100=1  # Request GPU with 1 core (can be 1-4)
+                     # Can also request nvidia_a100 but good luck with the queue
+#$ -pe smp.pe 8      # 8 cpu cores, should speed up dataloaders
+
+#$ -o jobscripts/logs/   # put outputs in logs folder
+#$ -e jobscripts/logs/                    
+
+# Load any required modulefiles
+source ~/envs/physionet2024/bin/activate
+module load libs/cuda/12.2.2
+module load compilers/gcc/6.4.0
+
+# Copy a directory of files from scratch to the GPU node's local NVMe storage
+echo "Starting job with $NGPUS GPU(s) with ID(s) $CUDA_VISIBLE_DEVICES and $NSLOTS CPU core(s)."
+
+# Run code
+python evaluation/train_unet.py
