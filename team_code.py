@@ -210,8 +210,6 @@ def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder
     if not records_to_process:
         records_to_process = helper_code.find_records(wfdb_records_folder)
 
-    seed = np.random.randint(100000) # DOES NOTHING APPARENTLY >:C
-
     # params for generating images
     img_gen_params = generator.DefaultArgs()
     img_gen_params.input_directory = wfdb_records_folder
@@ -219,6 +217,10 @@ def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder
     img_gen_params.random_bw = 0.2
     img_gen_params.wrinkles = True
     img_gen_params.print_header = True
+    img_gen_params.lead_bbox = True
+    img_gen_params.lead_name_bbox = True
+    img_gen_params.store_config = 1
+
     img_gen_params.augment = False
     img_gen_params.calibration_pulse = 0
 
@@ -260,7 +262,7 @@ def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder
 
 
 def train_unet(record_ids, patch_folder, model_folder, verbose, 
-               args=None, max_train_samples=20000, warm_start=True, delete_patches=True):
+               args=None, max_train_samples=40000, warm_start=True, delete_patches=True):
     """
     Train the U-Net model from patches and save the resulting model. 
     Note that no validation is done by default - during the challenge we will want to train
@@ -471,6 +473,3 @@ def classify_signals(record_path, data_folder, resnet_model, classes, verbose):
         print(f"Predicted labels: {labels}")
 
     return labels
-
-    
-
