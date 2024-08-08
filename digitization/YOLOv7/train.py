@@ -529,8 +529,8 @@ class OptArgs:
         self.cfg = '' # model.yaml path
         self.data = 'data/coco.yaml' # data.yaml path
         self.hyp = 'data/hyp.scratch.p5.yaml' # hyperparameters path
-        self.epochs = 300 # number of epochs
-        self.batch_size = 16 # total batch size for all GPUs
+        self.epochs = 200 # number of epochs, default 300
+        self.batch_size = 8 # total batch size for all GPUs, default 16
         self.img_size = [640, 640] # [train, test] image sizes
         self.rect = False # rectangular training
         self.resume = False # resume most recent training
@@ -542,16 +542,16 @@ class OptArgs:
         self.cache_images = False # cache images for faster training
         self.image_weights = False # use weighted image selection for training
         self.device = '' # cuda device, i.e. 0 or 0,1,2,3 or cpu
-        self.multi_scale = False # vary img-size +/- 50%
+        self.multi_scale = True # vary img-size +/- 50%, default False
         self.single_cls = False # train multi-class data as single-class
         self.adam = False # use torch.optim.Adam() optimizer
         self.sync_bn = False # use SyncBatchNorm, only available in DDP mode
         self.local_rank = -1 # DDP parameter, do not modify
         self.workers = 8 # maximum number of dataloader workers
-        self.project = 'runs/train' # save to project/name
+        self.project = 'temp_data/train' # save to project/name
         self.entity = None # W&B entity
         self.name = 'exp' # save to project/name
-        self.exist_ok = False # existing project/name ok, do not increment
+        self.exist_ok = True # existing project/name ok, do not increment, default False
         self.quad = False   # quad dataloader
         self.linear_lr = False # linear LR
         self.label_smoothing = 0.0 # Label smoothing epsilon
@@ -562,9 +562,7 @@ class OptArgs:
         self.freeze = [0] # Freeze layers: backbone of yolov7=50, first3=0 1 2
         self.v5_metric = False # assume maximum recall as 1.0 in AP calculation
 
-def main(args):
-    opt = args
-
+def main(opt):
     # Set DDP variables
     opt.world_size = int(os.environ['WORLD_SIZE']) if 'WORLD_SIZE' in os.environ else 1
     opt.global_rank = int(os.environ['RANK']) if 'RANK' in os.environ else -1

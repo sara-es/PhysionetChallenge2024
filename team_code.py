@@ -16,8 +16,11 @@ from tqdm import tqdm
 from sklearn.preprocessing import MultiLabelBinarizer
 import matplotlib.pyplot as plt
 import scipy as sp
+import shutil
 from sklearn.utils import shuffle
 
+import digitization.YOLOv7
+import digitization.YOLOv7.prepare_labels
 import helper_code
 import preprocessing
 from utils import team_helper_code, constants, model_persistence
@@ -142,7 +145,7 @@ def save_models(model_folder, digitization_model=None, classification_model=None
         
 
 def train_digitization_model(data_folder, model_folder, verbose, records_to_process=None,
-                             delete_training_data=True, max_size_training_set=2000):
+                             delete_training_data=True, max_size_training_set=3000):
     """
     Our general digitization process is
     1. generate testing images and masks
@@ -157,10 +160,11 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
     visualization, set delete_training_data to False. 
     """
     # hard code some folder paths for now
-    images_folder = os.path.join(os.getcwd(), 'temp_data', 'images')
-    masks_folder = os.path.join(os.getcwd(), 'temp_data', 'masks')
-    patch_folder = os.path.join(os.getcwd(), 'temp_data', 'patches')
-    unet_output_folder = os.path.join(os.getcwd(), 'temp_data', 'unet_outputs')
+    images_folder = os.path.join(os.getcwd(), 'temp_data', 'train', 'images')
+    bb_labels_folder = os.path.join(os.getcwd(), 'temp_data', 'train', 'labels')
+    masks_folder = os.path.join(os.getcwd(), 'temp_data', 'train', 'masks')
+    patch_folder = os.path.join(os.getcwd(), 'temp_data', 'train', 'patches')
+    unet_output_folder = os.path.join(os.getcwd(), 'temp_data', 'train', 'unet_outputs')
 
     os.makedirs(images_folder, exist_ok=True)
     os.makedirs(masks_folder, exist_ok=True)
@@ -173,10 +177,20 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
     if max_size_training_set is not None:
         records_to_process = shuffle(records_to_process)[:max_size_training_set]
 
-    # generate images and masks for training u-net; generate patches
-    generate_unet_training_data(data_folder, images_folder, 
-                                masks_folder, patch_folder, 
-                                verbose, records_to_process=records_to_process)
+    # generate images, bounding boxes, and masks for training YOLO and u-net
+    # note that YOLO labels assume two classes: short and long leads
+    generate_training_images(data_folder, images_folder, 
+                             masks_folder, bb_labels_folder, 
+                             verbose, records_to_process=records_to_process)
+    
+    # train YOLOv7
+    train_yolo(records_to_process, images_folder, bb_labels_folder, model_folder, verbose, 
+               delete_training_data=delete_training_data)
+    
+    # Generate patches for u-net. Note: this deletes source images and masks to save space
+    Unet.patching.save_patches_batch(records_to_process, images_folder, masks_folder, 
+                                     constants.PATCH_SIZE, patch_folder, verbose, 
+                                     delete_images=delete_training_data)
     
     # train classifier for real vs. generated data
 
@@ -190,6 +204,19 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
     # train U-net: real data
 
 
+    # optional: delete any leftover training data
+    if delete_training_data:
+        for im in os.listdir(images_folder):
+            os.remove(os.path.join(images_folder, im))
+        for im in os.listdir(masks_folder):
+            os.remove(os.path.join(masks_folder, im))
+        for im in os.listdir(bb_labels_folder):
+            os.remove(os.path.join(bb_labels_folder, im))
+        for im in os.listdir(patch_folder):
+            os.remove(os.path.join(patch_folder, im))
+        for im in os.listdir(unet_output_folder):
+            os.remove(os.path.join(unet_output_folder, im))
+
 
     if verbose:
         print(f'Done.')
@@ -197,15 +224,11 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
     return unet_model
 
 
-def generate_yolo_training_data():
-    pass
-
-
-def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder, patch_folder,
-                                verbose, patch_size=constants.PATCH_SIZE, records_to_process=None):
+def generate_training_images(wfdb_records_folder, images_folder, masks_folder, bb_labels_folder,
+                                verbose, records_to_process=None):
     """
-    Call generate_images_from_wfdb to generate images and masks; then patchify the images and masks
-    for training the U-Net model. Save the patches in patches_folder. 
+    Call generate_images_from_wfdb to generate images, lead bounding box information, and masks.
+    Save the bounding box labels in YOLO format.
     """
     if not records_to_process:
         records_to_process = helper_code.find_records(wfdb_records_folder)
@@ -243,8 +266,17 @@ def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder
     img_gen_params.wrinkles = False
     img_gen_params.augment = False
     if verbose:
-        print("Generating images from wfdb files (set 3/3)...")
+        print("Generating images from wfdb files (set 3/3)...")    
     generator.gen_ecg_images_from_data_batch.run(img_gen_params, records_to_process[int(split*3):])
+
+    # generate bounding box labels and save to a separate folder
+    img_files = team_helper_code.find_files(images_folder, extension_str='.png')
+    if verbose:
+        print("Preparing bounding box labels...")
+    digitization.YOLOv7.prepare_labels.prepare_label_files(img_files, images_folder, bb_labels_folder,
+                                                           verbose)
+
+    # generate masks
     if verbose:
         print("Generating masks from wfdb files (set 1/2)...")
     generator.gen_ecg_images_from_data_batch.run(mask_gen_params, records_to_process[:split])
@@ -252,22 +284,68 @@ def generate_unet_training_data(wfdb_records_folder, images_folder, masks_folder
     if verbose:
         print("Generating masks from wfdb files (set 2/2)...")
     generator.gen_ecg_images_from_data_batch.run(mask_gen_params, records_to_process[split:])
-
-    # generate patches
-    Unet.patching.save_patches_batch(records_to_process, images_folder, masks_folder, patch_size,
-                                     patch_folder, verbose, max_samples=False)
     
     if verbose:
         print(f'Done.')
+
+
+def train_yolo(record_ids, train_data_folder, bb_labels_folder, model_folder, verbose, 
+               args=None, delete_training_data=True):
+    """
+    A quick and dirty setup of yolo training config files, and model training call.
+    """
+    if not args:
+        args = digitization.YOLOv7.train.OptArgs()
+        args.device = "0"
+        args.cfg = os.path.join("digitization", "YOLOv7", "cfg", "training", "yolov7-ecg2c.yaml")
+        args.name = "yolov7-ecg-2c"
+        args.hyp = os.path.join("digitization", "YOLOv7", "data", "hyp.scratch.custom.yaml")
+
+    # use the best weights from the yolov7 model zoo as starting point
+    args.weights = os.path.join("digitization", "model_checkpoints", "yolov7.pt")
+    
+    # n. classes, class labels, train data folder info written here
+    # data should be train/images and train/labels folders
+    # currently assumes 2 classes: short and long leads
+    # currently trains on all available data in train_data_folder
+    args.data = os.path.join("digitization", "YOLOv7", "data", "ecg.yaml")
+
+    # yolo requires we also have val data
+    os.makedirs(os.path.join("temp_data", "val", "images"), exist_ok=True)
+    os.makedirs(os.path.join("temp_data", "val", "labels"), exist_ok=True)
+    # move some data to val
+    val_record_ids = record_ids[int(len(record_ids)/10):]
+    for record in val_record_ids:
+        record_id = record.split(os.sep)[-1]
+        image_path = os.path.join(train_data_folder, record_id + "-0.png")
+        label_path = os.path.join(bb_labels_folder, record_id + "-0.txt")
+        shutil.move(image_path, os.path.join("temp_data", "val", "images"))
+        shutil.move(label_path, os.path.join("temp_data", "val", "labels"))
+
+    # Train the model
+    digitization.YOLOv7.train.main(args)
+
+    # Find best weights and save them to model_folder
+    best_weights_path = os.path.join("temp_data", "train", "yolov7-ecg-2c", "weights", "best.pt")
+    os.makedirs(model_folder, exist_ok=True)
+    os.rename(best_weights_path, os.path.join(model_folder, "yolov7-ecg-2c.pt"))
+
+    # move data back from val to train
+    for record in val_record_ids:
+        record_id = record.split(os.sep)[-1]
+        image_path = os.path.join("temp_data", "val", "images", record_id + "-0.png")
+        label_path = os.path.join("temp_data", "val", "labels", record_id + "-0.txt")
+        shutil.move(image_path, train_data_folder)
+        shutil.move(label_path, bb_labels_folder)
+
+    if delete_training_data:
+        shutil.rmtree(os.path.join("temp_data", "train", "yolov7-ecg-2c"))
 
 
 def train_unet(record_ids, patch_folder, model_folder, verbose, 
                args=None, max_train_samples=40000, warm_start=True, delete_patches=True):
     """
     Train the U-Net model from patches and save the resulting model. 
-    Note that no validation is done by default - during the challenge we will want to train
-    on all available data. Manually set args.train_val_prop to a value between 0 and 1 to
-    enforce validation.
 
     Params:
         record_ids: list of str, record IDs to train on
@@ -275,7 +353,7 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
         model_folder: str, path to folder to save model checkpoints
         verbose: bool
         args: Unet.utils.Args, default None
-        max_train_samples: int, default 20000 (approximately 300 images). Number of PATCHES 
+        max_train_samples: int, default 40000 (approximately 600 images). Number of PATCHES 
           (not records) to use for training and validation. Set to False to use all available 
           patches.
     """
@@ -362,7 +440,6 @@ def train_classification_model(records_folder, verbose, records_to_process=None)
     labels = []
     for record in tqdm(records_to_process, desc='Loading classifier training data', 
                        disable=not verbose):
-        # TODO need to make sure that data is interpolated/downsampled to consistent frequency
         data, label = classification.get_training_data(record, records_folder)
         if label is None or '' in label: # don't use data without labels for training
             continue
@@ -407,8 +484,8 @@ def unet_reconstruct_single_image(record, model, verbose, delete_patches=True):
     record_id = os.path.split(record)[-1].split('.')[0]
 
     # hard code some folder paths for now
-    patch_folder = os.path.join('temp_data', 'patches', 'test_image_patches')
-    reconstructed_signals_folder = os.path.join('temp_data', 'reconstructed_signals')
+    patch_folder = os.path.join('temp_data', 'test', 'patches', 'image_patches')
+    reconstructed_signals_folder = os.path.join('temp_data', 'test', 'reconstructed_signals')
     os.makedirs(patch_folder, exist_ok=True)
     os.makedirs(reconstructed_signals_folder, exist_ok=True)
 

@@ -41,6 +41,23 @@ def save_rotation(record, gridsize):
     helper_code.save_text(header_file, header)
     return header
 
+def find_files(folder, extension_str):
+    """
+    Find all relative file paths to files with a specific extension with respect to the root 
+    folder. e.g. if folder is "ptb-xl/records100" then records is a list of strings 
+    e.g. ["00000/00157_lr", "01000/01128_lr", ...].
+    """
+    records = set()
+    ext_len = len(extension_str)
+    for root, directories, files in os.walk(folder):
+        for file in files:
+            extension = os.path.splitext(file)[1]
+            if extension == extension_str:
+                record = os.path.relpath(os.path.join(root, file), folder)[:-ext_len]
+                records.add(record)
+    records = sorted(records)
+    return records
+
 def find_available_images(ids : list, directory : str, verbose : bool):
     """
     Check for images or .npy arrays in the directory that match the IDs in the list.

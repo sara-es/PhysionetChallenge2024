@@ -33,7 +33,6 @@ def get_demographic_features(record):
 
 
 def get_training_data(record, data_folder):
-    # TODO need to make sure that data is interpolated/downsampled to consistent frequency
     # get headers for labels and demographic info
     record_path = os.path.join(data_folder, record) 
     header_txt = helper_code.load_header(record_path)

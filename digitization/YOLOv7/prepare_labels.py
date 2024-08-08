@@ -1,5 +1,7 @@
-import os
+import os, sys
+sys.path.append(os.path.join(sys.path[0], '..'))
 import json
+from utils import team_helper_code
 
 def prepare_label_text(metadata, lead_text_label=None, short_lead_label=0, long_lead_label=1):
     """
@@ -51,19 +53,25 @@ def prepare_label_text(metadata, lead_text_label=None, short_lead_label=0, long_
     return out_str
 
 
-def prepare_label_files(ids, json_file_dir, label_file_dir):
+def prepare_label_files(ids, json_file_dir, label_file_dir, verbose):
     """
     Prepare label files for the images in the dataset.
+
+    params:
+    ids: list of image ids with respect to the root folder. e.g. if folder is "ptb-xl/records100"
+        then records is a list of strings ["00000/00157_lr", "01000/01128_lr", ...].
+    json_file_dir: path to the directory containing the json files created at generation
+    label_file_dir: path to the directory where the label files will be saved
     """
     os.makedirs(label_file_dir, exist_ok=True)
     # delete existing labels if present to avoid confusion
     for file in os.listdir(label_file_dir):
         os.remove(os.path.join(label_file_dir, file))
 
-    json_ids = find_files(json_file_dir, extension_str='.json')
-    id_tails = [f[-10:] for f in ids]
+    json_ids = team_helper_code.find_files(json_file_dir, extension_str='.json')
+    id_tails = [f.split(os.sep)[-1] for f in ids]
     label_ids_to_save = set(json_ids).union(set(id_tails))
-    if set(json_ids) != set(id_tails):
+    if set(json_ids) != set(id_tails) and verbose:
         print(f"Found {len(json_ids)} json files, for {len(id_tails)} requested images.")
         print(f"Missing json files: {set(id_tails) - set(json_ids)}")
         print(f"Missing image files: {set(json_ids) - set(id_tails)}")
@@ -79,26 +87,9 @@ def prepare_label_files(ids, json_file_dir, label_file_dir):
             f.write(label_text)
 
 
-def find_files(folder, extension_str):
-    """
-    Find all relative file paths to files with a specific extension with respect to the root 
-    folder. e.g. if folder is "ptb-xl/records100" then records is a list of strings 
-    e.g. ["00000/00157_lr", "01000/01128_lr", ...].
-    """
-    records = set()
-    ext_len = len(extension_str)
-    for root, directories, files in os.walk(folder):
-        for file in files:
-            extension = os.path.splitext(file)[1]
-            if extension == extension_str:
-                record = os.path.relpath(os.path.join(root, file), folder)[:-ext_len]
-                records.add(record)
-    records = sorted(records)
-    return records
 
-
-if __name__ == "__main__":
-    ids = set([f.split(".")[0] for f in os.listdir("yolo_data\\val_images\\images") if f.endswith(".png")]) 
-    json_file_dir = "yolo_data\\val_images"
-    label_file_dir = "yolo_data\\val_images\\labels"
-    prepare_label_files(ids, json_file_dir, label_file_dir)
+# if __name__ == "__main__":
+#     ids = set([f.split(".")[0] for f in os.listdir("yolo_data\\val_images\\images") if f.endswith(".png")]) 
+#     json_file_dir = "yolo_data\\val_images"
+#     label_file_dir = "yolo_data\\val_images\\labels"
+#     prepare_label_files(ids, json_file_dir, label_file_dir)
