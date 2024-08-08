@@ -15,7 +15,7 @@ from utils import team_helper_code
 class Args:
     # Store lots of the parameters that we might need to train the model
     def __init__(self):
-        self.batch_size = 32
+        self.batch_size = 16
         self.log_interval = 50
         self.learning_rate = 1e-4
         self.epochs = 500
