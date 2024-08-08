@@ -158,10 +158,10 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
         try:
             with open(LOSS_PATH + '.npy', 'rb') as f:
                 loss_store = np.load(f, allow_pickle=True)
-                print(loss_store)
             loss_store = loss_store.tolist()
-            early_stopping.best_score = -np.min(loss_store[:, 1])
-            early_stopping.val_loss_min = np.min(loss_store[:, 1])
+            val_losses = np.array([x[1] for x in loss_store if x[1] is not None])
+            early_stopping.best_score = -np.min(val_losses)
+            early_stopping.val_loss_min = np.min(val_losses)
         except Exception as e:
             print(e)
             print(f'Could not load loss history from {LOSS_PATH}. Early stopping will be delayed.',
