@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 
 from digitization.Unet.ECGunet import BasicResUNet
 from preprocessing.classifier import PatchDataset
-from digitization.Unet import utils
+from preprocessing.classifier import utils
 from digitization.Unet import Unet
 
 
