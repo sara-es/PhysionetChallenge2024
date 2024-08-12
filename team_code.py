@@ -246,11 +246,14 @@ def generate_training_images(wfdb_records_folder, images_folder, masks_folder, b
     img_gen_params.random_bw = 0.2
     img_gen_params.wrinkles = True
     img_gen_params.print_header = True
+    img_gen_params.augment = True
+    img_gen_params.crop = 0.0
+    img_gen_params.rotate = 0
     img_gen_params.lead_bbox = True
     img_gen_params.lead_name_bbox = True
     img_gen_params.store_config = 1
 
-    img_gen_params.augment = False
+    # img_gen_params.augment = False
     img_gen_params.calibration_pulse = 0
 
     # set params for generating masks
