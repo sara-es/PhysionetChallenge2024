@@ -38,10 +38,11 @@ def column_rotation(record_id, image_mask, image_path, angle_range=(-45, 45), ve
     rotated_mask = zero_one_rescale(rotated_mask)
 
     rotated_image_path = image_path.replace('.png', f'_rotated.png')
-    with open(image_path, 'wb') as f:
-        image = plt.imread(image_path)
-    rotated_image = sp.ndimage.rotate(image, rot_angle, axes=(1, 0), reshape=True, mode='constant')
-    with open(rotated_image_path, 'wb') as f:
-        plt.imsave(f, rotated_image)
+    if rot_angle != 0:
+        with open(image_path, 'wb') as f:
+            image = plt.imread(image_path)
+        rotated_image = sp.ndimage.rotate(image, rot_angle, axes=(1, 0), reshape=True, mode='constant')
+        with open(rotated_image_path, 'wb') as f:
+            plt.imsave(f, rotated_image)
 
     return rotated_mask, rotated_image_path, rot_angle
