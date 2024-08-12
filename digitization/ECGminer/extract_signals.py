@@ -182,6 +182,7 @@ def extract_row_signals(ecg: Image, n_lines: int) -> Iterable[Iterable[Point]]:
             y = y+1
             match = 0
             while match == 0:
+                dists_fails = 0 # count the number of times we fail to find a match
                 
                 # get distances between possible matches
                 dists = []
@@ -199,9 +200,11 @@ def extract_row_signals(ecg: Image, n_lines: int) -> Iterable[Iterable[Point]]:
                 candidates = np.array(candidates)
 
                 if len(dists) == 0: # no candidates for matches at all
-                    raise SignalExtractionError("Could not match signal pixels: bad image or ROI.")
+                    dists_fails += 1 
+                    if dists_fails > thresh:
+                        raise SignalExtractionError("Could not match signal pixels: bad image or ROI.")
                 
-                if np.min(abs(dists))<thresh:                    
+                if len(dists) > 0 and np.min(abs(dists))<thresh:                    
                     #bit of voodoo here to try to make sure that we favour returning towards 
                     # baseline when there is a choice
                     dist_idx = np.where(abs(dists) == min(abs(dists)))[0]

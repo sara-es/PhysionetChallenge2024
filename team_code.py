@@ -535,8 +535,12 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
     
     # rotate reconstructed u-net output to original orientation
     rotated_mask, rotated_image_path, rot_angle = preprocessing.column_rotation(record_id, 
-                                                    predicted_mask, image_path,
+                                                    predicted_mask, image,
                                                     angle_range=(-20, 20), verbose=verbose)
+    
+    # save rotated mask for debugging
+    # with open(os.path.join("temp_data", "test", "unet_outputs", record_id + '.png'), 'wb') as f:
+    #     plt.imsave(f, rotated_mask, cmap='gray')
     
     if rot_angle != 0: # currently just rotate the mask, do no re-predict   
         try: # sometimes this fails, if there are edge effects
@@ -567,9 +571,6 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
     if delete_patches:
         for im in os.listdir(patch_folder):
             os.remove(os.path.join(patch_folder, im))
-
-    # with open(os.path.join(reconstructed_signals_folder, record_id + '.npy'), 'wb') as f:
-    #     np.save(f, predicted_mask)
 
     # return reconstructed signal
     return reconstructed_signal, reconstructed_signals_folder
