@@ -1,43 +1,74 @@
-import sys, os
+import os, sys
 sys.path.append(os.path.join(sys.path[0], '..'))
-
-import numpy as np
-import joblib, time
-from tqdm import tqdm
 import team_code, helper_code
-from sklearn.utils import shuffle
-from digitization import Unet
-import generator
 
+# Run the code.
+def run(data_folder, output_folder, model_folder, verbose, allow_failures):
+    # Load the models.
+    if verbose:
+        print('Loading the Challenge model...')
 
-def generate_test_images(wfdb_records_folder, images_folder):
-    # params for generating images
-    img_gen_params = generator.DefaultArgs()
-    img_gen_params.random_bw = 0.2
-    img_gen_params.wrinkles = True
-    img_gen_params.print_header = True
-    img_gen_params.augment = True # TODO reconstruction breaks with any rotation at the moment
-    img_gen_params.rotate = 5
-    img_gen_params.input_directory = wfdb_records_folder
-    img_gen_params.output_directory = images_folder
-    
+    # You can use these functions to perform tasks, such as loading your models, that you only need to perform once.
+    digitization_model, classification_model = team_code.load_models(model_folder, verbose) ### Teams: Implement this function!!!
 
-def run_models(record, digitization_model, classification_model, verbose):
-    # TODO
-    # Load the record and header file
+    # Find the Challenge data.
+    if verbose:
+        print('Finding the Challenge data...')
 
-    # preprocess the image file
+    records = helper_code.find_records(data_folder)
+    num_records = len(records)
 
-    # run u-net on preprocessed image
+    if num_records==0:
+        raise Exception('No data were provided.')
 
-    # reconstruct signal
+    # Create a folder for the Challenge outputs if it does not already exist.
+    os.makedirs(output_folder, exist_ok=True)
 
-    # run resnet on reconstructed signal and return predicted class
-    pass
+    # Run the team's models on the Challenge data.
+    if verbose:
+        print('Running the Challenge model(s) on the Challenge data...')
 
+    # Iterate over the records.
+    for i in range(num_records):
+        if verbose:
+            width = len(str(num_records))
+            print(f'- {i+1:>{width}}/{num_records}: {records[i]}...')
 
-if __name__ == "__main__":   
-    data_folder = "G:\\PhysionetChallenge2024\\ptb-xl\\combined_records"
-    model_folder = "G:\\PhysionetChallenge2024\\model"
-    verbose = True 
-    digitization_model, classification_model = team_code.load_models(model_folder, verbose)
+        data_record = os.path.join(data_folder, records[i])
+        output_record = os.path.join(output_folder, records[i])
+
+        # Run the models. Allow or disallow the models to fail on some of the data, which can be helpful for debugging.
+        try:
+            signals, labels = team_code.run_models(data_record, digitization_model, classification_model, verbose) ### Teams: Implement this function!!!
+        except:
+            if allow_failures:
+                if verbose:
+                    print('... failed.')
+                signals = None
+                labels = None
+            else:
+                raise
+
+        # Save Challenge outputs.
+        output_path = os.path.split(output_record)[0]
+        os.makedirs(output_path, exist_ok=True)
+
+        data_header = helper_code.load_header(data_record)
+        helper_code.save_header(output_record, data_header)
+
+        if signals is not None:
+            comments = [l for l in data_header.split('\n') if l.startswith('#')]
+            helper_code.save_signals(output_record, signals, comments)
+        if labels is not None:
+            helper_code.save_labels(output_record, labels)
+
+    if verbose:
+        print('Done.')
+
+if __name__ == "__main__":
+    data_folder = os.path.join('tiny_testset', 'hr_hidden')
+    output_folder = os.path.join('tiny_testset', 'test_outputs')
+    model_folder = os.path.join('model')
+    verbose = True
+    allow_failures = False
+    run(data_folder, output_folder, model_folder, verbose, allow_failures)

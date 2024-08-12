@@ -124,9 +124,9 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
                                  transform=args.augmentation)
     val_dataset = PatchDataset(val_patch_ids, im_patch_dir, label_patch_dir, transform=None)
     train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, 
-                                  num_workers=8, pin_memory=True)
+                                  num_workers=8, pin_memory=(True if device == 'cuda' else False))
     val_dataloader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=8, 
-                                pin_memory=True)
+                                pin_memory=(True if device == 'cuda' else False))
 
     # Initialize and load the model
     unet = BasicResUNet(3, 2, nbs=[1, 1, 1, 1], init_channels=16, cbam=False)

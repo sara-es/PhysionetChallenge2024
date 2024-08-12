@@ -1,0 +1,9 @@
+train: "temp_data/train"
+val: "temp_data/val"
+test: "temp_data/test"
+
+# number of classes
+nc: 2
+
+# class names
+names: ['short_lead', 'rhythm_lead']

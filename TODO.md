@@ -9,6 +9,9 @@
 - layout detection/validation: YOLO
 - rotation testing
 
+## YOLO
+- generate yaml file with train/test/val paths after image generation
+
 ## Reconstruction
 - classifier for real vs generated images
 - cabrera detection 

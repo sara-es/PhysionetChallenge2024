@@ -80,8 +80,8 @@ def predict_single_image(image_id, im_patch_dir, unet, original_image_size=(1700
     image_id = image_id.split('_')[0]
     patches = os.listdir(im_patch_dir)
     patch_ids = [f for f in patches if f.split('_')[0] == image_id]
+    patch_ids = sorted(patch_ids)
 
-    label_patch_dir = os.path.join(im_patch_dir, 'label_patches')
     test_dataset = PatchDataset(patch_ids, im_patch_dir, None, train=False, transform=False)
     test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=0)
 
@@ -119,7 +119,7 @@ def batch_predict_full_images(ids_to_predict, patch_dir, unet, save_pth,
         patch_ids = sorted(patch_ids)
         # train = True here because we want to load the labels for accuracy score
         test_dataset = PatchDataset(patch_ids, im_patch_dir, label_patch_dir, train=True, 
-                                    transform=True)
+                                    transform=False)
         test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=0)
 
         results, orig, true = normal_predict(unet, test_dataloader, have_labels=True)

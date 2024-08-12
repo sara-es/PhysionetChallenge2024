@@ -45,7 +45,7 @@ def train_unet(data_folder, model_folder, verbose, num_images_to_generate=0):
         train_records = train_records[:num_images_to_generate]
         # generate images and masks for training u-net; generate patches
         print(f"Generating {num_images_to_generate} images and masks...")
-        team_code.generate_unet_training_data(data_folder, images_folder, 
+        team_code.generate_training_images(data_folder, images_folder, 
                                             masks_folder, patch_folder, 
                                             verbose, records_to_process=train_records)
     
