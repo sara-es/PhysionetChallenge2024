@@ -534,11 +534,14 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
                                                 original_image_size=image.shape[:2])
     
     # rotate reconstructed u-net output to original orientation
-    rotated_mask, rot_angle = preprocessing.column_rotation(record_id, predicted_mask,
+    rotated_mask, rotated_image_path, rot_angle = preprocessing.column_rotation(record_id, 
+                                                    predicted_mask, image_path,
                                                     angle_range=(-20, 20), verbose=verbose)
     
     if rot_angle != 0: # currently just rotate the mask, do no re-predict   
         try: # sometimes this fails, if there are edge effects
+            args.source = rotated_image_path
+            rois = digitization.YOLOv7.detect.detect_single(yolo_model, args, verbose)
             reconstructed_signal, raw_signals, _ = reconstruct_signal(record_id, rotated_mask, 
                                                      rois,
                                                      header_txt,
