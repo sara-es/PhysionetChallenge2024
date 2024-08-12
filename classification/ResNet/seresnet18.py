@@ -11,7 +11,7 @@ from sklearn.model_selection import train_test_split, StratifiedKFold
 from iterstrat.ml_stratifiers import MultilabelStratifiedShuffleSplit, MultilabelStratifiedKFold # For multilabel stratification
 
 from classification.ResNet.SEResNet import ResNet, BasicBlock
-from classification.ResNet.datasets.ECGDataset import ECGDataset, get_transforms
+from classification.ResNet.datasets.ECGDataset import ECGDataset, get_transforms, ECGDataset_missing
 from classification import utils
 
 
@@ -146,17 +146,25 @@ def test(model, test_loader, device, sigmoid, verbose):
     return logits_prob_all.cpu().detach().numpy().squeeze()
 
 
-def initialise_with_eval(train_data, train_labels, val_data, val_labels, device, batch_size=5):
-    # Load the datasets       
-    training_set = ECGDataset(train_data, 'train', train_labels)
+def initialise_with_eval(train_data, train_labels, val_data, val_labels, device, missingLead, batch_size=5):
+    # Load the datasets  
+    if missingLead:
+        training_set = ECGDataset_missing(train_data, 'train', train_labels)
+    else:
+        training_set = ECGDataset(train_data, 'train', train_labels)     
+
     train_dl = DataLoader(training_set,
                           batch_size=batch_size,
                           shuffle=True,
                           num_workers=1,
                           pin_memory=(True if device == 'cuda' else False),
                           drop_last=True)
-
-    validation_set = ECGDataset(val_data, 'val', val_labels) 
+    
+    if missingLead:
+        validation_set = ECGDataset_missing(val_data, 'val', val_labels)
+    else:
+        validation_set = ECGDataset(val_data, 'val', val_labels) 
+     
     validation_files = validation_set.data
     val_dl = DataLoader(validation_set,
                         batch_size=1,
@@ -168,8 +176,12 @@ def initialise_with_eval(train_data, train_labels, val_data, val_labels, device,
     return train_dl, val_dl
 
 
-def initialise_train_only(train_data, train_labels, device, batch_size=5):
-    training_set = ECGDataset(train_data, 'train', train_labels)
+def initialise_train_only(train_data, train_labels, device, missingLead, batch_size=5):
+    if missingLead:
+        training_set = ECGDataset_missing(train_data, 'train', train_labels)
+    else:
+        training_set = ECGDataset(train_data, 'train', train_labels)
+        
     train_dl = DataLoader(training_set,
                           batch_size=batch_size,
                           shuffle=True,
@@ -180,7 +192,7 @@ def initialise_train_only(train_data, train_labels, device, batch_size=5):
     return train_dl
 
 
-def train_model(data, multilabels, uniq_labels, verbose, epochs=5, validate=True, n_splits=1):
+def train_model(data, multilabels, uniq_labels, verbose, missingLead = False, epochs=5, validate=True, n_splits=1):
     """
     Parameters:
         data (list): list of data where [path (str), fs (int), age and sex features (np.array)]
@@ -229,7 +241,7 @@ def train_model(data, multilabels, uniq_labels, verbose, epochs=5, validate=True
             train_labels, val_labels = list(map(multilabels.__getitem__, train_idx)), list(map(multilabels.__getitem__, val_idx))
             # Iterate over train/test splits
             train_dl, val_dl = initialise_with_eval(train_data, train_labels, val_data, 
-                                                    val_labels, device, batch_size=5)
+                                                    val_labels, device, missingLead, batch_size=5)
             
             # Training ResNet model(s) on the training data and evaluating on the validation set
             # Need to include unique labels here for F-measure calculation
@@ -241,7 +253,7 @@ def train_model(data, multilabels, uniq_labels, verbose, epochs=5, validate=True
     else: 
         # Only train the model
         # Train the model using entire data and store the state dictionary
-        train_dl = initialise_train_only(data, multilabels, device, batch_size=64)
+        train_dl = initialise_train_only(data, multilabels, device, missingLead, batch_size=64)
         
         for epoch in range(1, epochs+1):
             print(f'Epoch {epoch}/{epochs}')

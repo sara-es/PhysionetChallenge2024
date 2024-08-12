@@ -477,15 +477,22 @@ def train_classification_model(records_folder, verbose, records_to_process=None)
     uniq_labels = mlb.classes_
 
     if verbose:
-        print("Training SE-ResNet classification model...")
+        print("Training SE-ResNet full classification model...")
     resnet_model = seresnet18.train_model(
-                                all_data, multilabels, uniq_labels, verbose, epochs=100, 
+                                all_data, multilabels, uniq_labels, verbose, missingLead = False, epochs=100, 
                                 validate=False)
+    if verbose:
+        print("Finished training full classification model.")
     
     if verbose:
-        print("Finished training classification model.")
+        print("Training SE-ResNet missing lead classification model...")
+    resnet_model_missing = seresnet18.train_model(
+                                all_data, multilabels, uniq_labels, verbose, missingLead = True, epochs=100, 
+                                validate=False)
+    if verbose:
+        print("Finished training missing lead classification model.")
     
-    return resnet_model, uniq_labels  
+    return resnet_model, resnet_model_missing, uniq_labels  
 
 
 def unet_reconstruct_single_image(record, digitization_model, verbose, delete_patches=True):
@@ -575,12 +582,20 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
     return reconstructed_signal, reconstructed_signals_folder
 
 
-def classify_signals(record_path, data_folder, resnet_model, classes, verbose):
+def classify_signals(record_path, data_folder, resnet_model, resnet_model_missing, classes, verbose):
     # wrap in list to match training data format
     record_id = os.path.split(record_path)[-1].split('.')[0]
-    data = [classification.get_testing_data(record_id, data_folder)] 
-    pred_dx, probabilities = seresnet18.predict_proba(
-                                        resnet_model, data, classes, verbose)
+    data = [classification.get_testing_data(record_id, data_folder)]
+    
+    # check whether to use the full resnet, or the version that caters for missing leads
+    leadMissing = checkMissingLead(data) # TODO: write this
+    
+    if leadMissing:
+        pred_dx, probabilities = seresnet18.predict_proba(
+                                        resnet_model_missing, data, classes, verbose)
+    else:
+        pred_dx, probabilities = seresnet18.predict_proba(
+                                            resnet_model, data, classes, verbose)
     labels = classes[np.where(pred_dx == 1)]
     if verbose:
         print(f"Classes: {classes}, probabilities: {probabilities}")
