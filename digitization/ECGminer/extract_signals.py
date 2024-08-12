@@ -197,6 +197,9 @@ def extract_row_signals(ecg: Image, n_lines: int) -> Iterable[Iterable[Point]]:
                 
                 candidates = [x for xs in candidates_rep for x in xs]
                 candidates = np.array(candidates)
+
+                if len(dists) == 0: # no candidates for matches at all
+                    raise SignalExtractionError("Could not match signal pixels: bad image or ROI.")
                 
                 if np.min(abs(dists))<thresh:                    
                     #bit of voodoo here to try to make sure that we favour returning towards 

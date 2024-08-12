@@ -10,6 +10,7 @@ from digitization import Unet
 from utils import constants, team_helper_code, model_persistence
 from evaluation import eval_utils
 import pandas as pd
+import matplotlib.pyplot as plt
 
 
 def generate_and_predict_unet_batch(images_folder, mask_folder, patch_folder,
@@ -72,6 +73,16 @@ def generate_and_predict_unet_batch(images_folder, mask_folder, patch_folder,
     dice_list, entropy_list = Unet.batch_predict_full_images(records_to_process, patch_folder, unet_model, 
                                    unet_output_folder, verbose, save_all=True)
     
+    # optional: save unet outputs as .pngs to see what's going on 
+    for i, file in enumerate(os.listdir(unet_output_folder)):
+        if file.endswith(".npy"):
+            img = np.load(os.path.join(unet_output_folder, file))
+        # save image
+        out_path = os.path.join('test_data', 'unet_out_imgs')
+        os.makedirs(out_path, exist_ok=True)
+        with open(os.path.join(out_path, file.replace('.npy', '.png')), 'wb') as f:
+            plt.imsave(f, img, cmap='gray')
+    
     # save record name, dice list and entropy list to csv
     print(f"mean DICE: {np.mean(dice_list)}")
     print(f"dice list: {dice_list.shape}")
@@ -115,7 +126,7 @@ if __name__ == '__main__':
     # unet_model = model_persistence.load_checkpoint_dict("model", 
     #                                                     "UNET_256_checkpoint", True)
 
-    num_images_to_generate = 0 # int, set to 0 if data has already been generated to speed up testing time
+    num_images_to_generate = 15 # int, set to 0 if data has already been generated to speed up testing time
 
     # generate images from records, run through U-net, and reconstruct signals
     generate_and_predict_unet_batch(images_folder, mask_folder, patch_folder,
