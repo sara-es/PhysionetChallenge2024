@@ -61,7 +61,7 @@ def generate_and_predict_unet_batch(images_folder, mask_folder, patch_folder,
 
         # generate patches
         Unet.patching.save_patches_batch(records_to_process, images_folder, mask_folder, constants.PATCH_SIZE, 
-                                        patch_folder, verbose, max_samples=False)
+                                        patch_folder, verbose, delete_images=False)
     else:
         if not records_to_process:
             records_to_process = helper_code.find_records(images_folder)

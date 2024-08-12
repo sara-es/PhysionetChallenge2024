@@ -118,7 +118,10 @@ def run_models(record, digitization_model, classification_model, verbose):
     dx_classes = classification_model['dx_classes']
     
     # Run the classification model; if you did not train this model, then you can set labels=None.
-    labels = classify_signals(record, reconstructed_signal_dir, resnet_model, 
+    if signal is None: # if digitization failed, don't try to classify
+        labels = None
+    else: 
+        labels = classify_signals(record, reconstructed_signal_dir, resnet_model, 
                                 dx_classes, verbose=verbose)
     
     # delete any temporary files
@@ -188,6 +191,7 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
                delete_training_data=delete_training_data)
     
     # Generate patches for u-net. Note: this deletes source images and masks to save space
+    # if delete_training_data is True
     Unet.patching.save_patches_batch(records_to_process, images_folder, masks_folder, 
                                      constants.PATCH_SIZE, patch_folder, verbose, 
                                      delete_images=delete_training_data)
@@ -314,7 +318,7 @@ def train_yolo(record_ids, train_data_folder, bb_labels_folder, model_folder, ve
     os.makedirs(os.path.join("temp_data", "val", "images"), exist_ok=True)
     os.makedirs(os.path.join("temp_data", "val", "labels"), exist_ok=True)
     # move some data to val
-    val_record_ids = record_ids[int(len(record_ids)/10):]
+    val_record_ids = record_ids[:int(len(record_ids)/10)]
     for record in val_record_ids:
         record_id = record.split(os.sep)[-1]
         image_path = os.path.join(train_data_folder, record_id + "-0.png")
@@ -328,7 +332,8 @@ def train_yolo(record_ids, train_data_folder, bb_labels_folder, model_folder, ve
     # Find best weights and save them to model_folder
     best_weights_path = os.path.join("temp_data", "train", "yolov7-ecg-2c", "weights", "best.pt")
     os.makedirs(model_folder, exist_ok=True)
-    os.rename(best_weights_path, os.path.join(model_folder, "yolov7-ecg-2c.pt"))
+    os.remove(os.path.join(model_folder, "yolov7-ecg-2c-best.pt")) # in case model already exists
+    os.rename(best_weights_path, os.path.join(model_folder, "yolov7-ecg-2c-best.pt"))
 
     # move data back from val to train
     for record in val_record_ids:

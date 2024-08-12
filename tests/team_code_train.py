@@ -25,7 +25,7 @@ def train_models(data_folder, model_folder, verbose):
         raise FileNotFoundError('No data were provided.')
     
     # test on a smaller number of records for now
-    records = shuffle(records, random_state=42)[:20]
+    records = shuffle(records, random_state=42)
     num_records = len(records)
     
     digitization_model = team_code.train_digitization_model(data_folder, model_folder, verbose, 
