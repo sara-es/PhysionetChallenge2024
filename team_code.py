@@ -126,7 +126,7 @@ def run_models(record, digitization_model, classification_model, verbose):
         labels = None
     else: 
         labels = classify_signals(record, reconstructed_signal_dir, resnet_model, 
-                                dx_classes, verbose=verbose)
+                                dx_classes, has_zeroed_leads, verbose=verbose)
     
     # delete any temporary files
     for f in os.listdir(reconstructed_signal_dir):
@@ -586,15 +586,12 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
     return reconstructed_signal, reconstructed_signals_folder, sqi_activated
 
 
-def classify_signals(record_path, data_folder, resnet_model, resnet_model_missing, classes, verbose):
+def classify_signals(record_path, data_folder, resnet_model, resnet_model_missing, classes, has_zeroed_leads, verbose):
     # wrap in list to match training data format
     record_id = os.path.split(record_path)[-1].split('.')[0]
     data = [classification.get_testing_data(record_id, data_folder)]
     
-    # check whether to use the full resnet, or the version that caters for missing leads
-    leadMissing = checkMissingLead(data) # TODO: write this
-    
-    if leadMissing:
+    if has_zeroed_leads:
         pred_dx, probabilities = seresnet18.predict_proba(
                                         resnet_model_missing, data, classes, verbose)
     else:
