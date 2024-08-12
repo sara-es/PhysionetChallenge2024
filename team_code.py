@@ -96,22 +96,22 @@ def train_models(data_folder, model_folder, verbose):
 # then you can return None for the model.
 def load_models(model_folder, verbose):
     models = model_persistence.load_models(model_folder, verbose, 
-                        models_to_load=['digitization_model', 'classification_model', 'dx_classes'])
-    digitization_model = models['digitization_model']
-    # classification_model = models['classification_model', 'dx_classes']
-    return digitization_model, models
+                        models_to_load=['yolov7-ecg-2c', 
+                                        'digitization_model', 
+                                        'classification_model', 
+                                        'dx_classes'])
+    digitization_model = dict((m, models[m]) for m in ['yolov7-ecg-2c', 'digitization_model'])
+    classification_model = dict((m, models[m]) for m in ['classification_model', 'dx_classes'])
+    return digitization_model, classification_model
 
 
 # Run your trained digitization model. This function is *required*. You should edit this function
 # to add your code, but do *not* change the arguments of this function. If you did not train one of
 # the models, then you can return None for the model.
 def run_models(record, digitization_model, classification_model, verbose):
-    # Load the digitization model.
-    unet_model = Unet.utils.load_unet_from_state_dict(digitization_model)
-
     # Run the digitization model; if you did not train this model, then you can set signal=None.
-    signal, reconstructed_signal_dir = unet_reconstruct_single_image(record, unet_model, verbose, 
-                                                                 delete_patches=True)
+    signal, reconstructed_signal_dir = unet_reconstruct_single_image(record, digitization_model, 
+                                                                     verbose, delete_patches=True)
     
     # Load the classification model and classes.
     resnet_model = classification_model['classification_model']
@@ -221,7 +221,6 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
         for im in os.listdir(unet_output_folder):
             os.remove(os.path.join(unet_output_folder, im))
 
-
     if verbose:
         print(f'Done.')
     
@@ -298,6 +297,8 @@ def train_yolo(record_ids, train_data_folder, bb_labels_folder, model_folder, ve
     """
     A quick and dirty setup of yolo training config files, and model training call.
     """
+    if verbose:
+        print("Preparing YOLOv7 training data...")
     if not args:
         args = digitization.YOLOv7.train.OptArgs()
         args.device = "0"
@@ -327,9 +328,13 @@ def train_yolo(record_ids, train_data_folder, bb_labels_folder, model_folder, ve
         shutil.move(label_path, os.path.join("temp_data", "val", "labels"))
 
     # Train the model
-    digitization.YOLOv7.train.main(args)
+    if verbose:
+        print("Training YOLOv7 model...")
+    digitization.YOLOv7.train.main(args, verbose)
 
     # Find best weights and save them to model_folder
+    if verbose:
+        print("...Done. Saving best weights...")
     best_weights_path = os.path.join("temp_data", "train", "yolov7-ecg-2c", "weights", "best.pt")
     os.makedirs(model_folder, exist_ok=True)
     os.remove(os.path.join(model_folder, "yolov7-ecg-2c-best.pt")) # in case model already exists
@@ -345,6 +350,9 @@ def train_yolo(record_ids, train_data_folder, bb_labels_folder, model_folder, ve
 
     if delete_training_data:
         shutil.rmtree(os.path.join("temp_data", "train", "yolov7-ecg-2c"))
+
+    if verbose:
+        print("...Done.")
 
 
 def train_unet(record_ids, patch_folder, model_folder, verbose, 
@@ -362,6 +370,8 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
           (not records) to use for training and validation. Set to False to use all available 
           patches.
     """
+    if verbose:
+        print("Training U-net model...")
     if not args: # use default args if none are provided
         args = Unet.utils.Args()
     
@@ -395,6 +405,8 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
             os.remove(os.path.join(image_patch_folder, im))
         for im in os.listdir(mask_patch_folder):
             os.remove(os.path.join(mask_patch_folder, im))
+    if verbose:
+        print("...Done.")
 
     return unet_model
 
@@ -473,7 +485,20 @@ def train_classification_model(records_folder, verbose, records_to_process=None)
     return resnet_model, uniq_labels
 
 
-def unet_reconstruct_single_image(record, model, verbose, delete_patches=True):
+def yolo_detect_rois(record, model, verbose):
+    """
+    Detect ROIs in a given image using YOLOv7. 
+    """
+    if not args:
+        args = digitization.YOLOv7.detect.OptArgs()
+        args.device = "0"
+        args.cfg = os.path.join("digitization", "YOLOv7", "cfg", "training", "yolov7-ecg2c.yaml")
+
+    
+    
+
+
+def unet_reconstruct_single_image(record, digitization_model, verbose, delete_patches=True):
     """
     params
         record: str, relative path from data folder and record ID, 
@@ -488,6 +513,10 @@ def unet_reconstruct_single_image(record, model, verbose, delete_patches=True):
         image = plt.imread(f)
     record_id = os.path.split(record)[-1].split('.')[0]
 
+    # load models
+    yolo_model = digitization_model['yolov7-ecg-2c']
+    unet_model = Unet.utils.load_unet_from_state_dict(digitization_model['digitization_model'])
+
     # hard code some folder paths for now
     patch_folder = os.path.join('temp_data', 'test', 'patches', 'image_patches')
     reconstructed_signals_folder = os.path.join('temp_data', 'test', 'reconstructed_signals')
@@ -497,6 +526,14 @@ def unet_reconstruct_single_image(record, model, verbose, delete_patches=True):
     # load header file to save with reconstructed signal
     header_txt = helper_code.load_header(record)
 
+    # get bounding boxes/ROIs using YOLOv7
+    args = digitization.YOLOv7.detect.OptArgs()
+    args.device = "0"
+    args.source = image_path
+    args.nosave = False # for testing
+    rois = digitization.YOLOv7.detect.detect_single(yolo_model, args, verbose)
+    print(rois)
+
     # patchify image
     Unet.patching.save_patches_single_image(record_id, image, None, 
                                             patch_size=constants.PATCH_SIZE,
@@ -504,7 +541,7 @@ def unet_reconstruct_single_image(record, model, verbose, delete_patches=True):
                                             lab_patch_save_path=None)
 
     # predict on patches, recover u-net output image
-    predicted_mask = Unet.predict_single_image(record_id, patch_folder, model,
+    predicted_mask = Unet.predict_single_image(record_id, patch_folder, unet_model,
                                                 original_image_size=image.shape[:2])
     
     # rotate reconstructed u-net output to original orientation

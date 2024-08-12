@@ -2,6 +2,8 @@ import sys, os, joblib, pickle
 import torch
 sys.path.append(os.path.join(sys.path[0], '..'))
 
+from digitization.YOLOv7.models.experimental import attempt_load
+
 
 # Functions to save models depending on type
 def save_model_pkl(model, name, folder):
@@ -81,6 +83,7 @@ def load_models(model_folder, verbose, models_to_load):
             # try to load pkl
             fnp = os.path.join(model_folder, name + '.sav')
             fnt = os.path.join(model_folder, name + '.pth')
+            fny = os.path.join(model_folder, name + '.pt')
             if os.path.exists(fnp):
                 try:
                     model = pickle.load(open(fnp, 'rb'))
@@ -99,6 +102,15 @@ def load_models(model_folder, verbose, models_to_load):
                         print(f"Loaded {name} model.")
                 except ValueError:
                     print(f"I couldn't load the torch model {fnt}.")
+            elif os.path.exists(fny):
+                device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+                try:
+                    model = attempt_load(fny, map_location=device)
+                    team_models[name] = model
+                    if verbose:
+                        print(f"Loaded {name} model.")
+                except ValueError:
+                    print(f"I couldn't load the torch model {fny}.")                
             else:
                 print(f"I can't find the model {name}.")
     else:

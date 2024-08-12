@@ -562,11 +562,12 @@ class OptArgs:
         self.freeze = [0] # Freeze layers: backbone of yolov7=50, first3=0 1 2
         self.v5_metric = False # assume maximum recall as 1.0 in AP calculation
 
-def main(opt):
+def main(opt, verbose):
     # Set DDP variables
     opt.world_size = int(os.environ['WORLD_SIZE']) if 'WORLD_SIZE' in os.environ else 1
     opt.global_rank = int(os.environ['RANK']) if 'RANK' in os.environ else -1
-    set_logging(opt.global_rank)
+    logging_level = opt.global_rank if verbose else 40
+    set_logging(logging_level)
     #if opt.global_rank in [-1, 0]:
     #    check_git_status()
     #    check_requirements()
