@@ -100,7 +100,10 @@ def load_models(model_folder, verbose):
                                         'digitization_model', 
                                         'classification_model', 
                                         'dx_classes'])
-    digitization_model = dict((m, models[m]) for m in ['yolov7-ecg-2c', 'digitization_model'])
+    unet_model = Unet.utils.load_unet_from_state_dict(models['digitization_model'])
+    digitization_model = dict()
+    digitization_model['digitization_model'] = unet_model
+    digitization_model['yolov7-ecg-2c'] = models['yolov7-ecg-2c']
     classification_model = dict((m, models[m]) for m in ['classification_model', 'dx_classes'])
     return digitization_model, classification_model
 
@@ -482,20 +485,7 @@ def train_classification_model(records_folder, verbose, records_to_process=None)
     if verbose:
         print("Finished training classification model.")
     
-    return resnet_model, uniq_labels
-
-
-def yolo_detect_rois(record, model, verbose):
-    """
-    Detect ROIs in a given image using YOLOv7. 
-    """
-    if not args:
-        args = digitization.YOLOv7.detect.OptArgs()
-        args.device = "0"
-        args.cfg = os.path.join("digitization", "YOLOv7", "cfg", "training", "yolov7-ecg2c.yaml")
-
-    
-    
+    return resnet_model, uniq_labels  
 
 
 def unet_reconstruct_single_image(record, digitization_model, verbose, delete_patches=True):
@@ -515,7 +505,7 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
 
     # load models
     yolo_model = digitization_model['yolov7-ecg-2c']
-    unet_model = Unet.utils.load_unet_from_state_dict(digitization_model['digitization_model'])
+    unet_model = digitization_model['digitization_model']
 
     # hard code some folder paths for now
     patch_folder = os.path.join('temp_data', 'test', 'patches', 'image_patches')

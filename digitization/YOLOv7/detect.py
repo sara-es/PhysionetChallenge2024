@@ -182,11 +182,11 @@ def detect_single(model, opt, verbose):
     stride = int(model.stride.max())  # model stride
     imgsz = check_img_size(imgsz, s=stride)  # check img_size
 
-    if trace:
-        model = TracedModel(model, device, opt.img_size)
+    # if trace:
+    #     model = TracedModel(model, device, opt.img_size)
 
-    if half:
-        model.half()  # to FP16
+    # if half:
+    #     model.half()  # to FP16
 
     # Set Dataloader
     vid_path, vid_writer = None, None
@@ -316,7 +316,7 @@ class OptArgs:
         self.img_size = 640
         self.conf_thres = 0.25
         self.iou_thres = 0.45
-        self.device = ''
+        self.device = '0'
         self.view_img = False
         self.save_txt = False
         self.save_conf = False

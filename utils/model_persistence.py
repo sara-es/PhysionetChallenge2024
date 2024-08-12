@@ -3,6 +3,8 @@ import torch
 sys.path.append(os.path.join(sys.path[0], '..'))
 
 from digitization.YOLOv7.models.experimental import attempt_load
+from digitization.YOLOv7.utils.torch_utils import TracedModel
+from digitization.YOLOv7.detect import OptArgs
 
 
 # Functions to save models depending on type
@@ -103,9 +105,13 @@ def load_models(model_folder, verbose, models_to_load):
                 except ValueError:
                     print(f"I couldn't load the torch model {fnt}.")
             elif os.path.exists(fny):
-                device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
                 try:
+                    opt = OptArgs()
+                    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
                     model = attempt_load(fny, map_location=device)
+                    model = TracedModel(model, device, opt.img_size)
+                    if device.type != 'cpu':
+                        model.half()
                     team_models[name] = model
                     if verbose:
                         print(f"Loaded {name} model.")
