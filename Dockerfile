@@ -6,7 +6,7 @@ COPY ./ /challenge
 WORKDIR /challenge
 
 ## Install your dependencies here using apt install, etc.
-RUN apt-get update && apt-get install -y libglib2.0-0 libsm6 libxrender1 libxext6
+RUN apt-get update && apt-get install -y libgl1 libglib2.0-0 libsm6 libxrender1 libxext6
 
 ## Include the following line if you have a requirements.txt file.
 RUN pip install -r requirements.txt
