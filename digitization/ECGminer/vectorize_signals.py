@@ -271,6 +271,8 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
         columns=[lead.name for lead in Format.STANDARD],
     )
 
+    sqi_activated = False # set to True if we zero any leads
+
     for i, lead in enumerate(ORDER):
         zeroed = False
         rhythm = lead in rhythm_leads
@@ -304,6 +306,7 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
                                                    signal_other_line_adjusted, (window,)), axis=1)
                 if any(window_medians_other_line < window_medians):
                     signal = np.zeros(len(signal))   
+                    sqi_activated = True
                     zeroed = True 
                     break
         
@@ -343,4 +346,4 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
             lead.name,
         ] = signal
 
-    return ecg_data, vectorized_signals, grid_size_px
+    return ecg_data, vectorized_signals, grid_size_px, sqi_activated

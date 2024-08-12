@@ -42,9 +42,10 @@ def digitize_image_unet(restored_image, yolo_rois, sig_len=1000, max_duration=10
     # check for reference pulses, then convert to digitized signals
     # returns array of digitized signals, original signal coordinates, and gridsize
     # gridsize: float, scaling factor for the signals in pixel units
-    digitised_signals, raw_signals, gridsize = vectorize_signals.vectorize(signal_coords, 
+    digitised_signals, raw_signals, gridsize, sqi_activated = vectorize_signals.vectorize(
+                                                                signal_coords, 
                                                                 sig_len, max_duration,
                                                                 is_generated_image)
     
-    return digitised_signals, raw_signals, gridsize
+    return digitised_signals, raw_signals, gridsize, sqi_activated
 

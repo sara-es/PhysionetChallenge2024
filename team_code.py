@@ -113,7 +113,8 @@ def load_models(model_folder, verbose):
 # the models, then you can return None for the model.
 def run_models(record, digitization_model, classification_model, verbose):
     # Run the digitization model; if you did not train this model, then you can set signal=None.
-    signal, reconstructed_signal_dir = unet_reconstruct_single_image(record, digitization_model, 
+    signal, reconstructed_signal_dir, has_zeroed_leads = unet_reconstruct_single_image(record, 
+                                                                     digitization_model, 
                                                                      verbose, delete_patches=True)
     
     # Load the classification model and classes.
@@ -430,8 +431,8 @@ def reconstruct_signal(record, unet_image, rois, header_txt,
     # max duration on images cannot exceed 10s as per Challenge team
     max_duration = 10 if max_duration > 10 else max_duration 
     try:
-        reconstructed_signal, raw_signals, gridsize  = ECGminer.digitize_image_unet(unet_image, rois,
-                                        sig_len=signal_length, max_duration=max_duration)
+        reconstructed_signal, raw_signals, gridsize, sqi_activated  = ECGminer.digitize_image_unet(
+                                unet_image, rois, sig_len=signal_length, max_duration=max_duration)
     except SignalExtractionError as e:
         print(f"Error in digitizing signal: {e}")
         return None, None, None
@@ -445,7 +446,7 @@ def reconstruct_signal(record, unet_image, rois, header_txt,
         helper_code.save_signals(output_record_path, reconstructed_signal, comments)
 
     # return raw_signals and gridsize for external evaluation
-    return reconstructed_signal, raw_signals, gridsize
+    return reconstructed_signal, raw_signals, gridsize, sqi_activated
 
 
 def train_classification_model(records_folder, verbose, records_to_process=None):
@@ -549,7 +550,8 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
         try: # sometimes this fails, if there are edge effects
             args.source = rotated_image_path
             rois = digitization.YOLOv7.detect.detect_single(yolo_model, args, verbose)
-            reconstructed_signal, raw_signals, _ = reconstruct_signal(record_id, rotated_mask, 
+            reconstructed_signal, raw_signals, gs, sqi_activated = reconstruct_signal(record_id, 
+                                                     rotated_mask, 
                                                      rois,
                                                      header_txt,
                                                      reconstructed_signals_folder, 
@@ -558,13 +560,15 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
         except Exception as e: # in that case try it with the original (non-rotated) mask
             if verbose:
                 print(f"Error reconstructing signal after rotating image {image_path}: {e}")
-            reconstructed_signal, raw_signals, _ = reconstruct_signal(record_id, predicted_mask,
+            reconstructed_signal, raw_signals, gs, sqi_activated = reconstruct_signal(record_id, 
+                                                     predicted_mask,
                                                      rois, 
                                                      header_txt,
                                                      reconstructed_signals_folder, 
                                                      save_signal=True)        
     else: # no rotation needed
-        reconstructed_signal, raw_signals, _ = reconstruct_signal(record_id, predicted_mask, 
+        reconstructed_signal, raw_signals, gs, sqi_activated = reconstruct_signal(record_id, 
+                                                     predicted_mask,
                                                      rois,
                                                      header_txt,
                                                      reconstructed_signals_folder, 
@@ -579,7 +583,7 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
     #     np.save(f, predicted_mask)
 
     # return reconstructed signal
-    return reconstructed_signal, reconstructed_signals_folder
+    return reconstructed_signal, reconstructed_signals_folder, sqi_activated
 
 
 def classify_signals(record_path, data_folder, resnet_model, resnet_model_missing, classes, verbose):
