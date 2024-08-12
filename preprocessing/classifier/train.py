@@ -1,37 +1,27 @@
-# Adapted from code by Nicola Dinsdale 2024
+import sys, os
+sys.path.append(os.path.join(sys.path[0], '..'))
 import numpy as np
 import torch
 from torch.autograd import Variable
+from sklearn.metrics import accuracy_score 
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
 from digitization.Unet.ECGunet import BasicResUNet
-from digitization.Unet.datasets.PatchDataset import PatchDataset
+from preprocessing.classifier import PatchDataset
 from digitization.Unet import utils
 from digitization.Unet import Unet
-
-import matplotlib.pyplot as plt
-import os
 
 
 def train_epoch(args, model, train_loader, optimizer, criterion, epoch, verbose):
     cuda = torch.cuda.is_available()
-    device = torch.device("cuda" if cuda else "cpu")
     total_loss = 0
     model.train()
     batches = 0
-
-    pred = []
-    true = []
-    orig = []
-
-
     for batch_idx, (data, target) in enumerate(train_loader):
         target = target.type(torch.LongTensor)
         if cuda:
             data, target = data.cuda(), target.cuda()
-        data.to(device)
-        target.to(device)
 
         data, target = Variable(data), Variable(target)
 
@@ -40,7 +30,7 @@ def train_epoch(args, model, train_loader, optimizer, criterion, epoch, verbose)
 
             # First update the encoder and regressor
             optimizer.zero_grad()
-            x = model(data)
+            x = model(data) 
             loss = criterion(x, target)
             loss.backward()
             optimizer.step()
@@ -52,61 +42,41 @@ def train_epoch(args, model, train_loader, optimizer, criterion, epoch, verbose)
                     epoch, (batch_idx+1) * len(data), len(train_loader.dataset),
                            100. * (batch_idx+1) / len(train_loader), loss.item()), flush=True)
             del loss
-
-    # # Return some example images, for debugging
-    #     random_chance = np.random.rand()
-    #     if random_chance > 0.99:
-    #         idx = np.random.randint(0, data.size()[0])
-    #         pred.append(x.detach().cpu().numpy()[idx])
-    #         orig.append(data.detach().cpu().numpy()[idx])
-    #         true.append(target.detach().cpu().numpy()[idx])
-    # pred = np.array(pred)
-    # orig = np.array(orig)
-    # true = np.array(true)
-
     av_loss = total_loss / batches
     av_loss_copy = np.copy(av_loss.detach().cpu().numpy())
 
     del av_loss
     if verbose:
         print('\nTraining set: Average loss: {:.4f}'.format(av_loss_copy,  flush=True))
-
-    return av_loss_copy, pred, orig, true
-
-
-def val_epoch(args, model, val_loader, criterion, epoch, verbose):
-    cuda = torch.cuda.is_available()
-    device = torch.device("cuda" if cuda else "cpu")
-    model.eval()
-    total_loss = 0
-    batches = 0
-    with torch.no_grad():
-        for batch_idx, (data, target) in enumerate(val_loader):
-            target = target.type(torch.LongTensor)
-            if cuda:
-                data, target = data.cuda(), target.cuda()
-            data.to(device)
-            target.to(device)
-            data, target = Variable(data), Variable(target)
-            batches += 1
-            x = model(data)
-            loss = criterion(x, target)
-            total_loss  += loss
-
-            if verbose and batch_idx % (args.log_interval*args.batch_size) == 0:
-                print('Val Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                    epoch, (batch_idx+1) * len(data), len(val_loader.dataset),
-                           100. * (batch_idx+1) / len(val_loader), loss.item()), flush=True)
-    av_loss = total_loss / batches
-    av_loss_copy = np.copy(av_loss.detach().cpu().numpy())
-    del av_loss
     return av_loss_copy
 
 
-def train_unet(ids, im_patch_dir, label_patch_dir, args, 
+def val_epoch(args, model, val_loader, verbose):
+    cuda = torch.cuda.is_available()
+    model.eval()
+    true_store = []
+    pred_store = []
+    with torch.no_grad():
+        for batch_idx, (data, target) in enumerate(val_loader):
+            if cuda:
+                data, target = data.cuda(), target.cuda()
+            data, target = Variable(data), Variable(target)
+            x = model(data)
+            true_store.append(target.detach().cpu().numpy())
+            pred_store.append(x.detach().cpu().numpy())
+
+    true_store = np.array(true_store).squeeze()
+    pred_store = np.array(pred_store).squeeze()
+    pred_store = np.argmax(pred_store, axis=1)
+    accuracy = accuracy_score(true_store, pred_store)
+    if verbose:
+        print('Validation set: Accuracy: {:.4f}\n'.format(accuracy,  flush=True))
+    return accuracy
+
+
+def train_image_classifier(ids, generated_patch_dir, real_patch_dir, args, 
                CHK_PATH_UNET, LOSS_PATH, LOAD_PATH_UNET, verbose, 
-               max_samples=False,
-               ):
+               max_samples=False,):
     """
     Note max_samples is number of PATCHES to use, not images.
     """
