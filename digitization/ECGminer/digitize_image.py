@@ -9,7 +9,7 @@ from digitization.ECGminer.Preprocessor import Preprocessor
 from digitization.ECGminer import extract_signals, vectorize_signals
 
 
-def digitize_image_unet(restored_image, sig_len=1000, max_duration=10, is_generated_image=True):
+def digitize_image_unet(restored_image, yolo_rois, sig_len=1000, max_duration=10, is_generated_image=True):
     """ 
     digitize_image_unet takes the output of the u-net
 

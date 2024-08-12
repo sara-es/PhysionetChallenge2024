@@ -411,7 +411,7 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
     return unet_model
 
 
-def reconstruct_signal(record, unet_image, header_txt, 
+def reconstruct_signal(record, unet_image, rois, header_txt, 
                        reconstructed_signals_folder, save_signal=True):
     """
     reconstruct signals from u-net outputs
@@ -427,7 +427,7 @@ def reconstruct_signal(record, unet_image, header_txt,
     # max duration on images cannot exceed 10s as per Challenge team
     max_duration = 10 if max_duration > 10 else max_duration 
     try:
-        reconstructed_signal, raw_signals, gridsize  = ECGminer.digitize_image_unet(unet_image, 
+        reconstructed_signal, raw_signals, gridsize  = ECGminer.digitize_image_unet(unet_image, rois,
                                         sig_len=signal_length, max_duration=max_duration)
     except SignalExtractionError as e:
         print(f"Error in digitizing signal: {e}")
@@ -532,7 +532,6 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
     args.source = image_path
     args.nosave = False # for testing
     rois = digitization.YOLOv7.detect.detect_single(yolo_model, args, verbose)
-    print(rois)
 
     # patchify image
     Unet.patching.save_patches_single_image(record_id, image, None, 
@@ -551,6 +550,7 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
     if rot_angle != 0: # currently just rotate the mask, do no re-predict   
         try: # sometimes this fails, if there are edge effects
             reconstructed_signal, raw_signals, _ = reconstruct_signal(record_id, rotated_mask, 
+                                                     rois,
                                                      header_txt,
                                                      reconstructed_signals_folder, 
                                                      save_signal=True)
@@ -558,12 +558,14 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
         except Exception as e: # in that case try it with the original (non-rotated) mask
             if verbose:
                 print(f"Error reconstructing signal after rotating image {image_path}: {e}")
-            reconstructed_signal, raw_signals, _ = reconstruct_signal(record_id, predicted_mask, 
+            reconstructed_signal, raw_signals, _ = reconstruct_signal(record_id, predicted_mask,
+                                                     rois, 
                                                      header_txt,
                                                      reconstructed_signals_folder, 
                                                      save_signal=True)        
     else: # no rotation needed
         reconstructed_signal, raw_signals, _ = reconstruct_signal(record_id, predicted_mask, 
+                                                     rois,
                                                      header_txt,
                                                      reconstructed_signals_folder, 
                                                      save_signal=True)
