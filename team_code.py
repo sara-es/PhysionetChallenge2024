@@ -189,7 +189,7 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
                              masks_folder, bb_labels_folder, 
                              verbose, records_to_process=records_to_process)
     
-    # train YOLOv7
+    # train YOLOv7 (only one epoch w/ low lr - assume pre-trained model is good enough)
     train_yolo(records_to_process, images_folder, bb_labels_folder, model_folder, verbose, 
                delete_training_data=delete_training_data)
     
@@ -310,10 +310,11 @@ def train_yolo(record_ids, train_data_folder, bb_labels_folder, model_folder, ve
         args.device = "0"
         args.cfg = os.path.join("digitization", "YOLOv7", "cfg", "training", "yolov7-ecg2c.yaml")
         args.name = "yolov7-ecg-2c"
-        args.hyp = os.path.join("digitization", "YOLOv7", "data", "hyp.scratch.custom.yaml")
+        args.epochs = 1
+        args.hyp = os.path.join("digitization", "YOLOv7", "data", "hyp.lowlr.yaml")
 
-    # use the best weights from the yolov7 model zoo as starting point
-    args.weights = os.path.join("digitization", "model_checkpoints", "yolov7.pt")
+    # use the best weights from previous fine-tuning as starting point
+    args.weights = os.path.join("digitization", "model_checkpoints", "yolov7-ecg-2c.pt")
     
     # n. classes, class labels, train data folder info written here
     # data should be train/images and train/labels folders
@@ -343,8 +344,11 @@ def train_yolo(record_ids, train_data_folder, bb_labels_folder, model_folder, ve
         print("...Done. Saving best weights...")
     best_weights_path = os.path.join("temp_data", "train", "yolov7-ecg-2c", "weights", "best.pt")
     os.makedirs(model_folder, exist_ok=True)
-    os.remove(os.path.join(model_folder, "yolov7-ecg-2c-best.pt")) # in case model already exists
-    os.rename(best_weights_path, os.path.join(model_folder, "yolov7-ecg-2c-best.pt"))
+    try:
+        os.remove(os.path.join(model_folder, "yolov7-ecg-2c.pt")) # in case model already exists
+    except FileNotFoundError:
+        pass
+    os.rename(best_weights_path, os.path.join(model_folder, "yolov7-ecg-2c.pt"))
 
     # move data back from val to train
     for record in val_record_ids:
@@ -515,6 +519,7 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
     reconstructed_signals_folder = os.path.join('temp_data', 'test', 'reconstructed_signals')
     os.makedirs(patch_folder, exist_ok=True)
     os.makedirs(reconstructed_signals_folder, exist_ok=True)
+    os.makedirs(os.path.join("temp_data", "test", "images"), exist_ok=True)
 
     # load header file to save with reconstructed signal
     header_txt = helper_code.load_header(record)
