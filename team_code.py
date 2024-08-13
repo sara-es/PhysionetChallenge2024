@@ -189,7 +189,7 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
                              masks_folder, bb_labels_folder, 
                              verbose, records_to_process=records_to_process)
     
-    # train YOLOv7
+    # train YOLOv7 (only one epoch w/ low lr - assume pre-trained model is good enough)
     train_yolo(records_to_process, images_folder, bb_labels_folder, model_folder, verbose, 
                delete_training_data=delete_training_data)
     
@@ -246,11 +246,14 @@ def generate_training_images(wfdb_records_folder, images_folder, masks_folder, b
     img_gen_params.random_bw = 0.2
     img_gen_params.wrinkles = True
     img_gen_params.print_header = True
+    img_gen_params.augment = True
+    img_gen_params.crop = 0.0
+    img_gen_params.rotate = 0
     img_gen_params.lead_bbox = True
     img_gen_params.lead_name_bbox = True
     img_gen_params.store_config = 1
 
-    img_gen_params.augment = False
+    # img_gen_params.augment = False
     img_gen_params.calibration_pulse = 0
 
     # set params for generating masks
@@ -307,10 +310,11 @@ def train_yolo(record_ids, train_data_folder, bb_labels_folder, model_folder, ve
         args.device = "0"
         args.cfg = os.path.join("digitization", "YOLOv7", "cfg", "training", "yolov7-ecg2c.yaml")
         args.name = "yolov7-ecg-2c"
-        args.hyp = os.path.join("digitization", "YOLOv7", "data", "hyp.scratch.custom.yaml")
+        args.epochs = 1
+        args.hyp = os.path.join("digitization", "YOLOv7", "data", "hyp.lowlr.yaml")
 
-    # use the best weights from the yolov7 model zoo as starting point
-    args.weights = os.path.join("digitization", "model_checkpoints", "yolov7.pt")
+    # use the best weights from previous fine-tuning as starting point
+    args.weights = os.path.join("digitization", "model_checkpoints", "yolov7-ecg-2c.pt")
     
     # n. classes, class labels, train data folder info written here
     # data should be train/images and train/labels folders
@@ -340,8 +344,11 @@ def train_yolo(record_ids, train_data_folder, bb_labels_folder, model_folder, ve
         print("...Done. Saving best weights...")
     best_weights_path = os.path.join("temp_data", "train", "yolov7-ecg-2c", "weights", "best.pt")
     os.makedirs(model_folder, exist_ok=True)
-    os.remove(os.path.join(model_folder, "yolov7-ecg-2c-best.pt")) # in case model already exists
-    os.rename(best_weights_path, os.path.join(model_folder, "yolov7-ecg-2c-best.pt"))
+    try:
+        os.remove(os.path.join(model_folder, "yolov7-ecg-2c.pt")) # in case model already exists
+    except FileNotFoundError:
+        pass
+    os.rename(best_weights_path, os.path.join(model_folder, "yolov7-ecg-2c.pt"))
 
     # move data back from val to train
     for record in val_record_ids:
@@ -512,6 +519,7 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
     reconstructed_signals_folder = os.path.join('temp_data', 'test', 'reconstructed_signals')
     os.makedirs(patch_folder, exist_ok=True)
     os.makedirs(reconstructed_signals_folder, exist_ok=True)
+    os.makedirs(os.path.join("temp_data", "test", "images"), exist_ok=True)
 
     # load header file to save with reconstructed signal
     header_txt = helper_code.load_header(record)
@@ -520,7 +528,7 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
     args = digitization.YOLOv7.detect.OptArgs()
     args.device = "0"
     args.source = image_path
-    args.nosave = False # for testing
+    args.nosave = True # set False for testing to save images with ROIs
     rois = digitization.YOLOv7.detect.detect_single(yolo_model, args, verbose)
 
     # patchify image
@@ -534,11 +542,18 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
                                                 original_image_size=image.shape[:2])
     
     # rotate reconstructed u-net output to original orientation
-    rotated_mask, rot_angle = preprocessing.column_rotation(record_id, predicted_mask,
+    rotated_mask, rotated_image_path, rot_angle = preprocessing.column_rotation(record_id, 
+                                                    predicted_mask, image,
                                                     angle_range=(-20, 20), verbose=verbose)
+    
+    # save rotated mask for debugging
+    # with open(os.path.join("temp_data", "test", "unet_outputs", record_id + '.png'), 'wb') as f:
+    #     plt.imsave(f, rotated_mask, cmap='gray')
     
     if rot_angle != 0: # currently just rotate the mask, do no re-predict   
         try: # sometimes this fails, if there are edge effects
+            args.source = rotated_image_path
+            rois = digitization.YOLOv7.detect.detect_single(yolo_model, args, verbose)
             reconstructed_signal, raw_signals, _ = reconstruct_signal(record_id, rotated_mask, 
                                                      rois,
                                                      header_txt,
@@ -564,9 +579,6 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
     if delete_patches:
         for im in os.listdir(patch_folder):
             os.remove(os.path.join(patch_folder, im))
-
-    # with open(os.path.join(reconstructed_signals_folder, record_id + '.npy'), 'wb') as f:
-    #     np.save(f, predicted_mask)
 
     # return reconstructed signal
     return reconstructed_signal, reconstructed_signals_folder

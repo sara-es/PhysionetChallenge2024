@@ -1,9 +1,11 @@
+import os
 import numpy as np
 import scipy as sp
 import skimage
+import matplotlib.pyplot as plt
 from preprocessing.transforms import zero_one_rescale
 
-def column_rotation(record_id, image_mask, angle_range=(-45, 45), verbose=True):
+def column_rotation(record_id, image_mask, image, angle_range=(-45, 45), verbose=True):
     """
     Uses the u-net output to find the rotation of the image, rotates the image and returns the
     rotated image and the rotation angle. No changes are currently made to the image itself.
@@ -33,6 +35,13 @@ def column_rotation(record_id, image_mask, angle_range=(-45, 45), verbose=True):
             n_active_cols = idxs
             rot_angle = angle
 
-    rotated_image = sp.ndimage.rotate(image_mask, rot_angle, axes=(1, 0), reshape=True, mode='nearest')
-    rotated_image = zero_one_rescale(rotated_image)
-    return rotated_image, rot_angle
+    rotated_mask = sp.ndimage.rotate(image_mask, rot_angle, axes=(1, 0), reshape=True, mode='constant', order=1)
+    rotated_mask = zero_one_rescale(rotated_mask)
+
+    rotated_image_path = os.path.join("temp_data", "test", "images", record_id + '_rotated.png')
+    if rot_angle != 0:
+        rotated_image = sp.ndimage.rotate(image[:,:,:3], rot_angle, axes=(1, 0), reshape=True, mode='constant', order=1)
+        with open(rotated_image_path, 'wb') as f:
+            plt.imsave(f, rotated_image)
+
+    return rotated_mask, rotated_image_path, rot_angle

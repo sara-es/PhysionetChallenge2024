@@ -178,3 +178,4 @@ u-net/
 /yolo_data
 digitization/model_checkpoints/traced_model.pt
 traced_model.pt
+/tiny_testset/hr_rotated
