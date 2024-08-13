@@ -528,7 +528,7 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
     args = digitization.YOLOv7.detect.OptArgs()
     args.device = "0"
     args.source = image_path
-    args.nosave = False # for testing
+    args.nosave = True # set False for testing to save images with ROIs
     rois = digitization.YOLOv7.detect.detect_single(yolo_model, args, verbose)
 
     # patchify image
