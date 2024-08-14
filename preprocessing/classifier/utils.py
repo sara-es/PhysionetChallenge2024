@@ -10,7 +10,10 @@ import torch
 import numpy as np
 from sklearn.utils import shuffle
 from digitization.Unet.ECGunet import BasicResUNet
+from digitization.Unet import patching
 from utils import team_helper_code
+from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 class Args:
     # Store lots of the parameters that we might need to train the model
@@ -108,17 +111,57 @@ def patch_split_from_ids(ids, generated_patch_dir, real_patch_dir, train_prop, v
     return id_train, id_test
 
 
-def load_unet_from_state_dict(state_dict, verbose=False):
-    # Load the model
-    unet = BasicResUNet(3, 2, nbs=[1, 1, 1, 1], init_channels=16, cbam=False)
-    if torch.cuda.is_available():
-        unet = unet.cuda()
+def save_patches_batch(image_path, label_path, patch_size, patch_save_path, verbose, 
+                       delete_images=False):
+    """
+    Similar to the same function in digitization/Unet/patching.py, but assumes:
+    - labels (masks) are PNGs, not numpy arrays
+    - images do not necessarily have masks available, but we need to patch them anyway
+    """
+    im_patch_path = os.path.join(patch_save_path, 'image_patches')
+    lab_patch_path = os.path.join(patch_save_path, 'label_patches')
+    os.makedirs(im_patch_path, exist_ok=True)
+    os.makedirs(lab_patch_path, exist_ok=True)
 
-    encoder_dict = unet.state_dict()
-    if verbose:
-        print(f'U-net: loaded {len(state_dict)}/{len(unet.state_dict())} weights.')
-        if torch.cuda.is_available():
-            print('Using cuda.')
-    unet.load_state_dict(state_dict)
+    im_ids = os.listdir(image_path)
+    im_ids = [i.split('.')[0] for i in im_ids]
 
-    return unet
+    # make sure we have matching images and labels
+    available_im_ids = team_helper_code.find_available_images(im_ids, image_path, verbose)
+    available_label_ids = team_helper_code.find_available_images(im_ids, label_path, verbose)
+    ids_with_labels = list(set(available_im_ids).intersection(available_label_ids))
+
+    for id in tqdm(im_ids, desc='Generating and saving patches', disable=not verbose):
+        id = id.split('.')[0]
+        lab_pth = os.path.join(label_path, id + '.png')
+        img_pth = os.path.join(image_path, id + '.png')
+        with open(img_pth, 'rb') as f:
+            image = plt.imread(f)
+        if id in ids_with_labels:
+            with open(lab_pth, 'rb') as f:
+                label = plt.imread(f)
+                # binzarize the label: need False for background, True for signals
+                # originally we have background as 255, signals as 0 (hopefully)
+                label = (label[:,:,0] < np.median(label[:,:,0])).astype(bool)
+                plt.imshow(label)
+                plt.show()
+        else:
+            label = None
+        # if image.shape[:-1] != label.shape:
+        #     print(f"{id} image shape: {image.shape}, labels shape: {label.shape}")
+
+        im_patches, label_patches = patching.patchify(image, label, size=(patch_size,patch_size))
+        
+        for i in range(len(im_patches)):
+            im_patch = im_patches[i]
+            # if im_patch.shape[:-1] != lab_patch.shape:
+            #     print(f"Image patch shape: {im_patch.shape}, Label patch shape: {lab_patch.shape}")
+            k = f'_{i:03d}'
+            np.save(os.path.join(im_patch_path, id + k), im_patch)
+            if label is not None:
+                lab_patch = label_patches[i]
+                np.save(os.path.join(lab_patch_path, id + k), lab_patch)
+        
+        if delete_images:
+            os.remove(img_pth)
+            os.remove(lab_pth)

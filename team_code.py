@@ -22,11 +22,12 @@ from sklearn.utils import shuffle
 import digitization.YOLOv7
 import digitization.YOLOv7.prepare_labels
 import helper_code
-import preprocessing
+import preprocessing.classifier
 from utils import team_helper_code, constants, model_persistence
 from digitization import Unet, ECGminer
 from classification import seresnet18
 import generator, preprocessing, digitization, classification
+from preprocessing import classifier
 import generator.gen_ecg_images_from_data_batch
 from evaluation import eval_utils
 from digitization.ECGminer.assets.DigitizationError import SignalExtractionError
@@ -151,7 +152,8 @@ def save_models(model_folder, digitization_model=None, classification_model=None
         
 
 def train_digitization_model(data_folder, model_folder, verbose, records_to_process=None,
-                             delete_training_data=True, max_size_training_set=3000):
+                             delete_training_data=True, max_size_training_set=3000,
+                             real_data_folder=None):
     """
     Our general digitization process is
     1. generate testing images and masks
@@ -165,19 +167,20 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
     they should be deleted when no longer needed, but if you want to keep them for debugging or
     visualization, set delete_training_data to False. 
     """
+    # GENERATED images, bounding boxes, masks, patches, and u-net outputs
     # hard code some folder paths for now
-    images_folder = os.path.join(os.getcwd(), 'temp_data', 'train', 'images')
+    gen_images_folder = os.path.join(os.getcwd(), 'temp_data', 'train', 'images')
     bb_labels_folder = os.path.join(os.getcwd(), 'temp_data', 'train', 'labels')
-    masks_folder = os.path.join(os.getcwd(), 'temp_data', 'train', 'masks')
-    patch_folder = os.path.join(os.getcwd(), 'temp_data', 'train', 'patches')
+    gen_masks_folder = os.path.join(os.getcwd(), 'temp_data', 'train', 'masks')
+    gen_patch_folder = os.path.join(os.getcwd(), 'temp_data', 'train', 'patches')
     unet_output_folder = os.path.join(os.getcwd(), 'temp_data', 'train', 'unet_outputs')
 
-    os.makedirs(images_folder, exist_ok=True)
-    os.makedirs(masks_folder, exist_ok=True)
-    os.makedirs(patch_folder, exist_ok=True)
+    os.makedirs(gen_images_folder, exist_ok=True)
+    os.makedirs(bb_labels_folder, exist_ok=True)
+    os.makedirs(gen_masks_folder, exist_ok=True)
+    os.makedirs(gen_patch_folder, exist_ok=True)
     os.makedirs(unet_output_folder, exist_ok=True)
 
-    # TODO can do a split here if we want to have unet train and predict on different records
     if not records_to_process:
         records_to_process = helper_code.find_records(data_folder)
     if max_size_training_set is not None:
@@ -185,42 +188,57 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
 
     # generate images, bounding boxes, and masks for training YOLO and u-net
     # note that YOLO labels assume two classes: short and long leads
-    generate_training_images(data_folder, images_folder, 
-                             masks_folder, bb_labels_folder, 
+    generate_training_images(data_folder, gen_images_folder, 
+                             gen_masks_folder, bb_labels_folder, 
                              verbose, records_to_process=records_to_process)
     
     # train YOLOv7 (only one epoch w/ low lr - assume pre-trained model is good enough)
-    train_yolo(records_to_process, images_folder, bb_labels_folder, model_folder, verbose, 
-               delete_training_data=delete_training_data)
+    train_yolo(records_to_process, gen_images_folder, bb_labels_folder, model_folder,
+               verbose, delete_training_data=delete_training_data)
     
     # Generate patches for u-net. Note: this deletes source images and masks to save space
     # if delete_training_data is True
-    Unet.patching.save_patches_batch(records_to_process, images_folder, masks_folder, 
-                                     constants.PATCH_SIZE, patch_folder, verbose, 
+    Unet.patching.save_patches_batch(records_to_process, gen_images_folder, gen_masks_folder, 
+                                     constants.PATCH_SIZE, gen_patch_folder, verbose, 
                                      delete_images=delete_training_data)
     
-    # train classifier for real vs. generated data
-
+    # Generate patches for real images if available
+    if real_data_folder is not None:
+        real_images_folder = os.path.join(real_data_folder, 'images')
+        real_masks_folder = os.path.join(real_data_folder, 'masks')
+        real_patch_folder = os.path.join(real_data_folder, 'patches')
+        os.makedirs(real_patch_folder, exist_ok=True)
+        # check that real images and masks are available
+        if not os.path.exists(real_images_folder) or not os.path.exists(real_masks_folder):
+            print(f"Real images or masks not found in {real_data_folder}, unable to train " +\
+                  "real image classifier or u-net.")
+        real_images = os.listdir(real_images_folder)
+    
+        classifier.save_patches_batch(real_images_folder, real_masks_folder, 
+                                      constants.PATCH_SIZE, real_patch_folder, 
+                                      verbose, delete_images=False)
 
     # train U-net: generated data
     args = Unet.utils.Args()
     args.train_val_prop = 0.8
-    unet_model = train_unet(records_to_process, patch_folder, model_folder, verbose, args=args, 
+    unet_model = train_unet(records_to_process, gen_patch_folder, model_folder, verbose, args=args,
                             warm_start=True)
     
     # train U-net: real data
-
+    if real_images_folder is not None:
+        pass
 
     # optional: delete any leftover training data
     if delete_training_data:
-        for im in os.listdir(images_folder):
-            os.remove(os.path.join(images_folder, im))
-        for im in os.listdir(masks_folder):
-            os.remove(os.path.join(masks_folder, im))
+        for im in os.listdir(gen_images_folder):
+            os.remove(os.path.join(gen_images_folder, im))
+        for im in os.listdir(gen_masks_folder):
+            os.remove(os.path.join(gen_masks_folder, im))
         for im in os.listdir(bb_labels_folder):
             os.remove(os.path.join(bb_labels_folder, im))
-        for im in os.listdir(patch_folder):
-            os.remove(os.path.join(patch_folder, im))
+        for folder in os.listdir(gen_patch_folder):
+            for im in os.listdir(os.path.join(gen_patch_folder, folder)):
+                os.remove(os.path.join(gen_patch_folder, folder, im))
         for im in os.listdir(unet_output_folder):
             os.remove(os.path.join(unet_output_folder, im))
 
@@ -246,14 +264,11 @@ def generate_training_images(wfdb_records_folder, images_folder, masks_folder, b
     img_gen_params.random_bw = 0.2
     img_gen_params.wrinkles = True
     img_gen_params.print_header = True
-    img_gen_params.augment = True
-    img_gen_params.crop = 0.0
-    img_gen_params.rotate = 0
     img_gen_params.lead_bbox = True
     img_gen_params.lead_name_bbox = True
     img_gen_params.store_config = 1
 
-    # img_gen_params.augment = False
+    img_gen_params.augment = False
     img_gen_params.calibration_pulse = 0
 
     # set params for generating masks
@@ -310,11 +325,10 @@ def train_yolo(record_ids, train_data_folder, bb_labels_folder, model_folder, ve
         args.device = "0"
         args.cfg = os.path.join("digitization", "YOLOv7", "cfg", "training", "yolov7-ecg2c.yaml")
         args.name = "yolov7-ecg-2c"
-        args.epochs = 1
-        args.hyp = os.path.join("digitization", "YOLOv7", "data", "hyp.lowlr.yaml")
+        args.hyp = os.path.join("digitization", "YOLOv7", "data", "hyp.scratch.custom.yaml")
 
-    # use the best weights from previous fine-tuning as starting point
-    args.weights = os.path.join("digitization", "model_checkpoints", "yolov7-ecg-2c.pt")
+    # use the best weights from the yolov7 model zoo as starting point
+    args.weights = os.path.join("digitization", "model_checkpoints", "yolov7.pt")
     
     # n. classes, class labels, train data folder info written here
     # data should be train/images and train/labels folders
@@ -344,11 +358,8 @@ def train_yolo(record_ids, train_data_folder, bb_labels_folder, model_folder, ve
         print("...Done. Saving best weights...")
     best_weights_path = os.path.join("temp_data", "train", "yolov7-ecg-2c", "weights", "best.pt")
     os.makedirs(model_folder, exist_ok=True)
-    try:
-        os.remove(os.path.join(model_folder, "yolov7-ecg-2c.pt")) # in case model already exists
-    except FileNotFoundError:
-        pass
-    os.rename(best_weights_path, os.path.join(model_folder, "yolov7-ecg-2c.pt"))
+    os.remove(os.path.join(model_folder, "yolov7-ecg-2c-best.pt")) # in case model already exists
+    os.rename(best_weights_path, os.path.join(model_folder, "yolov7-ecg-2c-best.pt"))
 
     # move data back from val to train
     for record in val_record_ids:
@@ -437,8 +448,8 @@ def reconstruct_signal(record, unet_image, rois, header_txt,
     # max duration on images cannot exceed 10s as per Challenge team
     max_duration = 10 if max_duration > 10 else max_duration 
     try:
-        reconstructed_signal, raw_signals, gridsize  = ECGminer.digitize_image_unet(unet_image, rois,
-                                        sig_len=signal_length, max_duration=max_duration)
+        reconstructed_signal, raw_signals, gridsize  = ECGminer.digitize_image_unet(unet_image, 
+                                        rois, sig_len=signal_length, max_duration=max_duration)
     except SignalExtractionError as e:
         print(f"Error in digitizing signal: {e}")
         return None, None, None
@@ -519,7 +530,6 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
     reconstructed_signals_folder = os.path.join('temp_data', 'test', 'reconstructed_signals')
     os.makedirs(patch_folder, exist_ok=True)
     os.makedirs(reconstructed_signals_folder, exist_ok=True)
-    os.makedirs(os.path.join("temp_data", "test", "images"), exist_ok=True)
 
     # load header file to save with reconstructed signal
     header_txt = helper_code.load_header(record)
@@ -528,7 +538,7 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
     args = digitization.YOLOv7.detect.OptArgs()
     args.device = "0"
     args.source = image_path
-    args.nosave = True # set False for testing to save images with ROIs
+    args.nosave = False # for testing
     rois = digitization.YOLOv7.detect.detect_single(yolo_model, args, verbose)
 
     # patchify image
@@ -542,18 +552,11 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
                                                 original_image_size=image.shape[:2])
     
     # rotate reconstructed u-net output to original orientation
-    rotated_mask, rotated_image_path, rot_angle = preprocessing.column_rotation(record_id, 
-                                                    predicted_mask, image,
+    rotated_mask, rot_angle = preprocessing.column_rotation(record_id, predicted_mask,
                                                     angle_range=(-20, 20), verbose=verbose)
-    
-    # save rotated mask for debugging
-    # with open(os.path.join("temp_data", "test", "unet_outputs", record_id + '.png'), 'wb') as f:
-    #     plt.imsave(f, rotated_mask, cmap='gray')
     
     if rot_angle != 0: # currently just rotate the mask, do no re-predict   
         try: # sometimes this fails, if there are edge effects
-            args.source = rotated_image_path
-            rois = digitization.YOLOv7.detect.detect_single(yolo_model, args, verbose)
             reconstructed_signal, raw_signals, _ = reconstruct_signal(record_id, rotated_mask, 
                                                      rois,
                                                      header_txt,
@@ -579,6 +582,9 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
     if delete_patches:
         for im in os.listdir(patch_folder):
             os.remove(os.path.join(patch_folder, im))
+
+    # with open(os.path.join(reconstructed_signals_folder, record_id + '.npy'), 'wb') as f:
+    #     np.save(f, predicted_mask)
 
     # return reconstructed signal
     return reconstructed_signal, reconstructed_signals_folder

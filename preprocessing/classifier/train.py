@@ -80,6 +80,13 @@ def train_image_classifier(ids, generated_patch_dir, real_patch_dir, args,
     """
     Note max_samples is number of PATCHES to use, not images.
     """
+    if verbose:
+        print('Training image classifier...', flush=True)
+    if not args: 
+        args = utils.Args()
+
+    # get image IDs from 
+
     cuda = torch.cuda.is_available()
     device = torch.device("cuda" if cuda else "cpu")
 
