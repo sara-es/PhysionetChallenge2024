@@ -10,7 +10,6 @@ from digitization.ECGminer import extract_signals, vectorize_signals
 
 
 def get_ECG_rows(yolo_boxes):
-
     yolo_boxes = np.array(yolo_boxes)
     #get the number of long leads
     long_leads = sum(yolo_boxes[:,0])
@@ -23,6 +22,7 @@ def get_ECG_rows(yolo_boxes):
     top = min(yolo_boxes[:, 2] - yolo_boxes[:, 4]/2)
     bottom = max(yolo_boxes[:, 2] - yolo_boxes[:, 4]/2)
    
+    # note bounding box is in percentage of image size
     bounding_box = [left, right, top, bottom]
     
     return num_rows, bounding_box
@@ -58,7 +58,7 @@ def digitize_image_unet(restored_image, yolo_rois, sig_len=1000, max_duration=10
     ## DW: replace extract_signals with our own version.
     # returns x and y coordinates of the traces in order
     # raises DigitizationError if failure occurs.
-    signal_coords, rois = extract_signals.extract_row_signals(ecg_crop, n_lines=num_rows)
+    signal_coords, rois = extract_signals.extract_row_signals(ecg_crop, n_lines=int(num_rows))
 
     # check for reference pulses, then convert to digitized signals
     # returns array of digitized signals, original signal coordinates, and gridsize
