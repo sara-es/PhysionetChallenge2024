@@ -48,15 +48,16 @@ def digitize_image_unet(restored_image, yolo_rois, sig_len=1000, max_duration=10
     # convert greyscale to rgb
     restored_image = cv2.merge([restored_image,restored_image,restored_image])
     restored_image = np.uint8(restored_image)
+    
+    height = restored_image.shape[0]
+    width = restored_image.shape[1]
+    
     restored_image = Image(restored_image)
 
     # Convert YOLO xywh boxes to ROIs
     num_rows, box = get_ECG_rows(yolo_rois)
     
     #replace preprocessor with our own cropper
-    height = restored_image.shape[0]
-    width = restored_image.shape[1]
-
     #convert [left, right, top, bottom] into pixels
     pad = 20 #bounding box is pretty good, so let's add a just a small amount of padding
     box[0] = int(np.round(box[0] * width)) - pad
@@ -74,9 +75,9 @@ def digitize_image_unet(restored_image, yolo_rois, sig_len=1000, max_duration=10
         rect = Rectangle(Point(box[0], box[2]), Point(box[1], box[3])) # cropped image from yolo
     else:
         rect = Rectangle(Point(0, 350), Point(width, height))
-    
+
     restored_image.crop(rect)
-    
+   
     ## DW: replace extract_signals with our own version.
     # returns x and y coordinates of the traces in order
     # raises DigitizationError if failure occurs.
