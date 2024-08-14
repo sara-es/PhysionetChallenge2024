@@ -551,7 +551,6 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
     args.source = image_path
     args.nosave = True # set False for testing to save images with ROIs
     rois = digitization.YOLOv7.detect.detect_single(yolo_model, args, verbose)
-    np.save(f"yolo_boxes/{record_id}.npy", np.array(rois))
 
     # patchify image
     Unet.patching.save_patches_single_image(record_id, image, None, 
