@@ -77,8 +77,8 @@ def load_checkpoint_dict(folder, name, verbose=False):
 def load_models(model_folder, verbose, models_to_load):
     team_models = {}
 
-    if verbose:
-        print(f'Attempting to load from {model_folder}...')
+    # if verbose:
+    #     print(f'Attempting to load from {model_folder}...')
 
     if os.path.exists(model_folder):
         for name in models_to_load:

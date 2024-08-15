@@ -147,12 +147,12 @@ def save_models(model_folder, digitization_model=None, classification_model=None
         model_persistence.save_model_torch(digitization_model, 'digitization_model', model_folder)
 
     if classification_model is not None:
-        d = {'classification_model': classification_model, 'dx_classes': classes}
-        model_persistence.save_models(d, model_folder, verbose=False)
+        model_persistence.save_model_torch(classification_model, 'classification_model', model_folder)
+        model_persistence.save_model_pkl(classes, 'dx_classes', model_folder)
         
 
 def train_digitization_model(data_folder, model_folder, verbose, records_to_process=None,
-                             delete_training_data=True, max_size_training_set=2500,
+                             delete_training_data=True, max_size_training_set=3000,
                              real_data_folder=None):
     """
     Our general digitization process is
@@ -167,6 +167,10 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
     they should be deleted when no longer needed, but if you want to keep them for debugging or
     visualization, set delete_training_data to False. 
     """
+    try: # clear any data from previous runs
+        shutil.rmtree(os.path.join('temp_data', 'train'))
+    except FileNotFoundError:
+        pass
     # GENERATED images, bounding boxes, masks, patches, and u-net outputs
     # hard code some folder paths for now
     gen_images_folder = os.path.join(os.getcwd(), 'temp_data', 'train', 'images')
@@ -507,7 +511,7 @@ def train_classification_model(records_folder, verbose, records_to_process=None)
     if verbose:
         print("Training SE-ResNet classification model...")
     resnet_model = seresnet18.train_model(
-                                all_data, multilabels, uniq_labels, verbose, epochs=100, 
+                                all_data, multilabels, uniq_labels, verbose, epochs=200, 
                                 validate=False)
     
     if verbose:
@@ -549,7 +553,7 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
     args = digitization.YOLOv7.detect.OptArgs()
     args.device = "0"
     args.source = image_path
-    args.nosave = True # set False for testing to save images with ROIs
+    args.nosave = False # set False for testing to save images with ROIs
     rois = digitization.YOLOv7.detect.detect_single(yolo_model, args, verbose)
 
     # patchify image
