@@ -37,7 +37,8 @@ def point_to_matrix(signals):
     return signal_arr
 
 
-def cabrera_detector(signal, NCOLS = 4):
+'''Detects cabrera layout - increase thresh to make decrease false positive rate at expense of true positive'''
+def cabrera_detector(signal, NCOLS = 4, thresh = 500):
      diff_signals = np.diff(signal)
      ref = np.size(diff_signals,1)
      col_width = ref//NCOLS
@@ -85,7 +86,7 @@ def cabrera_detector(signal, NCOLS = 4):
          a = np.std([corr1, corr2, corr3, corr4, corr5])
          b = np.std([c_corr1, c_corr2, c_corr3, c_corr4, c_corr5])
 
-     if a>b:
+     if (a + thresh) > b:
          return False
      else:
          return True
@@ -142,12 +143,13 @@ def detect_rhythm_strip(signal_arr, is_cabrera, THRESH = 2):
     diff_signals = np.diff(signal_arr)
     rhythm = []
     fails = []
+    NUM_SHORTROWS = 3
     
-    if NROWS > 3: # physionet assumption - everything is in 3x4 format
+    if NROWS > NUM_SHORTROWS: # physionet assumption - everything is in 3x4 format
         NCOLS = 4
-        test_grid = np.zeros([3,NCOLS])
-        main_ecg = diff_signals[0:3,:]
-        for i in range(3, NROWS):   
+        test_grid = np.zeros([NUM_SHORTROWS,NCOLS])
+        main_ecg = diff_signals[0:NUM_SHORTROWS,:]
+        for i in range(NUM_SHORTROWS, NROWS):   
             ref = diff_signals[i,:]
             col_width = len(ref)//NCOLS
             
@@ -155,7 +157,7 @@ def detect_rhythm_strip(signal_arr, is_cabrera, THRESH = 2):
             # same length.
             test = abs(main_ecg - ref)
             
-            for j in range(3):
+            for j in range(NUM_SHORTROWS):
                 for k in range(NCOLS):
                     start = col_width*k
                     fin = col_width*(k+1)-1
@@ -169,9 +171,18 @@ def detect_rhythm_strip(signal_arr, is_cabrera, THRESH = 2):
             else:
                 #record offset idx of any fails
                 rhythm.append('FAIL')
-                fails.append(i-3)
-                
-        default_rhythm = [Lead.II, Lead.V5, Lead.V1, Lead.II, Lead.V5, Lead.V1] 
+                fails.append(i-NUM_SHORTROWS)
+            
+        # Hacky code ahead - 
+        if NROWS == 4:
+            default_rhythm = [Lead.II]
+        elif NROWS == 5:
+            default_rhythm = [Lead.II, Lead.V5]
+        elif NROWS == 6:
+            default_rhythm = [Lead.V1, Lead.II, Lead.V5]
+        else:
+            # this should basically never happen
+            default_rhythm = [Lead.V1, Lead.II, Lead.V5, Lead.V1, Lead.II, Lead.V5]
         # if we didn't find all of the rhythm strips successfully, default any fails to the most 
         # likely strip
         for j in fails:
