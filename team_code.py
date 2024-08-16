@@ -26,6 +26,7 @@ import preprocessing.classifier
 from utils import team_helper_code, constants, model_persistence
 from digitization import Unet, ECGminer
 from classification import seresnet18
+from classification.utils import multiclass_predict_from_logits
 import generator, preprocessing, digitization, classification
 from preprocessing import classifier
 import generator.gen_ecg_images_from_data_batch
@@ -515,10 +516,14 @@ def train_classification_model(records_folder, verbose, records_to_process=None)
 
     if verbose:
         print("Training SE-ResNet classification model...")
-    resnet_model = seresnet18.train_model(
-                                all_data, multilabels, uniq_labels, verbose, epochs=200, 
-                                validate=False)
-    
+
+    resnet_model = {}
+    mod_names = ['res1', 'res2', 'res3', 'res4', 'res5']
+    num_epochs = 1 #TODO: set this to a big number
+    for i in mod_names:
+        resnet_model[i] = seresnet18.train_model(
+                                    all_data, multilabels, uniq_labels, verbose, epochs=num_epochs, 
+                                    validate=False)
     if verbose:
         print("Finished training classification model.")
     
@@ -615,12 +620,32 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
 
 
 def classify_signals(record_path, data_folder, resnet_model, classes, verbose):
-    # wrap in list to match training data format
     record_id = os.path.split(record_path)[-1].split('.')[0]
-    data = [classification.get_testing_data(record_id, data_folder)] 
-    pred_dx, probabilities = seresnet18.predict_proba(
-                                        resnet_model, data, classes, verbose)
-    labels = classes[np.where(pred_dx == 1)]
+    data = [classification.get_testing_data(record_id, data_folder)]
+    # deal with the ensemble
+    if type(resnet_model) == dict:
+        for i, val in enumerate(resnet_model):
+            _, probabilities = seresnet18.predict_proba(
+                                                resnet_model[val], data, classes, verbose)
+            if i == 0:
+                probs = probabilities
+            else:
+                probs = probs + probabilities
+        
+        # hacky way to get the mean of all the resnets
+        probs = probs / len(resnet_model)
+        
+        pred_dx = multiclass_predict_from_logits(classes, probs, threshold=0.5)
+        labels = classes[np.where(pred_dx == 1)]
+    
+    # single model output
+    else:
+        # wrap in list to match training data format
+ 
+        pred_dx, probabilities = seresnet18.predict_proba(
+                                            resnet_model, data, classes, verbose)
+        labels = classes[np.where(pred_dx == 1)]
+    
     if verbose:
         print(f"Classes: {classes}, probabilities: {probabilities}")
         print(f"Predicted labels: {labels}")
