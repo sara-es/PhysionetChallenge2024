@@ -33,11 +33,13 @@
 # submissions list
 1. digitization as-is: assumes all generated images
 2. classifier for real vs. generated images + yolo for row count
-3. same as (2) with request to train from scratch
-4. optimise SQI
-5. no cabrera option
-6. deterministic rhythm lead order
-7. affine transformation on generated images + reconstruction tweaks
+
+- SQI: replace with NaNs instead of 0s
+- optimise reconstruction of generated images (gap from generator)
+- optimise SQI: length of sliding window
+- no cabrera option
+- deterministic rhythm lead order
+- for generated images: if signals are different lengths, pad with zeros instead of interpolating
 
 ## TINY TESTSET
 - occlude non-plotted data

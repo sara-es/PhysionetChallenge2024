@@ -68,7 +68,8 @@ def train_epoch(args, model, train_loader, optimizer, criterion, epoch, verbose)
     av_loss_copy = np.copy(av_loss.detach().cpu().numpy())
 
     del av_loss
-    print('\nTraining set: Average loss: {:.4f}'.format(av_loss_copy,  flush=True))
+    if verbose:
+        print('\nTraining set: Average loss: {:.4f}'.format(av_loss_copy,  flush=True))
 
     return av_loss_copy, pred, orig, true
 

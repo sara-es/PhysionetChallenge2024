@@ -6,6 +6,8 @@ scratch.ipynb
 *.7z
 *.png
 !tiny_testset/*/*.png
+!real_images/*
+
 jobscripts/
 
 
@@ -179,3 +181,4 @@ u-net/
 digitization/model_checkpoints/traced_model.pt
 traced_model.pt
 /tiny_testset/hr_rotated
+/real_images/patches
