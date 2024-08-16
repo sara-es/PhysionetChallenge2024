@@ -103,24 +103,39 @@ def save_patches_single_image(record_id, image, label, patch_size, im_patch_save
 
 
 def save_patches_batch(ids, image_path, label_path, patch_size, patch_save_path, verbose, 
-                       delete_images=True):
+                       delete_images=True, require_masks=True):
     im_patch_path = os.path.join(patch_save_path, 'image_patches')
     lab_patch_path = os.path.join(patch_save_path, 'label_patches')
     os.makedirs(im_patch_path, exist_ok=True)
     os.makedirs(lab_patch_path, exist_ok=True)
 
     # make sure we have matching images and labels
-    available_im_ids = team_helper_code.find_available_images(ids, image_path, verbose)
-    available_label_ids = team_helper_code.find_available_images(ids, label_path, verbose)
-    ids = list(set(available_im_ids).intersection(available_label_ids))
+    if require_masks:
+        available_im_ids = team_helper_code.find_available_images(ids, image_path, verbose)
+        available_label_ids = team_helper_code.find_available_images(ids, label_path, verbose)
+        ids = list(set(available_im_ids).intersection(available_label_ids))
+    else:
+        ids = team_helper_code.find_available_images(ids, image_path, verbose)
 
     for id in tqdm(ids, desc='Generating and saving patches', disable=not verbose):
         id = id.split('.')[0]
-        lab_pth = os.path.join(label_path, id + '.npy')
         img_pth = os.path.join(image_path, id + '.png')
         with open(img_pth, 'rb') as f:
             image = plt.imread(f)
-        label = np.load(lab_pth, allow_pickle=True)
+
+        if os.path.exists(os.path.join(label_path, id + '.npy')):
+            lab_pth = os.path.join(label_path, id + '.npy')
+            label = np.load(lab_pth, allow_pickle=True)
+        elif os.path.exists(os.path.join(label_path, id + '.png')):
+            lab_pth = os.path.join(label_path, id + '.png')
+            with open(lab_pth, 'rb') as f:
+                label = plt.imread(f)
+            # binzarize the label: need False for background, True for signals
+            # assume if image, we have background as 255, signals as 0 
+            label = (label[:,:,0] < np.median(label[:,:,0])).astype(bool)
+        elif not require_masks:
+            label = None
+
         # if image.shape[:-1] != label.shape:
         #     print(f"{id} image shape: {image.shape}, labels shape: {label.shape}")
 
@@ -128,13 +143,15 @@ def save_patches_batch(ids, image_path, label_path, patch_size, patch_save_path,
         
         for i in range(len(im_patches)):
             im_patch = im_patches[i]
-            lab_patch = label_patches[i]
             # if im_patch.shape[:-1] != lab_patch.shape:
             #     print(f"Image patch shape: {im_patch.shape}, Label patch shape: {lab_patch.shape}")
             k = f'_{i:03d}'
             np.save(os.path.join(im_patch_path, id + k), im_patch)
-            np.save(os.path.join(lab_patch_path, id + k), lab_patch)
+            if label is not None:
+                lab_patch = label_patches[i]
+                np.save(os.path.join(lab_patch_path, id + k), lab_patch)
         
         if delete_images:
             os.remove(img_pth)
-            os.remove(lab_pth)
+            if os.path.exists(lab_pth):
+                os.remove(lab_pth)

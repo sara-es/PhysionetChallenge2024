@@ -41,9 +41,9 @@ def eval_resnet(data_folder, records, resnet_model, classes, verbose, max_sample
         data = [classification.get_testing_data(r, data_folder)] 
         pred_dx, probabilities = seresnet18.predict_proba(resnet_model, data, classes, verbose)
         labels = classes[np.where(pred_dx == 1)]
-        if verbose:
-            print(f"Classes: {classes}, probabilities: {probabilities}")
-            print(f"Predicted labels: {labels}")
+        # if verbose:
+        #     print(f"Classes: {classes}, probabilities: {probabilities}")
+        #     print(f"Predicted labels: {labels}")
 
         actual_labels = helper_code.load_labels(os.path.join(data_folder, r))
         
@@ -76,8 +76,8 @@ def main(data_folder, model_folder, verbose, max_samples=None):
         raise FileNotFoundError('No data were provided.')
     
     records = shuffle(records, random_state=42)
-    train_records = records[:int(0.8*num_records)]
-    val_records = records[int(0.8*num_records):]
+    train_records = records[:int(0.9*num_records)]
+    val_records = records[int(0.9*num_records):]
 
     # train_records = train_records[:200]
     # val_records = val_records[:100]
