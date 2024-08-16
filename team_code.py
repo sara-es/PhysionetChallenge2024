@@ -487,7 +487,7 @@ def train_classification_model(records_folder, verbose, records_to_process=None)
     if verbose:
         print("Training SE-ResNet classification model...")
     resnet_model = {}
-    mod_names = ['res1', 'res2', 'res3']
+    mod_names = ['res1', 'res2', 'res3', 'res4', 'res5']
     num_epochs = 1 #TODO: set this to a big number
     for i in mod_names:
         resnet_model[i] = seresnet18.train_model(
