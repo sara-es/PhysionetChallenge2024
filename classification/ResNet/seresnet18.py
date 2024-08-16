@@ -246,6 +246,11 @@ def train_model(data, multilabels, uniq_labels, verbose, epochs=5, validate=True
         for epoch in range(1, epochs+1):
             print(f'Epoch {epoch}/{epochs}')
             train(model, train_dl, device, criterion, sigmoid, optimizer, epoch, uniq_labels, verbose)
+            if epoch%10 == 0: # periodically save a checkpoint
+                if verbose:
+                    print('Saving checkpoint...')
+                state_dict = model.state_dict()
+                torch.save(state_dict, os.path.join('classification', 'model_checkpoints', 'resnet_ckpt'))
 
     return model.state_dict()
 

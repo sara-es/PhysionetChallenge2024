@@ -31,7 +31,7 @@ def train_epoch(args, model, train_loader, optimizer, criterion, epoch, verbose)
 
             # First update the encoder and regressor
             optimizer.zero_grad()
-            x = model(data)
+            x = model(data) 
             loss = criterion(x, target)
             loss.backward()
             optimizer.step()
@@ -56,27 +56,32 @@ def train_epoch(args, model, train_loader, optimizer, criterion, epoch, verbose)
     return av_loss_copy, data, pred, target
 
 
-def val_epoch(args, model, val_loader, verbose):
+def val_epoch(args, model, val_loader, criterion, verbose):
     cuda = torch.cuda.is_available()
     model.eval()
     true_store = []
     pred_store = []
+    loss_store = []
     with torch.no_grad():
         for batch_idx, (data, target) in enumerate(val_loader):
+            target = target.type(torch.LongTensor)
             if cuda:
                 data, target = data.cuda(), target.cuda()
             data, target = Variable(data), Variable(target)
             x = model(data)
+            loss = criterion(x, target)
             true_store.append(target.detach().cpu().numpy())
             pred_store.append(x.detach().cpu().numpy())
+            loss_store.append(loss.detach().cpu().numpy())
 
     true_store = np.array(true_store).squeeze()
     pred_store = np.array(pred_store).squeeze()
-    # pred_store = np.argmax(pred_store, axis=1)
+    pred_store = np.argmax(pred_store, axis=1)
     accuracy = accuracy_score(true_store, pred_store)
+    total_loss = np.mean(loss_store)
     if verbose:
         print('Validation set: Accuracy: {:.4f}\n'.format(accuracy,  flush=True))
-    return accuracy
+    return accuracy, total_loss
 
 
 def train_image_classifier(real_patch_folder, gen_patch_folder, model_folder, 
@@ -84,6 +89,7 @@ def train_image_classifier(real_patch_folder, gen_patch_folder, model_folder,
     if not args: 
         args = utils.Args()
         args.learning_rate = 0.5e-3
+        args.patience = 10
 
     # get image IDs from 
 
@@ -102,7 +108,7 @@ def train_image_classifier(real_patch_folder, gen_patch_folder, model_folder,
         print('Validation patches: ', len(val_data), flush=True)
 
         print('Creating datasets and dataloaders...')
-    train_dataset = datasets.PatchDataset(train_data, train_labels, 
+    train_dataset = datasets.PatchDataset(train_data, train_labels, #transform=None)
                                  transform=args.augmentation)
     val_dataset = datasets.PatchDataset(val_data, val_labels, transform=None)
     train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, 
@@ -166,7 +172,7 @@ def train_image_classifier(real_patch_folder, gen_patch_folder, model_folder,
             print('Epoch ', epoch, '/', args.epochs, flush=True)
         loss, data, pred, true = train_epoch(args, model, train_dataloader, optimizer, crit, epoch, verbose)
         if args.train_val_prop < 1.0:
-            val_loss = val_epoch(args, model, val_dataloader, verbose)
+            val_accuracy, val_loss = val_epoch(args, model, val_dataloader, criterion, verbose)
             if verbose:
                 print('Validation set: Average loss: {:.4f}\n'.format(val_loss,  flush=True))
         else:
@@ -174,10 +180,10 @@ def train_image_classifier(real_patch_folder, gen_patch_folder, model_folder,
         loss_store.append([loss, val_loss])
         # np.save(LOSS_PATH, np.array(loss_store))
 
-        # Save some example images, for debugging
-        pred_class = pred
-        true_class = true
-        orig_patches = data.transpose(0, 2, 3, 1).squeeze()
+        # # Save some example images, for debugging
+        # pred_class = pred
+        # true_class = true
+        # orig_patches = data.transpose(0, 2, 3, 1).squeeze()
 
         # import matplotlib.pyplot as plt
 
@@ -211,22 +217,22 @@ def train_image_classifier(real_patch_folder, gen_patch_folder, model_folder,
             return model.state_dict()
             
         if args.reduce_lr:
-            if early_stopping.counter == 5:
+            if early_stopping.counter == 2:
                 if verbose:
                     print('Reducing learning rate')
                 args.learning_rate = args.learning_rate/2
                 optimizer = optim.AdamW(lr=args.learning_rate, params=model.parameters())
-            if early_stopping.counter == 10:
+            if early_stopping.counter == 4:
                 if verbose:
                     print('Reducing learning rate')
                 args.learning_rate = args.learning_rate/2
                 optimizer = optim.AdamW(lr=args.learning_rate, params=model.parameters())
-            if early_stopping.counter == 15:
+            if early_stopping.counter == 6:
                 if verbose:
                     print('Reducing learning rate')
                 args.learning_rate = args.learning_rate/2
                 optimizer = optim.AdamW(lr=args.learning_rate, params=model.parameters())
-            if early_stopping.counter == 20:
+            if early_stopping.counter == 8:
                 if verbose:
                     print('Reducing learning rate')
                 args.learning_rate = args.learning_rate/2

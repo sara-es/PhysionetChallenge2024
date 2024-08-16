@@ -49,7 +49,7 @@ class numpy_dataset(Dataset):  # Inherit from Dataset class
 class PatchDataset(Dataset):  # Inherit from Dataset class
     def __init__(self, im_patch_path, label, train=True, transform=False):
         self.id = im_patch_path
-        self.target = label
+        self.target = torch.from_numpy(label).float()
         self.train = train
         self.transform = transform
 
@@ -59,13 +59,11 @@ class PatchDataset(Dataset):  # Inherit from Dataset class
             im = np.load(f)
         # reshape to (c, w, h)
         x_store = np.transpose(im, (2, 0, 1))
-        x_store = (x_store - x_store.mean())/x_store.std()
+        # x_store = (x_store - x_store.mean())/x_store.std()
         x = torch.from_numpy(x_store).float()
         
         if self.train:
-            y_store = np.zeros(2)
-            y_store[self.target[index]] = 1.
-            y = torch.from_numpy(y_store).float()
+            y = self.target[index]
         else:
             y = torch.zeros(1)
 

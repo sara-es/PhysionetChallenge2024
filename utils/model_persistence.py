@@ -5,6 +5,7 @@ sys.path.append(os.path.join(sys.path[0], '..'))
 from digitization.YOLOv7.models.experimental import attempt_load
 from digitization.YOLOv7.utils.torch_utils import TracedModel
 from digitization.YOLOv7.detect import OptArgs
+import collections
 
 
 # Functions to save models depending on type
@@ -29,7 +30,7 @@ def save_model_torch(model, name, folder):
 
 def save_models(models, model_folder, verbose=True):
     for name, model in models.items():
-        if isinstance(model, torch.nn.Module):
+        if isinstance(model, torch.nn.Module) or isinstance(model, collections.OrderedDict):
             save_model_torch(model, name, model_folder)
         else:
             save_model_pkl(model, name, model_folder)
