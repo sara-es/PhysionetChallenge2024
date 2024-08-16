@@ -15,6 +15,7 @@ from utils import team_helper_code
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
+
 class Args:
     # Store lots of the parameters that we might need to train the model
     def __init__(self):
@@ -23,7 +24,7 @@ class Args:
         self.learning_rate = 1e-4
         self.epochs = 500
         self.train_val_prop = 0.9 # Set to 1.0 for no validation (train on all data)
-        self.patience = 25 # Early stopping patience
+        self.patience = 10 # Early stopping patience
         self.channels_first = True
         self.diff_model_flag = False
         self.alpha = 1
@@ -68,56 +69,6 @@ class EarlyStopping:
                     'optimizer_state_dict': optimizer.state_dict(),
                     'loss': loss}, PTH + '_checkpoint')
         self.val_loss_min = val_loss
-
-
-def patch_split_classification(generated_patch_dir, real_patch_dir, train_prop, verbose=False, 
-                               max_samples=False):
-    """
-    Shuffles patches and splits them into training and validation sets based on image ID,
-    to avoid data leakage. Returns lists of patch filenames for training and validation.
-
-    Args:
-    im_patch_path (str): path to image patches
-    lab_patch_path (str): path to label patches
-    train_prop (float in range [0,1]): proportion of patches to use for training
-    max_samples (int): maximum number of samples (patches) to use for training and validation
-    """
-    gen_patch_files = sorted(team_helper_code.find_files(generated_patch_dir, '.png'))
-    real_patch_files = sorted(team_helper_code.find_files(real_patch_dir, '.png'))
-    print(f"Found {len(gen_patch_files)} generated patches and {len(real_patch_files)} real patches.")
-    print(f"{real_patch_files}")
-
-    # there are ~64 patches for each image, shuffle by id to avoid data leakage
-    real_img_ids = list(set([f.split('_')[0] for f in real_patch_files]))
-    real_img_ids = shuffle(real_img_ids)
-    n_real_images = len(real_img_ids)
-    split_idx = int(n_real_images * train_prop)
-    real_img_id_train = real_img_ids[:split_idx]
-    real_img_id_test = real_img_ids[split_idx:]
-
-    # find all patches for each real image id in the train and test sets
-    real_id_train = [f for f in real_patch_files if f.split('_')[0] in real_img_id_train]
-    real_id_test = [f for f in real_patch_files if f.split('_')[0] in real_img_id_test]
-
-
-
-
-
-
-    # find all patches for each image id in the train and test sets
-    id_train = [f for f in gen_patch_files if f.split('-')[0] in img_id_train]
-    if len(img_id_test) > 0: # in case we aren't validating
-        id_test = [f for f in gen_patch_files if f.split('-')[0] in img_id_test]
-    else:
-        id_test = []
-
-    if max_samples and max_samples < len(gen_patch_files):
-        n_train_samples = int(max_samples * train_prop)
-        n_test_samples = max_samples - n_train_samples
-        id_train = shuffle(id_train)[:n_train_samples]
-        id_test = shuffle(id_test)[:n_test_samples]
-
-    return id_train, id_test
 
 
 def prepare_classifier_data_arrays(real_images_folder, gen_patch_folder, patch_size, train_val_prop, verbose, 
