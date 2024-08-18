@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 import scipy as sp
 import shutil
 from sklearn.utils import shuffle
+from PIL import Image
 
 import digitization.YOLOv7
 import digitization.YOLOv7.prepare_labels
@@ -62,9 +63,20 @@ def train_models(data_folder, model_folder, verbose):
     if verbose:
         print('Training the digitization model...')
 
-    digitization_model = train_digitization_model(data_folder, model_folder, verbose, 
-                                records_to_process=records, delete_training_data=False)
+    real_data_folder = os.path.join(os.getcwd(), 'real_images')
+    if not os.path.exists(real_data_folder):
+        real_data_folder = None
+    unet_generated, unet_real, image_classifier = train_digitization_model(data_folder, 
+                                                        model_folder, verbose, 
+                                                        records_to_process=records, 
+                                                        delete_training_data=False,
+                                                        real_data_folder=real_data_folder)
     
+    digitization_model = dict()
+    digitization_model['unet_generated'] = unet_generated
+    digitization_model['unet_real'] = unet_real
+    digitization_model['image_classifier'] = image_classifier
+
     if verbose:
         time1 = time.time()
         print(f'Done. Time to train digitization model: ' + \
@@ -74,7 +86,7 @@ def train_models(data_folder, model_folder, verbose):
     if verbose:
         print('Training the classification model...')
 
-    classification_model, classes = train_classification_model(data_folder, verbose, 
+    signal_classifier, classes = train_classification_model(data_folder, verbose, 
                                                                records_to_process=None)
 
     if verbose:
@@ -86,7 +98,7 @@ def train_models(data_folder, model_folder, verbose):
     os.makedirs(model_folder, exist_ok=True)
 
     # Save the models.
-    save_models(model_folder, digitization_model, classification_model, classes)
+    save_models(model_folder, digitization_model, signal_classifier, classes)
 
     if verbose:
         print('Done. Total time to train models: ' + f'{time.time() - start_time:.2f} seconds.')
@@ -97,16 +109,22 @@ def train_models(data_folder, model_folder, verbose):
 # code, but do *not* change the arguments of this function. If you do not train one of the models,
 # then you can return None for the model.
 def load_models(model_folder, verbose):
+    digitization_model = dict()
     models = model_persistence.load_models(model_folder, verbose, 
                         models_to_load=['yolov7-ecg-2c', 
-                                        'digitization_model', 
-                                        'classification_model', 
-                                        'dx_classes'])
-    unet_model = Unet.utils.load_unet_from_state_dict(models['digitization_model'])
-    digitization_model = dict()
-    digitization_model['digitization_model'] = unet_model
+                                        'unet_generated',
+                                        'unet_real',
+                                        'image_classifier', 
+                                        'dx_classes', 
+                                        'res0', 'res1', 'res2', 'res3', 'res4'])
+    digitization_model['unet_generated'] = Unet.utils.load_unet_from_state_dict(
+                                                        models['unet_generated'])
+    digitization_model['unet_real'] = Unet.utils.load_unet_from_state_dict(models['unet_real'])
+    digitization_model['image_classifier'] = classifier.load_from_state_dict(
+                                                    models['image_classifier'])
     digitization_model['yolov7-ecg-2c'] = models['yolov7-ecg-2c']
-    classification_model = dict((m, models[m]) for m in ['classification_model', 'dx_classes'])
+    classification_model = dict((m, models[m]) for m in ['res0', 'res1', 'res2', 'res3', 'res4', 
+                                                         'dx_classes'])
     return digitization_model, classification_model
 
 
@@ -119,14 +137,14 @@ def run_models(record, digitization_model, classification_model, verbose):
                                                                      verbose, delete_patches=True)
     
     # Load the classification model and classes.
-    resnet_model = classification_model['classification_model']
-    dx_classes = classification_model['dx_classes']
+    resnet_models = classification_model.copy()
+    dx_classes = resnet_models.pop('dx_classes') # this gets the classes out of the dict
     
     # Run the classification model; if you did not train this model, then you can set labels=None.
     if signal is None: # if digitization failed, don't try to classify
         labels = None
     else: 
-        labels = classify_signals(record, reconstructed_signal_dir, resnet_model, 
+        labels = classify_signals(record, reconstructed_signal_dir, resnet_models, 
                                 dx_classes, verbose=verbose)
     
     # delete any temporary files
@@ -145,7 +163,7 @@ def run_models(record, digitization_model, classification_model, verbose):
 # Save your trained models.
 def save_models(model_folder, digitization_model=None, classification_model=None, classes=None):
     if digitization_model is not None:
-        model_persistence.save_model_torch(digitization_model, 'digitization_model', model_folder)
+        model_persistence.save_models(digitization_model, model_folder)
 
     if classification_model is not None:
         model_persistence.save_models(classification_model, model_folder)
@@ -170,6 +188,7 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
     """
     try: # clear any data from previous runs
         shutil.rmtree(os.path.join('temp_data', 'train'))
+        shutil.rmtree(os.path.join('temp_data', 'val'))
     except FileNotFoundError:
         pass
     # GENERATED images, bounding boxes, masks, patches, and u-net outputs
@@ -201,6 +220,9 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
     train_yolo(records_to_process, gen_images_folder, bb_labels_folder, model_folder,
                verbose, delete_training_data=delete_training_data)
     
+    if verbose:
+        print("Preparing to train semantic segmentation models...")
+
     # Generate patches for u-net. Note: this deletes source images and masks to save space
     # if delete_training_data is True
     Unet.patching.save_patches_batch(records_to_process, gen_images_folder, gen_masks_folder, 
@@ -220,21 +242,26 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
         # gen_img_patch_dir = os.path.join(gen_patch_folder, 'image_patches')
         real_records = os.listdir(real_images_folder)
         real_records = [r.split('.')[0] for r in real_records]
-        # TODO: need to rescale real images? 
         Unet.patching.save_patches_batch(real_records, real_images_folder, real_masks_folder, 
                                          constants.PATCH_SIZE, real_patch_folder, verbose, 
                                          delete_images=False, require_masks=False)
         # train classifier for real vs. generated data
+        if verbose:
+            print("Training real vs. generated image classifier...")
         image_classifier = classifier.train_image_classifier(real_patch_folder, gen_patch_folder, 
                                         model_folder, constants.PATCH_SIZE, verbose)
 
     # train U-net: generated data
+    if verbose: 
+        print("Training U-net for generated data...")
     args = Unet.utils.Args()
     args.train_val_prop = 0.8
     unet_generated = train_unet(records_to_process, gen_patch_folder, model_folder, verbose,
                              args=args, warm_start=True, ckpt_name='unet_gen')
     
     # train U-net: real data
+    if verbose:
+        print("Training U-net for real data...")
     if real_images_folder is not None:
         unet_real = train_unet(real_records, real_patch_folder, model_folder, verbose, args=args,
                             warm_start=False, ckpt_name='unet_real')
@@ -374,7 +401,7 @@ def train_yolo(record_ids, train_data_folder, bb_labels_folder, model_folder, ve
     best_weights_path = os.path.join("temp_data", "train", "yolov7-ecg-2c", "weights", "best.pt")
     os.makedirs(model_folder, exist_ok=True)
     try:
-        os.remove(os.path.join(model_folder, "yolov7-ecg-2c-best.pt")) # in case model already exists
+        os.remove(os.path.join(model_folder, "yolov7-ecg-2c.pt")) # in case model already exists
     except FileNotFoundError:
         pass
     shutil.move(best_weights_path, os.path.join(model_folder))
@@ -435,6 +462,8 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
 
     image_patch_folder = os.path.join(patch_folder, 'image_patches')
     mask_patch_folder = os.path.join(patch_folder, 'label_patches')
+
+    print(f"Record ids: {record_ids}")
 
     unet_model = Unet.train_unet(record_ids, image_patch_folder, mask_patch_folder,
             args, CHK_PATH_UNET, LOSS_PATH, LOAD_PATH_UNET, verbose,
@@ -518,10 +547,10 @@ def train_classification_model(records_folder, verbose, records_to_process=None)
         print("Training SE-ResNet classification model...")
 
     resnet_model = {}
-    mod_names = ['res1', 'res2', 'res3', 'res4', 'res5']
+    n_models = 5
     num_epochs = 1 #TODO: set this to a big number
-    for i in mod_names:
-        resnet_model[i] = seresnet18.train_model(
+    for i in range(n_models):
+        resnet_model[f'res{i}'] = seresnet18.train_model(
                                     all_data, multilabels, uniq_labels, verbose, epochs=num_epochs, 
                                     validate=False)
     if verbose:
@@ -541,13 +570,13 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
     """
     # get image from image_path
     image_path = team_helper_code.load_image_paths(record)[0]
-    with open(image_path, 'rb') as f:
-        image = plt.imread(f)
     record_id = os.path.split(record)[-1].split('.')[0]
 
     # load models
     yolo_model = digitization_model['yolov7-ecg-2c']
-    unet_model = digitization_model['digitization_model']
+    unet_generated = digitization_model['unet_generated']
+    unet_real = digitization_model['unet_real']
+    classification_model = digitization_model['image_classifier']
 
     # hard code some folder paths for now
     patch_folder = os.path.join('temp_data', 'test', 'patches', 'image_patches')
@@ -566,12 +595,29 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
     args.nosave = False # set False for testing to save images with ROIs
     rois = digitization.YOLOv7.detect.detect_single(yolo_model, args, verbose)
 
+    # resize image if it's very large
+    with open(image_path, 'rb') as f:
+        image = Image.open(f)
+        if image.size[0] > 2300: # index 0 is width
+            ratio = 2300/image.size[0]
+            new_height = int(ratio*image.size[1])
+            image = image.resize((2200, new_height), Image.Resampling.LANCZOS)
+        image = np.array(image)
+
     # patchify image
     Unet.patching.save_patches_single_image(record_id, image, None, 
                                             patch_size=constants.PATCH_SIZE,
                                             im_patch_save_path=patch_folder,
                                             lab_patch_save_path=None)
 
+    # run classifier
+    is_real_image = preprocessing.classifier.classify_image(record_id, patch_folder, 
+                                                            classification_model, verbose)
+    
+    if is_real_image:
+        unet_model = unet_real
+    else:
+        unet_model = unet_generated
     # predict on patches, recover u-net output image
     predicted_mask = Unet.predict_single_image(record_id, patch_folder, unet_model,
                                                 original_image_size=image.shape[:2])
@@ -582,8 +628,8 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
                                                     angle_range=(-20, 20), verbose=verbose)
     
     # save rotated mask for debugging
-    # with open(os.path.join("temp_data", "test", "unet_outputs", record_id + '.png'), 'wb') as f:
-    #     plt.imsave(f, rotated_mask, cmap='gray')
+    with open(os.path.join("temp_data", "test", "unet_outputs", record_id + '.png'), 'wb') as f:
+        plt.imsave(f, rotated_mask, cmap='gray')
     
     if rot_angle != 0: # currently just rotate the mask, do no re-predict   
         try: # sometimes this fails, if there are edge effects

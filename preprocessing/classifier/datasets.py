@@ -49,7 +49,10 @@ class numpy_dataset(Dataset):  # Inherit from Dataset class
 class PatchDataset(Dataset):  # Inherit from Dataset class
     def __init__(self, im_patch_path, label, train=True, transform=False):
         self.id = im_patch_path
-        self.target = torch.from_numpy(label).float()
+        if train:
+            self.target = torch.from_numpy(label).float()
+        else:
+            self.target = None
         self.train = train
         self.transform = transform
 

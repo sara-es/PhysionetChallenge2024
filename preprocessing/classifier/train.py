@@ -8,10 +8,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from digitization.Unet.ECGunet import BasicResUNet
 from preprocessing.classifier import datasets, utils
 from preprocessing.classifier.ResNet_adapt import ResNet_adapt
-from digitization.Unet import Unet
 
 
 def train_epoch(args, model, train_loader, optimizer, criterion, epoch, verbose):
@@ -90,8 +88,6 @@ def train_image_classifier(real_patch_folder, gen_patch_folder, model_folder,
         args = utils.Args()
         args.learning_rate = 0.5e-3
         args.patience = 10
-
-    # get image IDs from 
 
     cuda = torch.cuda.is_available()
     device = torch.device("cuda" if cuda else "cpu")

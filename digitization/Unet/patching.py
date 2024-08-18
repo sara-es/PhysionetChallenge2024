@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from utils import team_helper_code
 from PIL import Image
+import cv2
 
 
 def patchify(image, label, size=(128,128)):
@@ -122,12 +123,14 @@ def save_patches_batch(ids, image_path, label_path, patch_size, patch_save_path,
         id = id.split('.')[0]
         img_pth = os.path.join(image_path, id + '.png')
         with open(img_pth, 'rb') as f:
-            image = Image.open(f)
-        orginal_shape = image.size
-        if image.size[0] > 2300: # index 0 is width
-            ratio = 2300/image.size[0]
-            new_height = ratio*image.size[1]
-            image = image.resize((2200, new_height), Image.Resampling.LANCZOS)
+            image_open = Image.open(f)
+            orginal_shape = image_open.size
+            if image_open.size[0] > 2300: # index 0 is width
+                ratio = 2300/image_open.size[0]
+                new_height = int(ratio*image_open.size[1])
+                image_open = image_open.resize((2200, new_height), Image.Resampling.LANCZOS)
+            image = np.array(image_open)
+            
 
         if os.path.exists(os.path.join(label_path, id + '.npy')):
             lab_pth = os.path.join(label_path, id + '.npy')
@@ -135,27 +138,29 @@ def save_patches_batch(ids, image_path, label_path, patch_size, patch_save_path,
         elif os.path.exists(os.path.join(label_path, id + '.png')):
             lab_pth = os.path.join(label_path, id + '.png')
             with open(lab_pth, 'rb') as f:
-                label = Image.open(f)
-            if label.size != orginal_shape:
-                print("Label shape does not match image shape!")
-            if label.size != image.size:
-                label = label.resize(image.size, Image.Resampling.LANCZOS)
-            # binzarize the label: need False for background, True for signals
-            # assume if image, we have background as 255, signals as 0 
-            label = (label[:,:,0] < np.median(label[:,:,0])).astype(bool)
+                label_open = Image.open(f)
+                if label_open.size != orginal_shape:
+                    print("Label shape does not match image shape!")
+                if label_open.size != image_open.size:
+                    label_open = label_open.resize(image_open.size, Image.Resampling.LANCZOS)
+                # binzarize the label: need False for background, True for signals
+                # assume if image, we have background as 255, signals as 0 
+                label = np.array(label_open)
+                blur = cv2.GaussianBlur(label,(5,5),0) # TODO: check if this helps?
+                thresh, label = cv2.threshold(label[:,:,0], 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+                label = label.astype(bool)      
         elif not require_masks:
             label = None
 
         # if image.shape[:-1] != label.shape:
         #     print(f"{id} image shape: {image.shape}, labels shape: {label.shape}")
-
         im_patches, label_patches = patchify(image, label, size=(patch_size,patch_size))
         
         for i in range(len(im_patches)):
             im_patch = im_patches[i]
             # if im_patch.shape[:-1] != lab_patch.shape:
             #     print(f"Image patch shape: {im_patch.shape}, Label patch shape: {lab_patch.shape}")
-            k = f'_{i:03d}'
+            k = f'-{i:03d}'
             np.save(os.path.join(im_patch_path, id + k), im_patch)
             if label is not None:
                 lab_patch = label_patches[i]

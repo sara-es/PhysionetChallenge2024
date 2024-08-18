@@ -1,4 +1,3 @@
-
 from torchvision.models import resnet18
 import torch.nn as nn 
 
@@ -14,3 +13,4 @@ class ResNet_adapt(nn.Module):
 
     def forward(self, x):
         return self.model(x)
+    

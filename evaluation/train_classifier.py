@@ -8,7 +8,7 @@ from preprocessing import classifier
 from utils import model_persistence, constants
 
 
-def train_unet(real_data_folder, model_folder, verbose, max_size_training_set=150):
+def train_classifier(real_data_folder, model_folder, verbose, max_size_training_set=150):
     """
     train_digitization_model from team_code, but only the classifier bits
     """
@@ -62,15 +62,8 @@ def train_unet(real_data_folder, model_folder, verbose, max_size_training_set=15
     # train classifier for real vs. generated data
     unet_classifier = classifier.train_image_classifier(real_patch_folder, gen_patch_folder, model_folder, 
                                       constants.PATCH_SIZE, verbose)
-
-    # train u-net
-    # args = Unet.utils.Args()
-    # args.epochs = 500
-    # args.augmentation = True
-    # unet_model = team_code.train_unet(train_records, patch_folder, model_folder, verbose, 
-    #                      args=args, warm_start=True, max_train_samples=30000, delete_patches=False)
-
-    # save trained u-net
+    
+    # save trained model
     model_persistence.save_model_torch(unet_classifier, 'image_classifier', model_folder)
 
 
@@ -79,4 +72,4 @@ if __name__ == "__main__":
     model_folder = os.path.join(os.getcwd(), "model")
     verbose = True
 
-    train_unet(data_folder, model_folder, verbose)
+    train_classifier(data_folder, model_folder, verbose)
