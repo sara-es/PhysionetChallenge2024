@@ -283,7 +283,7 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
     if verbose:
         print(f'Done.')
     
-    return unet_generated
+    return unet_generated, unet_real, image_classifier
 
 
 def generate_training_images(wfdb_records_folder, images_folder, masks_folder, bb_labels_folder,
