@@ -167,6 +167,8 @@ def extract_row_signals(ecg: Image, n_lines: int) -> Iterable[Iterable[Point]]:
             while test_im[x_idx, y] == 0:
                 signal_col.append([x_idx,y])
                 x_idx = x_idx-1
+                if x_idx == 0:
+                    break
             # search down
             x_idx = x+1
             if x_idx >= test_im.shape[0]:
@@ -174,6 +176,8 @@ def extract_row_signals(ecg: Image, n_lines: int) -> Iterable[Iterable[Point]]:
             while test_im[x_idx, y] == 0:
                 signal_col.append([x_idx,y])
                 x_idx = x_idx+1
+                if x_idx == test_im.shape[0] - 1:
+                    break
         
             signal_col = sorted(signal_col, key=lambda x: x[0], reverse=False)
             signal.append(signal_col)
@@ -181,9 +185,8 @@ def extract_row_signals(ecg: Image, n_lines: int) -> Iterable[Iterable[Point]]:
             # go to next column and find nearest black pixels
             y = y+1
             match = 0
-            while match == 0:
-                dists_fails = 0 # count the number of times we fail to find a match
-                
+            dists_fails = 0 # count the number of times we fail to find a match
+            while match == 0:                
                 # get distances between possible matches
                 dists = []
                 candidates_rep = []

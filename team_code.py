@@ -144,6 +144,7 @@ def run_models(record, digitization_model, classification_model, verbose):
     if signal is None: # if digitization failed, don't try to classify
         labels = None
     else: 
+        signal = np.nan_to_num(signal) # cast any NaNs to 0
         labels = classify_signals(record, reconstructed_signal_dir, resnet_models, 
                                 dx_classes, verbose=verbose)
     
@@ -225,10 +226,11 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
 
     # Generate patches for u-net. Note: this deletes source images and masks to save space
     # if delete_training_data is True
+    # max_samples is the *approximate* number of patches that will be generated
     Unet.patching.save_patches_batch(records_to_process, gen_images_folder, gen_masks_folder, 
                                      constants.PATCH_SIZE, gen_patch_folder, verbose, 
-                                     delete_images=delete_training_data)
-    
+                                     delete_images=delete_training_data, max_samples=40000)
+
     # Generate patches for real images if available
     if real_data_folder is not None:
         real_images_folder = os.path.join(real_data_folder, 'images')
@@ -251,21 +253,21 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
         image_classifier = classifier.train_image_classifier(real_patch_folder, gen_patch_folder, 
                                         model_folder, constants.PATCH_SIZE, verbose)
 
-    # train U-net: generated data
-    if verbose: 
-        print("Training U-net for generated data...")
     args = Unet.utils.Args()
     args.train_val_prop = 0.8
-    unet_generated = train_unet(records_to_process, gen_patch_folder, model_folder, verbose,
-                             args=args, warm_start=True, ckpt_name='unet_gen')
-    
-    # train U-net: real data
-    if verbose:
-        print("Training U-net for real data...")
     if real_images_folder is not None:
+        # train U-net: real data
+        if verbose:
+            print("Training U-net for real data...")
         unet_real = train_unet(real_records, real_patch_folder, model_folder, verbose, args=args,
                             warm_start=False, ckpt_name='unet_real')
 
+    # train U-net: generated data
+    if verbose: 
+        print("Training U-net for generated data...")
+    unet_generated = train_unet(records_to_process, gen_patch_folder, model_folder, verbose,
+                             args=args, warm_start=True, ckpt_name='unet_gen')
+    
     # optional: delete any leftover training data
     if delete_training_data:
         for im in os.listdir(gen_images_folder):
@@ -423,7 +425,7 @@ def train_yolo(record_ids, train_data_folder, bb_labels_folder, model_folder, ve
 
 
 def train_unet(record_ids, patch_folder, model_folder, verbose, 
-               args=None, max_train_samples=40000, warm_start=True, delete_patches=True,
+               args=None, max_train_samples=None, warm_start=True, delete_patches=True,
                ckpt_name='unet'):
     """
     Train the U-Net model from patches and save the resulting model. 
@@ -480,7 +482,7 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
 
 
 def reconstruct_signal(record, unet_image, rois, header_txt, 
-                       reconstructed_signals_folder, save_signal=True):
+                       reconstructed_signals_folder, save_signal=True, is_real_image=False):
     """
     reconstruct signals from u-net outputs
 
@@ -496,11 +498,12 @@ def reconstruct_signal(record, unet_image, rois, header_txt,
     max_duration = 10 if max_duration > 10 else max_duration 
     try:
         reconstructed_signal, raw_signals, gridsize  = ECGminer.digitize_image_unet(unet_image, 
-                                        rois, sig_len=signal_length, max_duration=max_duration)
+                                        rois, sig_len=signal_length, max_duration=max_duration,
+                                        is_generated_image=not is_real_image)
     except SignalExtractionError as e:
         print(f"Error in digitizing signal: {e}")
         return None, None, None
-    reconstructed_signal = np.asarray(np.nan_to_num(reconstructed_signal))
+    reconstructed_signal = np.asarray(reconstructed_signal) # note still may have NaNs
 
     # save reconstructed signal and copied header file in the same folder
     if save_signal:
@@ -590,7 +593,7 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
     args = digitization.YOLOv7.detect.OptArgs()
     args.device = "0"
     args.source = image_path
-    args.nosave = False # set False for testing to save images with ROIs
+    args.nosave = True # set False for testing to save images with ROIs
     rois = digitization.YOLOv7.detect.detect_single(yolo_model, args, verbose)
 
     # resize image if it's very large
@@ -637,7 +640,8 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
                                                      rois,
                                                      header_txt,
                                                      reconstructed_signals_folder, 
-                                                     save_signal=True)
+                                                     save_signal=True,
+                                                     is_real_image=is_real_image)
             predicted_mask = rotated_mask # to save later, optional
         except Exception as e: # in that case try it with the original (non-rotated) mask
             if verbose:
@@ -646,13 +650,15 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
                                                      rois, 
                                                      header_txt,
                                                      reconstructed_signals_folder, 
-                                                     save_signal=True)        
+                                                     save_signal=True,
+                                                     is_real_image=is_real_image)        
     else: # no rotation needed
         reconstructed_signal, raw_signals, _ = reconstruct_signal(record_id, predicted_mask, 
                                                      rois,
                                                      header_txt,
                                                      reconstructed_signals_folder, 
-                                                     save_signal=True)
+                                                     save_signal=True,
+                                                     is_real_image=is_real_image)
 
     # optional: delete patches
     if delete_patches:

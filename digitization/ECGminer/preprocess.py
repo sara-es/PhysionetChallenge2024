@@ -15,6 +15,9 @@ def get_ECG_rows(yolo_boxes, sens=12):
     top = min(yolo_boxes[:, 2] - yolo_boxes[:, 4]/2)
     bottom = max(yolo_boxes[:, 2] + yolo_boxes[:, 4]/2)
    
+    # add buffer to top (~5% of height)
+    top = max(0, top - 0.05)
+
     # note bounding box is in percentage of image size
     bounding_box = [left, right, top, bottom]
     

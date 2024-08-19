@@ -50,4 +50,15 @@ def classify_image(image_id, patch_folder, model, verbose):
 
     class_probs, _ = predict(model, test_dataloader, have_labels=False)
 
+    # get the class with the highest probability
+    # class_probs is shape (n_patches, 1, n_classes)
+    class_probs = np.squeeze(class_probs)
+    class_probs = np.mean(class_probs, axis=0)
+
+    is_real = np.argmax(class_probs) # 1 if real, 0 if generated
+    return is_real
+
+
+
+
     

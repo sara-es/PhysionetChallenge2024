@@ -103,8 +103,8 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
                                               unet_outputs_dir, True)
     image_ids = team_helper_code.find_available_images(ids, 
                                                        test_images_dir, verbose=True)
-    unet_ids = team_helper_code.find_available_images(ids, 
-                                                      unet_outputs_dir, verbose=True)
+    # unet_ids = team_helper_code.find_available_images(ids, 
+    #                                                   unet_outputs_dir, verbose=True)
     # if len(image_ids) != len(unet_ids) and len(image_ids) > 0:
     #     print(image_ids, unet_ids)
     #     raise ValueError("Number of image and U-Net output files do not match, please make "+\
