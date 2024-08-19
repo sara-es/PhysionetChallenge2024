@@ -182,3 +182,5 @@ digitization/model_checkpoints/traced_model.pt
 traced_model.pt
 /tiny_testset/hr_rotated
 /real_images/patches
+model/classifier_256
+model/classifier_256_checkpoint
