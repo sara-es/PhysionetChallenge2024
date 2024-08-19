@@ -184,3 +184,5 @@ traced_model.pt
 /real_images/patches
 model/classifier_256
 model/classifier_256_checkpoint
+/model/classifier_checkpoint
+classification/model_checkpoints/resnet_ckpt
