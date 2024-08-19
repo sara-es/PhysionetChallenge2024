@@ -195,6 +195,10 @@ def prepare_classifier_data(real_patch_folder, gen_patch_folder, train_val_prop,
                    if f.split('-')[0] in g_train_im_ids]
     g_test_paths = [os.path.join(gen_patch_folder, f) for f in g_patches 
                   if f.split('-')[0] in g_test_im_ids]
+    
+    # equalize ratio of real to generated patches in training set
+    g_train_paths = shuffle(g_train_paths)[:len(r_train_paths)]
+    g_test_paths = shuffle(g_test_paths)[:len(r_test_paths)]
 
     X_train = r_train_paths + g_train_paths
     y_train = np.array([1] * len(r_train_paths) + [0] * len(g_train_paths))

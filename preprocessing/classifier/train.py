@@ -88,6 +88,7 @@ def train_image_classifier(real_patch_folder, gen_patch_folder, model_folder,
         args = utils.Args()
         args.learning_rate = 0.5e-3
         args.patience = 10
+        # args.epochs = 1
 
     cuda = torch.cuda.is_available()
     device = torch.device("cuda" if cuda else "cpu")
