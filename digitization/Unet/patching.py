@@ -156,7 +156,7 @@ def save_patches_batch(ids, image_path, label_path, patch_size, patch_save_path,
                 label = np.array(label_open)
                 blur = cv2.GaussianBlur(label,(5,5),0) # TODO: check if this helps?
                 thresh, label = cv2.threshold(label[:,:,0], 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-                label = label.astype(bool)      
+                label = ~label.astype(bool)      
         elif not require_masks:
             label = None
 
