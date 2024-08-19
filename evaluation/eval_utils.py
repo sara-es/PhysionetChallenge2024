@@ -17,6 +17,7 @@ def match_signal_lengths(output_signal, output_fields, label_signal, label_field
     # make sure channel orders match, and trim/pad output signal to match label signal length
     if label_signal is not None:
         label_channels = label_fields['sig_name']
+        label_n_channels = label_fields['n_sig']
         label_num_samples = label_signal.shape[0]
         label_sampling_frequency = label_fields['fs']
         label_units = label_fields['units']
@@ -25,6 +26,7 @@ def match_signal_lengths(output_signal, output_fields, label_signal, label_field
             output_channels = output_fields['sig_name']
             output_sampling_frequency = output_fields['fs']
             output_units = output_fields['units']
+            output_n_channels = output_fields['n_sig']
 
             # Check that the label and output signals match as expected.
             assert(label_sampling_frequency == output_sampling_frequency)
@@ -33,10 +35,6 @@ def match_signal_lengths(output_signal, output_fields, label_signal, label_field
             # Reorder the channels in the output signal to match the channels in the label signal.
             output_signal = helper_code.reorder_signal(output_signal, output_channels, 
                                                        label_channels)
-
-            # Trim or pad the channels in the output signal to match the channels in the label 
-            # signal.
-            output_signal = helper_code.trim_signal(output_signal, label_num_samples)
 
             # Replace the samples with NaN values in the output signal with zeros.
             output_signal[np.isnan(output_signal)] = 0
@@ -76,7 +74,7 @@ def trim_label_signal(input_signal, signal_names, num_samples_trimmed,
 
 
 def single_signal_snr(output_signal, output_fields, label_signal, label_fields, record, 
-                      extra_scores=False):
+                      extra_scores=False, no_shift=False):
     # lifted from evaluate_model.py with minor edits
     snr = dict()
     snr_median = dict()
@@ -87,23 +85,42 @@ def single_signal_snr(output_signal, output_fields, label_signal, label_fields, 
     channels = label_fields['sig_name']
     sampling_frequency = label_fields['fs']
 
+     # Set limits on how far the signal can be shifted, and the number of quantization levels when shifting the signals.
+    max_hz_shift = np.round(0.5*sampling_frequency)
+    max_vt_shift = 1.0
+    num_quant_levels = 2**8
+
+    # Shift the digitied signals to better align with the reference signals.
+    signal_ref_collection = list()
+    signal_est_collection = list()
+    for j, channel in enumerate(channels):
+        signal_ref_collection.append(label_signal[:, j])
+        # Align the signals.
+        if not no_shift:
+            signal_shifted, shift_hz, shift_vt = helper_code.align_signals(label_signal[:, j], output_signal[:, j], num_quant_levels=num_quant_levels)
+            if abs(shift_hz) <= max_hz_shift and abs(shift_vt) <= max_vt_shift:
+                signal_est_collection.append(signal_shifted)
+            else:
+                signal_est_collection.append(output_signal[:, j])
+        else:
+            signal_est_collection.append(output_signal[:, j])
+
     # Compute the signal reconstruction metrics.
     for j, channel in enumerate(channels):
-        value = helper_code.compute_snr(label_signal[:, j], output_signal[:, j])
+        value, p_signal, p_noise = helper_code.compute_snr(signal_ref_collection[j], signal_est_collection[j])
         snr[(record, channel)] = value
 
         if extra_scores:
-            value = helper_code.compute_snr_median(label_signal[:, j], output_signal[:, j])
+            value = helper_code.compute_snr(signal_ref_collection[j], signal_est_collection[j], noise_median=True)
             snr_median[(record, channel)] = value
 
-            value = helper_code.compute_ks_metric(label_signal[:, j], output_signal[:, j])
+            value = helper_code.compute_ks_metric(signal_ref_collection[j], signal_est_collection[j])
             ks_metric[(record, channel)] = value
 
-            value = helper_code.compute_asci_metric(label_signal[:, j], output_signal[:, j])
+            value = helper_code.compute_asci_metric(signal_ref_collection[j], signal_est_collection[j])
             asci_metric[(record, channel)] = value
 
-            value = helper_code.compute_weighted_absolute_difference(label_signal[:, j], 
-                                                    output_signal[:, j], sampling_frequency)
+            value = helper_code.compute_weighted_absolute_difference(signal_ref_collection[j], signal_est_collection[j], sampling_frequency)
             weighted_absolute_difference_metric[(record, channel)] = value
     
     snr = np.array(list(snr.values()))

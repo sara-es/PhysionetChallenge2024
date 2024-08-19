@@ -38,8 +38,12 @@ from digitization import Unet
 from preprocessing import classifier, column_rotation
 import digitization.YOLOv7
 
+from digitization.Unet import Unet
+import torch
+from digitization.Unet.ECGunet import BasicResUNet
 
-def get_trace(image, raw_signals, rhythm_leads=[Lead.II]):
+
+def get_trace(image, raw_signals, bounds, rhythm_leads=[Lead.II]):
     """
     Get the trace of the signal from the u-net output image.
     """
@@ -81,8 +85,8 @@ def get_trace(image, raw_signals, rhythm_leads=[Lead.II]):
     trace = np.uint8(trace)
     trace = ECGImage(trace)
     # replicate crop that happens in preprocessing
-    rect = Rectangle(Point(0, 350), Point(image.shape[1], image.shape[0])) #set it to image size
-    trace.crop(rect)
+    # rect = Rectangle(Point(0, 350), Point(image.shape[1], image.shape[0])) #set it to image size
+    trace.crop(bounds)
     trace.to_BGR()
 
     # Draw signals
@@ -124,6 +128,12 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
     unet_real = digitization_model['unet_real']
     classification_model = digitization_model['image_classifier']
 
+    # force load unet from checkpoint ###############
+    # models = model_persistence.load_models("model", True, 
+    #                     models_to_load=['digitization_model'])
+    # unet_generated = Unet.utils.load_unet_from_state_dict(models['digitization_model'])
+    #############################
+
     patch_folder = os.path.join('test_data', 'patches', 'image_patches')
     os.makedirs(patch_folder, exist_ok=True)
 
@@ -160,8 +170,11 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
                                                 lab_patch_save_path=None)
 
         # run classifier
-        is_real_image = classifier.classify_image(ids[i], patch_folder, 
-                                                    classification_model, True)
+        is_real_image = False
+        # is_real_image = classifier.classify_image(ids[i], patch_folder, 
+        #                                             classification_model, True)
+        if is_real_image:
+            print("Detected real image")
         
         if is_real_image:
             unet_model = unet_real
@@ -170,6 +183,9 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
         # predict on patches, recover u-net output image
         unet_image = Unet.predict_single_image(ids[i], patch_folder, unet_model,
                                                 original_image_size=image.shape[:2])
+        
+        with open(os.path.join(unet_outputs_dir, ids[i] + '.png'), 'wb') as f:
+            plt.imsave(f, unet_image, cmap='gray')
 
         # digitize signal from u-net ouput
         record_path = os.path.join(wfdb_records_dir, ids[i]) 
@@ -179,32 +195,37 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
                                                         unet_image, image,
                                                         angle_range=(-20, 20), verbose=True)
         
-        if rot_angle != 0: # currently just rotate the mask, do no re-predict   
-            try: # sometimes this fails, if there are edge effects
-                args.source = rotated_image_path
-                rois = digitization.YOLOv7.detect.detect_single(yolo_model, args, True)
-                reconstructed_signal, raw_signals, _ = team_code.reconstruct_signal(ids[i], rotated_mask, 
-                                                        rois,
-                                                        header_txt,
-                                                        reconstructed_signal_dir, 
-                                                        save_signal=True,
-                                                     is_real_image=is_real_image)
-                unet_image = rotated_mask # to save later, optional
-            except Exception as e: # in that case try it with the original (non-rotated) mask
-                print(f"Error reconstructing signal after rotating image {image_path}: {e}")
-                reconstructed_signal, raw_signals, _ = team_code.reconstruct_signal(ids[i], unet_image,
-                                                        rois, 
-                                                        header_txt,
-                                                        reconstructed_signal_dir, 
-                                                        save_signal=True,
-                                                     is_real_image=is_real_image)        
-        else: # no rotation needed
-            reconstructed_signal, raw_signals, _ = team_code.reconstruct_signal(ids[i], unet_image, 
-                                                        rois,
-                                                        header_txt,
-                                                        reconstructed_signal_dir, 
-                                                        save_signal=True,
-                                                     is_real_image=is_real_image)
+        if rot_angle != 0: # currently just rotate the mask, do no re-predict 
+            print(f"Rotation angle detected: {rot_angle}")
+        #     try: # sometimes this fails, if there are edge effects
+        #         args.source = rotated_image_path
+        #         rois = digitization.YOLOv7.detect.detect_single(yolo_model, args, True)
+        #         reconstructed_signal, raw_signals, gridsize = team_code.reconstruct_signal(ids[i], rotated_mask, 
+        #                                                 rois,
+        #                                                 header_txt,
+        #                                                 reconstructed_signal_dir, 
+        #                                                 save_signal=True,
+        #                                              is_real_image=is_real_image)
+        #         unet_image = rotated_mask # to save later, optional
+        #     except Exception as e: # in that case try it with the original (non-rotated) mask
+        #         print(f"Error reconstructing signal after rotating image {image_path}: {e}")
+        #         reconstructed_signal, raw_signals, gridsize = team_code.reconstruct_signal(ids[i], unet_image,
+        #                                                 rois, 
+        #                                                 header_txt,
+        #                                                 reconstructed_signal_dir, 
+        #                                                 save_signal=True,
+        #                                              is_real_image=is_real_image)        
+        # else: # no rotation needed
+        reconstructed_signal, raw_signals, gridsize = team_code.reconstruct_signal(ids[i], unet_image, 
+                                                    rois,
+                                                    header_txt,
+                                                    reconstructed_signal_dir, 
+                                                    save_signal=True,
+                                                    is_real_image=is_real_image)
+        
+        if reconstructed_signal is None:
+            print(f"Failed to reconstruct signal {ids[i]}")
+            reconstructed_signal = np.zeros((5000, 12))
 
         # load reconstructed signal - this is to ensure format is the same as ground truth
         output_signal, output_fields = helper_code.load_signals(
@@ -232,18 +253,19 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
                             output_fields, label_signal, label_fields, ids[i], extra_scores=True)
 
             # load image generation info from json
-            config_file = os.path.join(test_images_dir, image_ids[i] + '.json')
-            with open(config_file, 'r') as f:
-                config = json.load(f)
-            true_gridsize = config['x_grid']
-            dc_pulse = config['dc_pulse']
+            # config_file = os.path.join(test_images_dir, image_ids[i] + '.json')
+            # with open(config_file, 'r') as f:
+            #     config = json.load(f)
+            true_gridsize = '39' # config['gridsize']
+            dc_pulse = 'N/A' # config['dc_pulse']
         else:
+            label_signal = np.zeros_like(output_signal)
             mean_snr, mean_snr_median, mean_ks_metric, mean_asci_metric, \
                 mean_weighted_absolute_difference_metric = 0, 0, 0, 0, 0
             true_gridsize = 'N/A'
             dc_pulse = 'N/A'
 
-        gridsize = f'{gridsize:.2f}'
+        gridsize = f'{gridsize:.2f}' if gridsize is not None else 'N/A'
         
         if mean_snr < save_image_threshold:
             # set up mosaic for original image, u-net output with trace, ground truth signal, 
@@ -254,7 +276,7 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
                                             ['trace', 'ecg_plots']
                                         ])
             # load image from YOLO detection
-            yolo_img_path = os.path.join("test_images", "detect", "exp", image_ids[i]+'.png')
+            yolo_img_path = os.path.join("test_data", "detect", "exp", image_ids[i]+'.png')
             with Image.open(yolo_img_path) as img:
                 axd['original_image'].axis('off')
                 axd['original_image'].imshow(img, cmap='gray')
@@ -262,8 +284,10 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
             # plot trace of signal from u-net output
             axd['trace'].xaxis.set_visible(False)
             axd['trace'].yaxis.set_visible(False)
-            if reconstructed_signal is not None:
-                trace = get_trace(unet_image, raw_signals)
+            if raw_signals is not None:
+                raw_signal = raw_signals['raw_signals']
+                bounds = raw_signals['bounding_rect']
+                trace = get_trace(unet_image, raw_signal, bounds)
                 axd['trace'].imshow(trace.data, cmap='gray')
             else:
                 axd['trace'].imshow(unet_image, cmap='gray')
@@ -273,25 +297,25 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
             # labels = team_code.classify_signals(records[i], reconstructed_signal_dir, resnet_model, 
             #                                     dx_classes, verbose=True)
             
-            description_string = f"""{ids[i]} ({label_fields['fs']} Hz)
+            description_string = f"""{ids[i]} ({output_fields['fs']} Hz)
     Reconstruction SNR: {mean_snr:.2f}
     Gridsize: {gridsize}
-    {label_fields['comments'][1:-1]}
+    {output_fields['comments'][1:-1]}
     Predicted real? {is_real_image}"""
         
             # plot ground truth and reconstructed signal
-            fig, axs = plt.subplots(reconstructed_signal.shape[1], 1, figsize=(9, 12.5), sharex=True)
+            fig, axs = plt.subplots(output_signal.shape[1], 1, figsize=(9, 12.5), sharex=True)
             fig.subplots_adjust(hspace=0.1)
             fig.suptitle(description_string)
             # fig.text(0.5, 0.95, description_string, ha='center')
-            for j in range(reconstructed_signal.shape[1]):
+            for j in range(output_signal.shape[1]):
                 if j == 0:
                     axs[j].plot(label_signal[:, j], label='Ground Truth Signal')
-                    axs[j].plot(reconstructed_signal[:, j], label='Reconstructed Signal', alpha=0.8)
+                    axs[j].plot(output_signal[:, j], label='Reconstructed Signal', alpha=0.8)
                     axs[j].legend(loc='upper right')
                 else:
                     axs[j].plot(label_signal[:, j])
-                    axs[j].plot(reconstructed_signal[:, j], alpha=0.8)
+                    axs[j].plot(output_signal[:, j], alpha=0.8)
                 axs[j].set_ylabel(f'{label_fields["sig_name"][j]}', rotation='horizontal')
                 # axs[j].set_yrotation(0)
             fig.canvas.draw()
@@ -333,7 +357,7 @@ if __name__ == "__main__":
     os.makedirs(reconstructed_signal_dir, exist_ok=True)
     visualization_save_folder = os.path.join("test_data", "trace_visualizations")
     os.makedirs(visualization_save_folder, exist_ok=True)
-    save_image_threshold = 10 # snr threshold below which images will be saved for visualization
+    save_image_threshold = 30 # snr threshold below which images will be saved for visualization
 
     model_folder = 'model'
     digitization_model = dict()
