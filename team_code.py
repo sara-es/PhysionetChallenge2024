@@ -463,8 +463,6 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
     image_patch_folder = os.path.join(patch_folder, 'image_patches')
     mask_patch_folder = os.path.join(patch_folder, 'label_patches')
 
-    print(f"Record ids: {record_ids}")
-
     unet_model = Unet.train_unet(record_ids, image_patch_folder, mask_patch_folder,
             args, CHK_PATH_UNET, LOSS_PATH, LOAD_PATH_UNET, verbose,
             max_samples=max_train_samples,
@@ -548,7 +546,7 @@ def train_classification_model(records_folder, verbose, records_to_process=None)
 
     resnet_model = {}
     n_models = 5
-    num_epochs = 1 #TODO: set this to a big number
+    num_epochs = 120 #TODO: set this to a big number
     for i in range(n_models):
         resnet_model[f'res{i}'] = seresnet18.train_model(
                                     all_data, multilabels, uniq_labels, verbose, epochs=num_epochs, 

@@ -32,7 +32,11 @@
 
 # submissions list
 1. digitization as-is: assumes all generated images
-2. classifier for real vs. generated images + yolo for row count
+2. Same as 1. but request for "full training set" (also set warm start = False)
+3. cpu-only
+
+
+- classifier for real vs. generated images + yolo for row count
 
 - SQI: replace with NaNs instead of 0s
 - optimise reconstruction of generated images (gap from generator)
