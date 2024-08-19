@@ -105,7 +105,7 @@ def save_patches_single_image(record_id, image, label, patch_size, im_patch_save
 
 
 def save_patches_batch(ids, image_path, label_path, patch_size, patch_save_path, verbose, 
-                       delete_images=True, require_masks=True):
+                       delete_images=True, require_masks=True, max_samples=None):
     im_patch_path = os.path.join(patch_save_path, 'image_patches')
     lab_patch_path = os.path.join(patch_save_path, 'label_patches')
     os.makedirs(im_patch_path, exist_ok=True)
@@ -118,6 +118,14 @@ def save_patches_batch(ids, image_path, label_path, patch_size, patch_save_path,
         ids = list(set(available_im_ids).intersection(available_label_ids))
     else:
         ids = team_helper_code.find_available_images(ids, image_path, verbose)
+
+    n_images = len(ids)
+    save_chance = 1.0
+    rng = np.random.default_rng()
+    if max_samples is not None: # a hacky way to limit how many patches are saved
+        n_patches = n_images * 64 # usually 64 patches per image
+        if n_patches > max_samples:
+            save_chance = max_samples/n_patches
 
     for id in tqdm(ids, desc='Generating and saving patches', disable=not verbose):
         id = id.split('.')[0]
@@ -161,10 +169,11 @@ def save_patches_batch(ids, image_path, label_path, patch_size, patch_save_path,
             # if im_patch.shape[:-1] != lab_patch.shape:
             #     print(f"Image patch shape: {im_patch.shape}, Label patch shape: {lab_patch.shape}")
             k = f'-{i:03d}'
-            np.save(os.path.join(im_patch_path, id + k), im_patch)
-            if label is not None:
-                lab_patch = label_patches[i]
-                np.save(os.path.join(lab_patch_path, id + k), lab_patch)
+            if rng.random() <= save_chance:
+                np.save(os.path.join(im_patch_path, id + k), im_patch)
+                if label is not None:
+                    lab_patch = label_patches[i]
+                    np.save(os.path.join(lab_patch_path, id + k), lab_patch)
         
         if delete_images:
             os.remove(img_pth)

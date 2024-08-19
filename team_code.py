@@ -225,9 +225,10 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
 
     # Generate patches for u-net. Note: this deletes source images and masks to save space
     # if delete_training_data is True
+    # max_samples is the *approximate* number of patches that will be generated
     Unet.patching.save_patches_batch(records_to_process, gen_images_folder, gen_masks_folder, 
                                      constants.PATCH_SIZE, gen_patch_folder, verbose, 
-                                     delete_images=delete_training_data)
+                                     delete_images=delete_training_data, max_samples=40000)
     
     # Generate patches for real images if available
     if real_data_folder is not None:
@@ -423,7 +424,7 @@ def train_yolo(record_ids, train_data_folder, bb_labels_folder, model_folder, ve
 
 
 def train_unet(record_ids, patch_folder, model_folder, verbose, 
-               args=None, max_train_samples=40000, warm_start=True, delete_patches=True,
+               args=None, max_train_samples=None, warm_start=True, delete_patches=True,
                ckpt_name='unet'):
     """
     Train the U-Net model from patches and save the resulting model. 
