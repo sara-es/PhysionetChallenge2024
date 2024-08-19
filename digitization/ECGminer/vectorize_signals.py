@@ -107,7 +107,7 @@ def remove_pulses(raw_signals: Iterable[Iterable[Point]], ref_pulse_present: int
             ini_count -= 1
         elif pulse_pos == END:
             ini_count -= 1
-        if abs(i) > max_pulse_width*1.5: # failsafe to make sure we don't clip more than logical
+        if abs(i) > max_pulse_width*1.1: # failsafe to make sure we don't clip more than logical
             cut = i # force cut
             break
     try:
@@ -208,6 +208,11 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
     grid_size_px = max_len / (max_duration/0.2) # 0.2 s per square
 
     # TODO: check if all rows are the same length, pad if not
+    # leftmost_pixels = [pulso[0].y for pulso in vectorized_signals]
+    # rightmost_pixels = [pulso[-1].y for pulso in vectorized_signals]
+    # most_common_left = 
+    # for signal in vectorized_signals:
+    #     if 
 
     # Force correct sampling frequency/number of samples
     total_obs = int(sig_len)
@@ -250,11 +255,20 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
     #     print(f'ALTERNATIVE RHYTHM LEAD DETECTED: {rhythm_leads}')
     
     # Reference pulses
-    # save the base of the reference pulses for scaling the signals
+    # save the top of the reference pulses for scaling the signals
     if ref_pulse_present == 2:
-        first_pixels = [pulso[-1].y for pulso in signal_coords]
+        ref_pulse = [pulso[-21:-2] for pulso in signal_coords]
+        ref_pulse_px = [[p.y for p in line] for line in ref_pulse]
+        ref_pulse_tops = sp.stats.mode(ref_pulse_px, axis=1)[0]
+        first_pixels = ref_pulse_tops + grid_size_px*2
+    elif ref_pulse_present == 1:
+        ref_pulse = [pulso[1:20] for pulso in signal_coords]
+        ref_pulse_px = [[p.y for p in line] for line in ref_pulse]
+        ref_pulse_tops = sp.stats.mode(ref_pulse_px, axis=1)[0]
+        first_pixels = ref_pulse_tops + grid_size_px*2
     else:
         first_pixels = [pulso[0].y for pulso in signal_coords]
+    
     
     # the difference between v0 and v1 should be two square grid blocks
     volt_0 = 2*grid_size_px
@@ -303,26 +317,36 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
                 window_medians_other_line = np.median(np.lib.stride_tricks.sliding_window_view(
                                                    signal_other_line_adjusted, (window,)), axis=1)
                 if any(window_medians_other_line < window_medians):
-                    signal = np.zeros(len(signal))   
+                    # # zero only portions of the signal that overlap with another line based on sliding window
+                    # mask = np.where(window_medians_other_line < window_medians, 1, 0)
+                    # pad = len(signal) - len(mask)
+                    # if pad%2 == 0:
+                    #     mask = np.pad(mask, (pad//2, pad//2), mode='edge')
+                    # else:
+                    #     mask = np.pad(mask, (pad//2, pad//2+1), mode='edge')
+                    
+                    # signal[mask] = np.nan
+                    signal[:] = np.nan   
                     zeroed = True 
                     break
         
-        if not zeroed:
-            if ref_pulse_present:
-                # Scale signal with ref pulses
-                signal = [(volt_0 - y) * (1 / (volt_0 - volt_1)) for y in signal]
-                # use the baseline of the reference pulse, or the first plotted pixel, as the baseline
-                first_pixel_scaled = (volt_0 - first_pixels[r]) * (1 / (volt_0 - volt_1))
-                signal = signal - first_pixel_scaled 
-            else:
-                # use the median of the signal as the baseline
-                signal = [(volt_0 - (y)) * (1 / (volt_0 - volt_1)) for y in signal]
-                median_scaled = (volt_0 - full_signal_median) * (1 / (volt_0 - volt_1))
-                signal = signal - median_scaled
+        # ref_pulse_present = False
+        # if not zeroed:
+        if ref_pulse_present:
+            # Scale signal with ref pulses
+            signal = [(volt_0 - y) * (1 / (volt_0 - volt_1)) for y in signal]
+            # use the baseline of the reference pulse, or the first plotted pixel, as the baseline
+            first_pixel_scaled = (volt_0 - first_pixels[r]) * (1 / (volt_0 - volt_1))
+            signal = signal - first_pixel_scaled
+        else:
+            # use the median of the signal as the baseline
+            signal = [(volt_0 - (y)) * (1 / (volt_0 - volt_1)) for y in signal]
+            median_scaled = (volt_0 - full_signal_median) * (1 / (volt_0 - volt_1))
+            signal = signal - median_scaled
                 
         # remove single pixel spikes from lead delimiters in middle of signals
         if is_generated_image:
-            pixels_to_cutoff = 6
+            pixels_to_cutoff = 8
             if c == 0 and not rhythm: # furthest left column
                 signal[-pixels_to_cutoff:] = 0
             elif c == NROWS: # furthest right column
