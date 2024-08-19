@@ -40,5 +40,9 @@ def digitize_image_unet(restored_image, yolo_rois, sig_len=1000, max_duration=10
                                                                 sig_len, max_duration,
                                                                 is_generated_image)
     
-    return digitised_signals, raw_signals, gridsize
+    trace = {}
+    trace['raw_signals']=raw_signals
+    trace['bounding_rect']=bounding_rect
+    
+    return digitised_signals, trace, gridsize
 
