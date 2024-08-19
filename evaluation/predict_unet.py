@@ -11,6 +11,7 @@ from utils import constants, team_helper_code, model_persistence
 from evaluation import eval_utils
 import pandas as pd
 import matplotlib.pyplot as plt
+from preprocessing import classifier
 
 
 def generate_and_predict_unet_batch(images_folder, mask_folder, patch_folder,
@@ -69,8 +70,11 @@ def generate_and_predict_unet_batch(images_folder, mask_folder, patch_folder,
         records_to_process = team_helper_code.check_dirs_for_ids(records_to_process, 
                                                                  images_folder, 
                                                                  mask_folder, verbose)
+    
+    # load models
+    unet_generated = digitization_model['unet_generated']
 
-    dice_list, entropy_list = Unet.batch_predict_full_images(records_to_process, patch_folder, unet_model, 
+    dice_list, entropy_list = Unet.batch_predict_full_images(records_to_process, patch_folder, unet_generated, 
                                    unet_output_folder, verbose, save_all=True)
     
     # optional: save unet outputs as .pngs to see what's going on 
@@ -119,18 +123,19 @@ if __name__ == '__main__':
     os.makedirs(patch_folder, exist_ok=True)
     os.makedirs(unet_output_folder, exist_ok=True)
 
-    model = model_persistence.load_models("model", True, 
-                        models_to_load=['digitization_model'])
-    unet_model = Unet.utils.load_unet_from_state_dict(model['digitization_model'])
-    
-    # unet_model = model_persistence.load_checkpoint_dict("model", 
-    #                                                     "UNET_256_checkpoint", True)
+    digitization_model = dict()
+    models = model_persistence.load_models('model', True, 
+                        models_to_load=[
+                                        'unet_generated', 
+                                        ])
+    digitization_model['unet_generated'] = Unet.utils.load_unet_from_state_dict(
+                                                        models['unet_generated'])
 
-    num_images_to_generate = 15 # int, set to 0 if data has already been generated to speed up testing time
+    num_images_to_generate = 20 # int, set to 0 if data has already been generated to speed up testing time
 
     # generate images from records, run through U-net, and reconstruct signals
     generate_and_predict_unet_batch(images_folder, mask_folder, patch_folder,
-                                  unet_output_folder, unet_model,
+                                  unet_output_folder, digitization_model,
                                   verbose=True, records_to_process=None, delete_images=False,
                                   num_images_to_generate=num_images_to_generate,
                                   data_folder=wfdb_records_folder)
