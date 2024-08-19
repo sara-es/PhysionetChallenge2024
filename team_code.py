@@ -253,21 +253,21 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
         image_classifier = classifier.train_image_classifier(real_patch_folder, gen_patch_folder, 
                                         model_folder, constants.PATCH_SIZE, verbose)
 
-    # train U-net: generated data
-    if verbose: 
-        print("Training U-net for generated data...")
     args = Unet.utils.Args()
     args.train_val_prop = 0.8
-    unet_generated = train_unet(records_to_process, gen_patch_folder, model_folder, verbose,
-                             args=args, warm_start=True, ckpt_name='unet_gen')
-    
-    # train U-net: real data
-    if verbose:
-        print("Training U-net for real data...")
     if real_images_folder is not None:
+        # train U-net: real data
+        if verbose:
+            print("Training U-net for real data...")
         unet_real = train_unet(real_records, real_patch_folder, model_folder, verbose, args=args,
                             warm_start=False, ckpt_name='unet_real')
 
+    # train U-net: generated data
+    if verbose: 
+        print("Training U-net for generated data...")
+    unet_generated = train_unet(records_to_process, gen_patch_folder, model_folder, verbose,
+                             args=args, warm_start=True, ckpt_name='unet_gen')
+    
     # optional: delete any leftover training data
     if delete_training_data:
         for im in os.listdir(gen_images_folder):
