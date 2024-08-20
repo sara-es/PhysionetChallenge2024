@@ -105,7 +105,8 @@ def get_trace(image, raw_signals, bounds, rhythm_leads=[Lead.II]):
 
 def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
                     digitization_model,
-                    wfdb_records_dir, visualization_save_dir, save_images):
+                    wfdb_records_dir, visualization_save_dir, save_images,
+                    classification_model=None):
     records = helper_code.find_records(wfdb_records_dir)
     ids = team_helper_code.check_dirs_for_ids(records, test_images_dir, 
                                               None, True)
@@ -122,11 +123,13 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
     ids = sorted(list(ids), reverse=True)
     # unet_ids = sorted(list(unet_ids))
 
-    # load resnet for classification
+    # load models
     yolo_model = digitization_model['yolov7-ecg-2c']
     unet_generated = digitization_model['unet_generated']
     unet_real = digitization_model['unet_real']
-    classification_model = digitization_model['image_classifier']
+    image_classifier = digitization_model['image_classifier']
+    resnet_models = classification_model.copy()
+    dx_classes = resnet_models.pop('dx_classes') # this gets the classes out of the dict
 
     # force load unet from checkpoint ###############
     # models = model_persistence.load_models("model", True, 
@@ -171,8 +174,8 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
 
         # run classifier
         is_real_image = False
-        # is_real_image = classifier.classify_image(ids[i], patch_folder, 
-        #                                             classification_model, True)
+        is_real_image = classifier.classify_image(ids[i], patch_folder, 
+                                                    image_classifier, True)
         if is_real_image:
             print("Detected real image")
         
@@ -184,7 +187,9 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
         unet_image = Unet.predict_single_image(ids[i], patch_folder, unet_model,
                                                 original_image_size=image.shape[:2])
         
-        with open(os.path.join(unet_outputs_dir, ids[i] + '.png'), 'wb') as f:
+        # save u-net output image
+        np.save(os.path.join(unet_outputs_dir, ids[i]), unet_image)
+        with open(os.path.join("test_data", "unet_out_imgs", ids[i] + '.png'), 'wb') as f:
             plt.imsave(f, unet_image, cmap='gray')
 
         # digitize signal from u-net ouput
@@ -228,8 +233,11 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
             reconstructed_signal = np.zeros((5000, 12))
 
         # load reconstructed signal - this is to ensure format is the same as ground truth
-        output_signal, output_fields = helper_code.load_signals(
+        try:
+            output_signal, output_fields = helper_code.load_signals(
                                         os.path.join(reconstructed_signal_dir, ids[i]))
+        except:
+            output_signal, output_fields = np.zeros((5000, 12)), None
         
         # load ground truth signal
         try:
@@ -239,31 +247,40 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
             label_signal, label_fields = np.zeros_like(output_signal), None
         
         if label_fields is not None:
+            # load image generation info from json
+            config_file = os.path.join(test_images_dir, image_ids[i] + '.json')
+            try:
+                with open(config_file, 'r') as f:
+                    config = json.load(f)
+                true_gridsize = config['x_grid']
+                dc_pulse = config['dc_pulse']
+                rhythm = config['full_mode_lead']
+            except:
+                true_gridsize = 'N/A'
+                dc_pulse = 'N/A' 
+                rhythm = 'II'
+
+            # match signal lengths to only plotted leads
             output_signal, output_fields, label_signal, label_fields = \
                 eval_utils.match_signal_lengths(reconstructed_signal, output_fields, 
                                                 label_signal, label_fields)
             label_signal = eval_utils.trim_label_signal(label_signal, 
                                                         label_fields["sig_name"], 
                                                         int(label_fields["sig_len"])/4, 
-                                                        rhythm=['II'])
+                                                        rhythm=[rhythm])
         
             # calculate reconstruction SNR
             mean_snr, mean_snr_median, mean_ks_metric, mean_asci_metric, \
                 mean_weighted_absolute_difference_metric = eval_utils.single_signal_snr(output_signal,
                             output_fields, label_signal, label_fields, ids[i], extra_scores=True)
 
-            # load image generation info from json
-            # config_file = os.path.join(test_images_dir, image_ids[i] + '.json')
-            # with open(config_file, 'r') as f:
-            #     config = json.load(f)
-            true_gridsize = '39' # config['gridsize']
-            dc_pulse = 'N/A' # config['dc_pulse']
         else:
             label_signal = np.zeros_like(output_signal)
             mean_snr, mean_snr_median, mean_ks_metric, mean_asci_metric, \
                 mean_weighted_absolute_difference_metric = 0, 0, 0, 0, 0
             true_gridsize = 'N/A'
             dc_pulse = 'N/A'
+            label_fields = output_fields
 
         gridsize = f'{gridsize:.2f}' if gridsize is not None else 'N/A'
         
@@ -292,16 +309,30 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
             else:
                 axd['trace'].imshow(unet_image, cmap='gray')
 
-            labels = None
             # optional: classify signal
-            # labels = team_code.classify_signals(records[i], reconstructed_signal_dir, resnet_model, 
-            #                                     dx_classes, verbose=True)
+            if output_fields is None: # if digitization failed, don't try to classify
+                labels = None
+            else: 
+                signal = np.nan_to_num(output_signal) # cast any NaNs to 0
+                labels = team_code.classify_signals(ids[i], reconstructed_signal_dir, resnet_models, 
+                                        dx_classes, verbose=True)
+                
+            # try to get true label from header
+            try:
+                pred_labels = helper_code.load_labels(header_txt)
+            except:
+                pred_labels = None
             
-            description_string = f"""{ids[i]} ({output_fields['fs']} Hz)
+            try:
+                description_string = f"""{ids[i]} ({output_fields['fs']} Hz)
     Reconstruction SNR: {mean_snr:.2f}
     Gridsize: {gridsize}
     {output_fields['comments'][1:-1]}
-    Predicted real? {is_real_image}"""
+    Predicted real? {is_real_image}
+    Predicted label(s): {labels}"""
+            except:
+                description_string = f"""{ids[i]}
+    Reconstruction SNR: {mean_snr:.2f}"""
         
             # plot ground truth and reconstructed signal
             fig, axs = plt.subplots(output_signal.shape[1], 1, figsize=(9, 12.5), sharex=True)
@@ -316,7 +347,8 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
                 else:
                     axs[j].plot(label_signal[:, j])
                     axs[j].plot(output_signal[:, j], alpha=0.8)
-                axs[j].set_ylabel(f'{label_fields["sig_name"][j]}', rotation='horizontal')
+                if label_fields is not None:
+                    axs[j].set_ylabel(f'{label_fields["sig_name"][j]}', rotation='horizontal')
                 # axs[j].set_yrotation(0)
             fig.canvas.draw()
             axd['ecg_plots'].axis('off')
@@ -357,7 +389,7 @@ if __name__ == "__main__":
     os.makedirs(reconstructed_signal_dir, exist_ok=True)
     visualization_save_folder = os.path.join("test_data", "trace_visualizations")
     os.makedirs(visualization_save_folder, exist_ok=True)
-    save_image_threshold = 30 # snr threshold below which images will be saved for visualization
+    save_image_threshold = 10 # snr threshold below which images will be saved for visualization
 
     model_folder = 'model'
     digitization_model = dict()
@@ -366,6 +398,8 @@ if __name__ == "__main__":
                                         'unet_generated',
                                         'unet_real',
                                         'image_classifier', 
+                                        'dx_classes', 
+                                        'res0', 'res1', 'res2', 'res3', 'res4'
                                         ])
     digitization_model['unet_generated'] = Unet.utils.load_unet_from_state_dict(
                                                         models['unet_generated'])
@@ -373,6 +407,8 @@ if __name__ == "__main__":
     digitization_model['image_classifier'] = classifier.load_from_state_dict(
                                                     models['image_classifier'])
     digitization_model['yolov7-ecg-2c'] = models['yolov7-ecg-2c']
+    classification_model = dict((m, models[m]) for m in ['res0', 'res1', 'res2', 'res3', 'res4', 
+                                                         'dx_classes'])
 
     visualize_trace(test_images_folder, 
                     unet_outputs_folder, 
@@ -380,4 +416,5 @@ if __name__ == "__main__":
                     digitization_model,
                     wfdb_records_dir=test_images_folder,
                     visualization_save_dir=visualization_save_folder,
-                    save_images=save_image_threshold)
+                    save_images=save_image_threshold,
+                    classification_model=classification_model)

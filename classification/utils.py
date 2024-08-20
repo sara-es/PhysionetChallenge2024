@@ -6,8 +6,8 @@ def get_demographic_features(record):
     
     '''
     age_gender = [age, age_flag, gender_female, gender_male, gender_flag]
+    Note: features are a bit strange (-1 when no age, but 0s for sex?)
     '''
-    # TODO: add missing flags
     age_gender = np.zeros(5)
     header = helper_code.load_header(record)
     
@@ -29,6 +29,7 @@ def get_demographic_features(record):
         elif sex == 'Male':
             age_gender[4] = 1
             age_gender[3] = 1
+
     return age_gender
 
 

@@ -22,7 +22,7 @@ def match_signal_lengths(output_signal, output_fields, label_signal, label_field
         label_sampling_frequency = label_fields['fs']
         label_units = label_fields['units']
 
-        if output_signal is not None:
+        if output_fields is not None:
             output_channels = output_fields['sig_name']
             output_sampling_frequency = output_fields['fs']
             output_units = output_fields['units']
