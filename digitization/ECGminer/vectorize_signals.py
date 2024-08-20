@@ -75,8 +75,10 @@ def remove_pulses(raw_signals: Iterable[Iterable[Point]], ref_pulse_present: int
     max_pulse_width = int(max(len(signal) for signal in raw_signals)/(duration/0.2 + 1))
     PIXEL_EPS = 5 # OG ecg-miner constant
     # use first pixel in row as baseline - old version used furthest right, but led to issues
-    # TODO should probably use furthest right if ref pulse at right
-    furthest_left_pixels = [pulso[0].y for pulso in raw_signals]
+    if rp_at_right:
+        furthest_left_pixels = [pulso[-1].y for pulso in raw_signals] # misnomer
+    else:
+        furthest_left_pixels = [pulso[0].y for pulso in raw_signals]
 
     direction = (
         range(-1, -LIMIT, -1) if rp_at_right else range(LIMIT)
@@ -107,7 +109,7 @@ def remove_pulses(raw_signals: Iterable[Iterable[Point]], ref_pulse_present: int
             ini_count -= 1
         elif pulse_pos == END:
             ini_count -= 1
-        if abs(i) > max_pulse_width*1.1: # failsafe to make sure we don't clip more than logical
+        if abs(i) > max_pulse_width*1.15: # failsafe to make sure we don't clip more than logical
             cut = i # force cut
             break
     try:
@@ -244,30 +246,35 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
         NROWS, NCOLS = (3, 4) 
         is_cabrera = False
     else: 
-        NROWS = 3 # ATTENTION: LAYOUT HARD CODED FOR NOW, may have more if multiple rhythm leads 
+        NROWS = 3 # ATTENTION: LAYOUT HARD CODED FOR NOW 
         NCOLS = 4 # We know Challenge team will only use 3x4 format
         is_cabrera = layout.cabrera_detector(interp_signals, NCOLS)
     ORDER = Format.CABRERA if is_cabrera else Format.STANDARD
-    # if is_cabrera:
-    #     print('Cabrera format detected!')
+    if is_cabrera:
+        print('Cabrera format detected!')
     rhythm_leads = layout.detect_rhythm_strip(interp_signals, is_cabrera, THRESH=1)
-    # if rhythm_leads != [Lead.II]:
-    #     print(f'ALTERNATIVE RHYTHM LEAD DETECTED: {rhythm_leads}')
+    if rhythm_leads != [Lead.II]:
+        print(f'ALTERNATIVE RHYTHM LEAD DETECTED: {rhythm_leads}')
     
     # Reference pulses
     # save the top of the reference pulses for scaling the signals
     if ref_pulse_present == 2:
-        ref_pulse = [pulso[-21:-2] for pulso in signal_coords]
+        ref_pulse = [pulso[-int(grid_size_px):-2] for pulso in signal_coords]
         ref_pulse_px = [[p.y for p in line] for line in ref_pulse]
         ref_pulse_tops = sp.stats.mode(ref_pulse_px, axis=1)[0]
         first_pixels = ref_pulse_tops + grid_size_px*2
     elif ref_pulse_present == 1:
-        ref_pulse = [pulso[1:20] for pulso in signal_coords]
+        ref_pulse = [pulso[1:int(grid_size_px)] for pulso in signal_coords]
         ref_pulse_px = [[p.y for p in line] for line in ref_pulse]
         ref_pulse_tops = sp.stats.mode(ref_pulse_px, axis=1)[0]
         first_pixels = ref_pulse_tops + grid_size_px*2
     else:
         first_pixels = [pulso[0].y for pulso in signal_coords]
+
+    if any((np.diff(first_pixels) - np.diff(first_pixels).mean()) > grid_size_px*0.5):
+        print("WARNING: Reference pulses are not evenly spaced")
+        # if there's too much variation in the first pixel, we've probably missed the reference pulses
+        ref_pulse_present = 0 # set this to 0 so we don't scale the signals with the reference pulses
     
     
     # the difference between v0 and v1 should be two square grid blocks
@@ -285,8 +292,8 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
         columns=[lead.name for lead in Format.STANDARD],
     )
 
+    zeroed = False # not currently used - could be useful for classification later
     for i, lead in enumerate(ORDER):
-        zeroed = False
         rhythm = lead in rhythm_leads
         r = rhythm_leads.index(lead) + NROWS if rhythm else i % NROWS
         c = 0 if rhythm else i // NROWS
@@ -317,32 +324,19 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
                 window_medians_other_line = np.median(np.lib.stride_tricks.sliding_window_view(
                                                    signal_other_line_adjusted, (window,)), axis=1)
                 if any(window_medians_other_line < window_medians):
-                    # # zero only portions of the signal that overlap with another line based on sliding window
-                    # mask = np.where(window_medians_other_line < window_medians, 1, 0)
-                    # pad = len(signal) - len(mask)
-                    # if pad%2 == 0:
-                    #     mask = np.pad(mask, (pad//2, pad//2), mode='edge')
-                    # else:
-                    #     mask = np.pad(mask, (pad//2, pad//2+1), mode='edge')
-                    
-                    # signal[mask] = np.nan
                     signal[:] = np.nan   
                     zeroed = True 
                     break
         
-        # ref_pulse_present = False
-        # if not zeroed:
+        # Scale signal with ref pulses
+        signal = [(volt_0 - y) * (1 / (volt_0 - volt_1)) for y in signal]
         if ref_pulse_present:
-            # Scale signal with ref pulses
-            signal = [(volt_0 - y) * (1 / (volt_0 - volt_1)) for y in signal]
-            # use the baseline of the reference pulse, or the first plotted pixel, as the baseline
-            first_pixel_scaled = (volt_0 - first_pixels[r]) * (1 / (volt_0 - volt_1))
-            signal = signal - first_pixel_scaled
+            # use the reference pulse as the baseline
+            baseline_scale = (volt_0 - first_pixels[r]) * (1 / (volt_0 - volt_1))
         else:
             # use the median of the signal as the baseline
-            signal = [(volt_0 - (y)) * (1 / (volt_0 - volt_1)) for y in signal]
-            median_scaled = (volt_0 - full_signal_median) * (1 / (volt_0 - volt_1))
-            signal = signal - median_scaled
+            baseline_scale = (volt_0 - full_signal_median) * (1 / (volt_0 - volt_1))
+        signal = signal - baseline_scale
                 
         # remove single pixel spikes from lead delimiters in middle of signals
         if is_generated_image:
@@ -367,4 +361,4 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
             lead.name,
         ] = signal
 
-    return ecg_data, vectorized_signals, grid_size_px
+    return ecg_data, signals, grid_size_px
