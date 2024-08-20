@@ -22,7 +22,7 @@ def generate_training_data(data_folder, output_folder, verbose, max_samples):
 
     records_to_process = helper_code.find_records(data_folder)
     if max_samples is not None:
-        records_to_process = shuffle(records_to_process, random_state=42)[:max_samples]
+        records_to_process = shuffle(records_to_process, random_state=42)[20:max_samples]
     num_records = len(records_to_process)
 
     # if num_records == 0:
@@ -50,8 +50,8 @@ def generate_training_data(data_folder, output_folder, verbose, max_samples):
     img_gen_params.lead_name_bbox = True
     img_gen_params.store_config = 2
 
-    img_gen_params.deterministic_noise = True
-    img_gen_params.noise=0
+    # img_gen_params.deterministic_noise = True
+    # img_gen_params.noise=0
 
     # img_gen_params.augment = False
     img_gen_params.calibration_pulse = 0
@@ -72,7 +72,7 @@ def generate_training_data(data_folder, output_folder, verbose, max_samples):
     if verbose:
         print("Generating images from wfdb files (set 2/4)...")
     generator.gen_ecg_images_from_data_batch.run(img_gen_params, records_to_process[split:int(split*2)])
-    img_gen_params.rotate = 0
+    img_gen_params.rotate = 10
     if verbose:
         print("Generating images from wfdb files (set 3/4)...")
     generator.gen_ecg_images_from_data_batch.run(img_gen_params, records_to_process[int(split*2):int(split*3)])
@@ -105,7 +105,7 @@ if __name__ == "__main__":
     # data_folder = os.path.join("temp_data", "train", "images")
     output_folder_prefix = os.path.join("test_data") # will create images, masks, patches subfolders here
     verbose = True
-    max_samples = 20 # set to None to train on all available
+    max_samples = 40 # set to None to train on all available
 
     # training data: no rotation on images, also generates json with config.
     # patches images and masks, but does not run unet

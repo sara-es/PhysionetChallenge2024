@@ -186,3 +186,8 @@ model/classifier_256
 model/classifier_256_checkpoint
 /model/classifier_checkpoint
 classification/model_checkpoints/resnet_ckpt
+model/unet_gen_256
+model/unet_gen_256
+model/unet_real_256
+model/unet_real_256_checkpoint
+model/unet_real_256_losses.npy

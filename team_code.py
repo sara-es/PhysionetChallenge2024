@@ -77,6 +77,8 @@ def train_models(data_folder, model_folder, verbose):
     digitization_model['unet_real'] = unet_real
     digitization_model['image_classifier'] = image_classifier
 
+    save_models(model_folder, digitization_model, None, None)
+
     if verbose:
         time1 = time.time()
         print(f'Done. Time to train digitization model: ' + \
@@ -144,7 +146,6 @@ def run_models(record, digitization_model, classification_model, verbose):
     if signal is None: # if digitization failed, don't try to classify
         labels = None
     else: 
-        signal = np.nan_to_num(signal) # cast any NaNs to 0
         labels = classify_signals(record, reconstructed_signal_dir, resnet_models, 
                                 dx_classes, verbose=verbose)
     
@@ -510,7 +511,8 @@ def reconstruct_signal(record, unet_image, rois, header_txt,
         output_record_path = os.path.join(reconstructed_signals_folder, record)
         helper_code.save_header(output_record_path, header_txt)
         comments = [l for l in header_txt.split('\n') if l.startswith('#')]
-        helper_code.save_signals(output_record_path, reconstructed_signal, comments)
+        signal = np.nan_to_num(reconstructed_signal) # cast any NaNs to 0
+        helper_code.save_signals(output_record_path, signal, comments)
 
     # return raw_signals and gridsize for external evaluation
     return reconstructed_signal, raw_signals, gridsize
@@ -549,7 +551,7 @@ def train_classification_model(records_folder, verbose, records_to_process=None)
 
     resnet_model = {}
     n_models = 5
-    num_epochs = 120 #TODO: set this to a big number
+    num_epochs = 120 
     for i in range(n_models):
         resnet_model[f'res{i}'] = seresnet18.train_model(
                                     all_data, multilabels, uniq_labels, verbose, epochs=num_epochs, 
@@ -629,8 +631,8 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
                                                     angle_range=(-20, 20), verbose=verbose)
     
     # save rotated mask for debugging
-    with open(os.path.join("temp_data", "test", "unet_outputs", record_id + '.png'), 'wb') as f:
-        plt.imsave(f, rotated_mask, cmap='gray')
+    # with open(os.path.join("temp_data", "test", "unet_outputs", record_id + '.png'), 'wb') as f:
+    #     plt.imsave(f, rotated_mask, cmap='gray')
     
     if rot_angle != 0: # currently just rotate the mask, do no re-predict   
         try: # sometimes this fails, if there are edge effects
