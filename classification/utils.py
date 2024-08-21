@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import helper_code
+from utils import constants
 
 def get_demographic_features(record):
     
@@ -108,7 +109,7 @@ def compute_classification_metrics(actual_labels, pre_logits, unique_labels, thr
     return f_measure
 
 
-def multiclass_predict_from_logits(dx_labels, pre_logits, threshold=0.5):
+def multiclass_predict_from_logits(dx_labels, pre_logits, threshold=constants.MULTILABEL_THRESHOLD):
     """
     The same as preprocess_labels, I presume, but for one sample and without known labels.
     """

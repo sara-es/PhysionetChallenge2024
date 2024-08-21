@@ -261,6 +261,7 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
 
     args = Unet.utils.Args()
     args.train_val_prop = 0.8
+    args.epochs = constants.UNET_EPOCHS
     if real_images_folder is not None:
         # train U-net: real data
         if verbose:
@@ -379,7 +380,7 @@ def train_yolo(record_ids, train_data_folder, bb_labels_folder, model_folder, ve
         args.cfg = os.path.join("digitization", "YOLOv7", "cfg", "training", config + ".yaml")
         args.data = os.path.join("digitization", "YOLOv7", "data", config + ".yaml")
         args.name = config
-        args.epochs = 300
+        args.epochs = constants.YOLO_EPOCHS
         args.weights = os.path.join("digitization", "model_checkpoints", "yolov7.pt")
         args.hyp = os.path.join("digitization", "YOLOv7", "data", "hyp.scratch.custom.yaml") #default
 
@@ -557,8 +558,8 @@ def train_classification_model(records_folder, verbose, records_to_process=None)
         print("Training SE-ResNet classification model...")
 
     resnet_model = {}
-    n_models = 5
-    num_epochs = 120 
+    n_models = constants.RESNET_ENSEMBLE
+    num_epochs = constants.RESNET_EPOCHS
     for i in range(n_models):
         resnet_model[f'res{i}'] = seresnet18.train_model(
                                     all_data, multilabels, uniq_labels, verbose, epochs=num_epochs, 
@@ -641,7 +642,7 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
     # with open(os.path.join("temp_data", "test", "unet_outputs", record_id + '.png'), 'wb') as f:
     #     plt.imsave(f, rotated_mask, cmap='gray')
     
-    if rot_angle != 0: # currently just rotate the mask, do no re-predict   
+    if rot_angle != 0 and constants.ATTEMPT_ROTATION: # currently just rotate the mask, do no re-predict   
         print(f"Rotation angle detected: {rot_angle}")
         args.source = rotated_image_path
         rois = digitization.YOLOv7.detect.detect_single(yolo_model, args, True)

@@ -22,7 +22,7 @@ def get_ECG_rows(yolo_boxes, sens=12):
     # note bounding box is in percentage of image size
     bounding_box = [left, right, top, bottom]
     
-    if max(yolo_boxes[:,0]) > 0: # using 2 classes or more yolo version
+    if constants.YOLO_N_CLASSES > 1: # using 2 classes or more yolo version
         # long_leads is subset of bounding boxes with long leads:
         long_leads = yolo_boxes[yolo_boxes[:,0]==1]
         vrange = bottom-top
