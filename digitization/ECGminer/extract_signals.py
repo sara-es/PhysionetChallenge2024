@@ -77,6 +77,8 @@ def signal_to_miner(signals, rois):
     """
     all_sigs = []
     for i, signal in enumerate(signals):
+        if signal == []: # erroneous bounding box, probably
+            continue
         start = signal[0][1]
         fin = signal[-1][1]
         raw_s = [None] * (fin-start + 1)
