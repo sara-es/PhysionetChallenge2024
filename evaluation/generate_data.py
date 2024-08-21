@@ -22,7 +22,7 @@ def generate_training_data(data_folder, output_folder, verbose, max_samples):
 
     records_to_process = helper_code.find_records(data_folder)
     if max_samples is not None:
-        records_to_process = shuffle(records_to_process, random_state=42)[20:max_samples]
+        records_to_process = shuffle(records_to_process, random_state=42)[:max_samples]
     num_records = len(records_to_process)
 
     # if num_records == 0:
@@ -40,12 +40,12 @@ def generate_training_data(data_folder, output_folder, verbose, max_samples):
     img_gen_params = generator.DefaultArgs()
     img_gen_params.input_directory = data_folder
     img_gen_params.output_directory = images_folder
-    img_gen_params.random_bw = 0.2
-    img_gen_params.wrinkles = True
-    img_gen_params.print_header = True
-    img_gen_params.augment = True
-    img_gen_params.crop = 0.0
-    img_gen_params.rotate = 0
+    # img_gen_params.random_bw = 0.2
+    # img_gen_params.wrinkles = True
+    # img_gen_params.print_header = True
+    # img_gen_params.augment = True
+    # img_gen_params.crop = 0.0
+    # img_gen_params.rotate = 0
     img_gen_params.lead_bbox = True
     img_gen_params.lead_name_bbox = True
     img_gen_params.store_config = 2
@@ -68,16 +68,16 @@ def generate_training_data(data_folder, output_folder, verbose, max_samples):
     if verbose:
         print("Generating images from wfdb files (set 1/3)...")
     generator.gen_ecg_images_from_data_batch.run(img_gen_params, records_to_process[:split])
-    img_gen_params.calibration_pulse = 1
+    # img_gen_params.calibration_pulse = 1
     if verbose:
         print("Generating images from wfdb files (set 2/4)...")
     generator.gen_ecg_images_from_data_batch.run(img_gen_params, records_to_process[split:int(split*2)])
-    img_gen_params.rotate = 10
+    # img_gen_params.rotate = 10
     if verbose:
         print("Generating images from wfdb files (set 3/4)...")
     generator.gen_ecg_images_from_data_batch.run(img_gen_params, records_to_process[int(split*2):int(split*3)])
-    img_gen_params.wrinkles = False
-    img_gen_params.augment = False
+    # img_gen_params.wrinkles = False
+    # img_gen_params.augment = False
     if verbose:
         print("Generating images from wfdb files (set 4/4)...")    
     generator.gen_ecg_images_from_data_batch.run(img_gen_params, records_to_process[int(split*3):])
@@ -103,9 +103,9 @@ if __name__ == "__main__":
     data_folder = os.path.join("ptb-xl", "records500")
     # data_folder = "G:\\PhysionetChallenge2024\\tiny_testset\\lr_gt"
     # data_folder = os.path.join("temp_data", "train", "images")
-    output_folder_prefix = os.path.join("test_data") # will create images, masks, patches subfolders here
+    output_folder_prefix = os.path.join("test_data_clean") # will create images, masks, patches subfolders here
     verbose = True
-    max_samples = 40 # set to None to train on all available
+    max_samples = 200 # set to None to train on all available
 
     # training data: no rotation on images, also generates json with config.
     # patches images and masks, but does not run unet
