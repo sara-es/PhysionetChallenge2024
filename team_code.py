@@ -113,7 +113,7 @@ def train_models(data_folder, model_folder, verbose):
 def load_models(model_folder, verbose):
     digitization_model = dict()
     models = model_persistence.load_models(model_folder, verbose, 
-                        models_to_load=['yolov7-ecg-2c', 
+                        models_to_load=['yolov7-ecg-1c', 
                                         'unet_generated',
                                         'unet_real',
                                         'image_classifier', 
@@ -124,7 +124,7 @@ def load_models(model_folder, verbose):
     digitization_model['unet_real'] = Unet.utils.load_unet_from_state_dict(models['unet_real'])
     digitization_model['image_classifier'] = classifier.load_from_state_dict(
                                                     models['image_classifier'])
-    digitization_model['yolov7-ecg-2c'] = models['yolov7-ecg-2c']
+    digitization_model['yolov7'] = models['yolov7-ecg-1c']
     classification_model = dict((m, models[m]) for m in ['res0', 'res1', 'res2', 'res3', 'res4', 
                                                          'dx_classes'])
     return digitization_model, classification_model
@@ -310,7 +310,7 @@ def generate_training_images(wfdb_records_folder, images_folder, masks_folder, b
     img_gen_params.rotate = 0
     img_gen_params.lead_bbox = True
     img_gen_params.lead_name_bbox = True
-    img_gen_params.store_config = 1
+    img_gen_params.store_config = 2
 
     # img_gen_params.augment = False
     img_gen_params.calibration_pulse = 0
@@ -358,28 +358,27 @@ def generate_training_images(wfdb_records_folder, images_folder, masks_folder, b
 
 
 def train_yolo(record_ids, train_data_folder, bb_labels_folder, model_folder, verbose, 
-               args=None, delete_training_data=True):
+               args=None, delete_training_data=True, warm_start=False):
     """
     A quick and dirty setup of yolo training config files, and model training call.
     """
+    config = "yolov7-ecg-1c"
     if verbose:
         print("Preparing YOLOv7 training data...")
     if not args:
         args = digitization.YOLOv7.train.OptArgs()
         args.device = "0"
-        args.cfg = os.path.join("digitization", "YOLOv7", "cfg", "training", "yolov7-ecg2c.yaml")
-        args.name = "yolov7-ecg-2c"
-        args.epochs = 1
-        args.hyp = os.path.join("digitization", "YOLOv7", "data", "hyp.lowlr.yaml")
+        args.cfg = os.path.join("digitization", "YOLOv7", "cfg", "training", config + ".yaml")
+        args.data = os.path.join("digitization", "YOLOv7", "data", config + ".yaml")
+        args.name = config
+        args.epochs = 300
+        args.weights = os.path.join("digitization", "model_checkpoints", "yolov7.pt")
+        args.hyp = os.path.join("digitization", "YOLOv7", "data", "hyp.scratch.custom.yaml") #default
 
     # use the best weights from previous fine-tuning as starting point
-    args.weights = os.path.join("digitization", "model_checkpoints", "yolov7-ecg-2c.pt")
-    
-    # n. classes, class labels, train data folder info written here
-    # data should be train/images and train/labels folders
-    # currently assumes 2 classes: short and long leads
-    # currently trains on all available data in train_data_folder
-    args.data = os.path.join("digitization", "YOLOv7", "data", "ecg.yaml")
+    if warm_start and os.path.exists(os.path.join("digitization", "model_checkpoints", config + ".pt")):
+        args.weights = os.path.join("digitization", "model_checkpoints", config + ".pt")
+        args.hyp = os.path.join("digitization", "YOLOv7", "data", "hyp.lowlr.yaml") # very low LR
 
     # yolo requires we also have val data
     os.makedirs(os.path.join("temp_data", "val", "images"), exist_ok=True)
@@ -401,14 +400,14 @@ def train_yolo(record_ids, train_data_folder, bb_labels_folder, model_folder, ve
     # Find best weights and save them to model_folder
     if verbose:
         print("...Done. Saving best weights...")
-    best_weights_path = os.path.join("temp_data", "train", "yolov7-ecg-2c", "weights", "best.pt")
+    best_weights_path = os.path.join("temp_data", "train", config, "weights", "best.pt")
     os.makedirs(model_folder, exist_ok=True)
     try:
-        os.remove(os.path.join(model_folder, "yolov7-ecg-2c.pt")) # in case model already exists
+        os.remove(os.path.join(model_folder, config + ".pt")) # in case model already exists
     except FileNotFoundError:
         pass
     shutil.move(best_weights_path, os.path.join(model_folder))
-    os.rename(os.path.join(model_folder, "best.pt"), os.path.join(model_folder, "yolov7-ecg-2c.pt"))
+    os.rename(os.path.join(model_folder, "best.pt"), os.path.join(model_folder, config + ".pt"))
 
     # move data back from val to train
     for record in val_record_ids:
@@ -576,7 +575,7 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
     record_id = os.path.split(record)[-1].split('.')[0]
 
     # load models
-    yolo_model = digitization_model['yolov7-ecg-2c']
+    yolo_model = digitization_model['yolov7']
     unet_generated = digitization_model['unet_generated']
     unet_real = digitization_model['unet_real']
     classification_model = digitization_model['image_classifier']
@@ -635,25 +634,25 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
     #     plt.imsave(f, rotated_mask, cmap='gray')
     
     if rot_angle != 0: # currently just rotate the mask, do no re-predict   
-        try: # sometimes this fails, if there are edge effects
-            args.source = rotated_image_path
-            rois = digitization.YOLOv7.detect.detect_single(yolo_model, args, verbose)
-            reconstructed_signal, raw_signals, _ = reconstruct_signal(record_id, rotated_mask, 
-                                                     rois,
-                                                     header_txt,
-                                                     reconstructed_signals_folder, 
-                                                     save_signal=True,
-                                                     is_real_image=is_real_image)
-            predicted_mask = rotated_mask # to save later, optional
-        except Exception as e: # in that case try it with the original (non-rotated) mask
-            if verbose:
-                print(f"Error reconstructing signal after rotating image {image_path}: {e}")
-            reconstructed_signal, raw_signals, _ = reconstruct_signal(record_id, predicted_mask,
-                                                     rois, 
-                                                     header_txt,
-                                                     reconstructed_signals_folder, 
-                                                     save_signal=True,
-                                                     is_real_image=is_real_image)        
+        print(f"Rotation angle detected: {rot_angle}")
+        args.source = rotated_image_path
+        rois = digitization.YOLOv7.detect.detect_single(yolo_model, args, True)
+        reconstructed_signal, raw_signals, gridsize = reconstruct_signal(record_id, rotated_mask, 
+                                                    rois,
+                                                    header_txt,
+                                                    reconstructed_signals_folder, 
+                                                    save_signal=True,
+                                                    is_real_image=is_real_image)
+        if reconstructed_signal is None: # in that case try it with the original (non-rotated) mask
+            print(f"Error reconstructing signal after rotating image {image_path}, "+\
+                  "trying with original mask.")
+            reconstructed_signal, raw_signals, gridsize = reconstruct_signal(record_id, unet_image,
+                                                    rois, 
+                                                    header_txt,
+                                                    reconstructed_signals_folder, 
+                                                    save_signal=True,
+                                                    is_real_image=is_real_image)   
+        else: unet_image = rotated_mask # to save later, optional          
     else: # no rotation needed
         reconstructed_signal, raw_signals, _ = reconstruct_signal(record_id, predicted_mask, 
                                                      rois,
