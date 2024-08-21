@@ -696,7 +696,7 @@ def classify_signals(record_path, data_folder, resnet_model, classes, verbose):
         # hacky way to get the mean of all the resnets
         probs = probs / len(resnet_model)
         
-        pred_dx = multiclass_predict_from_logits(classes, probs, threshold=0.5)
+        pred_dx = multiclass_predict_from_logits(classes, probs)
         labels = classes[np.where(pred_dx == 1)]
     
     # single model output

@@ -33,7 +33,6 @@ def get_roi(ecg: Image, n: int) -> Iterable[int]:
     min_distance = int(ecg.height * 0.1)
     peaks, _ = sp.signal.find_peaks(stds, distance=min_distance)
     rois = sorted(peaks, key=lambda x: stds[x], reverse=True)
-    print(f"ROIs: {rois}")
     if len(rois) < n:
         raise DigitizationError("The indicated number of rois could not be detected.")
     rois = rois[0: n]
@@ -209,8 +208,9 @@ def extract_row_signals(ecg: Image, yolo_rois_cropped : np.array, n_lines: int) 
             endcols.append(endcol)
             rows.append(row_yval)
     else:
-        print("No yolo boxes found")
         rois = get_roi(ecg, n_lines)
+        if constants.YOLO_ROIS:
+            print(f"No yolo boxes found, default ROIs: {rois}")
         for row in rois:
             x, y, endcol, row_yval = find_start_coords(ecg.data, rois, row)
             x_coords.append(x)
