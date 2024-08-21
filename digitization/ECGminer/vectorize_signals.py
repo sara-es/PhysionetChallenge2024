@@ -114,6 +114,7 @@ def remove_pulses(raw_signals: Iterable[Iterable[Point]], ref_pulse_present: int
             break
     try:
         # Slice signal
+        print(cut)
         signal_slice = (
             slice(0, cut + 1) if rp_at_right else slice(cut, None)
         )
@@ -252,7 +253,7 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
     ORDER = Format.CABRERA if is_cabrera else Format.STANDARD
     if is_cabrera:
         print('Cabrera format detected!')
-    rhythm_leads = layout.detect_rhythm_strip(interp_signals, is_cabrera, THRESH=1)
+    rhythm_leads = layout.detect_rhythm_deterministic(interp_signals)
     if rhythm_leads != [Lead.II]:
         print(f'ALTERNATIVE RHYTHM LEAD DETECTED: {rhythm_leads}')
     

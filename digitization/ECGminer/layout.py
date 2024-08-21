@@ -130,16 +130,15 @@ def detect_rhythm_deterministic(signal_arr):
     if NROWS == 3:
         rhythm = []
     elif NROWS == 4:
-        rhythm = Lead.II
+        rhythm = [Lead.II]
     elif NROWS == 5:
         rhythm = [Lead.II, Lead.V5]
     elif NROWS == 6:
         rhythm = [Lead.V1, Lead.II, Lead.V5]
     else:
         #this should never happen
-        # TODO: @sara - is it better to put in random rhythm leads, or to be ignorant and just have fewer? I've assumed the former
-        rhythm = [Lead.V1, Lead.II, Lead.V5]
-        return rhythm
+        rhythm = []
+    return rhythm
 
 def detect_rhythm_strip(signal_arr, is_cabrera, THRESH = 2):
     """
