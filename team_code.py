@@ -317,7 +317,6 @@ def generate_training_images(wfdb_records_folder, images_folder, masks_folder, b
     mask_gen_params = generator.MaskArgs()
     mask_gen_params.input_directory = wfdb_records_folder
     mask_gen_params.output_directory = masks_folder
-    mask_gen_params.calibration_pulse = 0
 
     # generate images - params done manually because the generator doesn't implement seed correctly
     split = int(len(records_to_process)/4) # 25% no calibration pulse, 50% no noise/wrinkles
@@ -325,6 +324,7 @@ def generate_training_images(wfdb_records_folder, images_folder, masks_folder, b
 
     if verbose:
         print("Generating images from wfdb files (set 1/4)...")
+    img_gen_params.calibration_pulse = 0
     generator.gen_ecg_images_from_data_batch.run(img_gen_params, records_to_process[:split])
 
     if verbose:
@@ -334,7 +334,7 @@ def generate_training_images(wfdb_records_folder, images_folder, masks_folder, b
     
     if verbose:
         print("Generating images from wfdb files (set 3/4)...")
-    img_gen_params.random_bw = 0.2
+    img_gen_params.calibration_pulse = 1
     img_gen_params.wrinkles = True
     img_gen_params.augment = True
     img_gen_params.crop = 0.0
@@ -343,6 +343,7 @@ def generate_training_images(wfdb_records_folder, images_folder, masks_folder, b
     
     if verbose:
         print("Generating images from wfdb files (set 4/4)...")  
+    img_gen_params.random_bw = 0.2
     generator.gen_ecg_images_from_data_batch.run(img_gen_params, records_to_process[int(split*3):])
 
     # generate bounding box labels and save to a separate folder
@@ -355,6 +356,7 @@ def generate_training_images(wfdb_records_folder, images_folder, masks_folder, b
     # generate masks
     if verbose:
         print("Generating masks from wfdb files (set 1/2)...")
+    mask_gen_params.calibration_pulse = 0
     generator.gen_ecg_images_from_data_batch.run(mask_gen_params, records_to_process[:split])
 
     if verbose:
@@ -427,7 +429,7 @@ def train_yolo(record_ids, train_data_folder, bb_labels_folder, model_folder, ve
         shutil.move(label_path, bb_labels_folder)
 
     if delete_training_data:
-        shutil.rmtree(os.path.join("temp_data", "train", "yolov7-ecg-2c"))
+        shutil.rmtree(os.path.join("temp_data", "train", config))
 
     if verbose:
         print("...Done.")
