@@ -389,7 +389,6 @@ def train_yolo(record_ids, train_data_folder, bb_labels_folder, model_folder, ve
     # use the best weights from previous fine-tuning as starting point
     if warm_start and os.path.exists(os.path.join("digitization", "model_checkpoints", config + ".pt")):
         args.weights = os.path.join("digitization", "model_checkpoints", config + ".pt")
-        args.hyp = os.path.join("digitization", "YOLOv7", "data", "hyp.lowlr.yaml") # very low LR
 
     # yolo requires we also have val data
     os.makedirs(os.path.join("temp_data", "val", "images"), exist_ok=True)
