@@ -1,9 +1,0 @@
-train: "test_data/train"
-val: "test_data/val"
-test: "test_data/test"
-
-# number of classes
-nc: 2
-
-# class names
-names: ['short_lead', 'rhythm_lead']
