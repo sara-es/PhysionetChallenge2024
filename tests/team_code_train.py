@@ -18,14 +18,14 @@ def train_models(data_folder, model_folder, verbose):
     if verbose:
         print('Finding the Challenge data...')
 
-    records = helper_code.find_records(data_folder)
+    records = helper_code.find_records(data_folder)[:2000]
     num_records = len(records)
 
     if num_records == 0:
         raise FileNotFoundError('No data were provided.')
     
     # test on a smaller number of records for now
-    records = shuffle(records, random_state=42)
+    records = shuffle(records)
     num_records = len(records)
     
     digitization_model = team_code.train_digitization_model(data_folder, model_folder, verbose, 
@@ -35,6 +35,7 @@ def train_models(data_folder, model_folder, verbose):
 
 if __name__ == "__main__":
     data_folder = os.path.join(os.getcwd(), "ptb-xl", "records500")
+    # data_folder = os.path.join("temp_data", "train", "images")
     model_folder = os.path.join(os.getcwd(), "model")
     verbose = True
 

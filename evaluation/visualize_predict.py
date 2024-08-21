@@ -91,15 +91,18 @@ def get_trace(image, raw_signals, bounds, rhythm_leads=[Lead.II]):
 
     # Draw signals
     for i, lead in enumerate(ORDER):
-        rhythm = lead in rhythm_leads
-        r = rhythm_leads.index(lead) + NROWS if rhythm else i % NROWS
-        c = 0 if rhythm else i // NROWS
-        signal = raw_signals[r]
-        obs_num = len(signal) // (1 if rhythm else NCOLS)
-        signal = signal[c * obs_num : (c + 1) * obs_num]
-        color = COLORS[i % len(COLORS)]
-        for p1, p2 in zip(signal, signal[1:]):
-            trace.line(p1, p2, color, thickness=2)
+        try:
+            rhythm = lead in rhythm_leads
+            r = rhythm_leads.index(lead) + NROWS if rhythm else i % NROWS
+            c = 0 if rhythm else i // NROWS
+            signal = raw_signals[r]
+            obs_num = len(signal) // (1 if rhythm else NCOLS)
+            signal = signal[c * obs_num : (c + 1) * obs_num]
+            color = COLORS[i % len(COLORS)]
+            for p1, p2 in zip(signal, signal[1:]):
+                trace.line(p1, p2, color, thickness=2)
+        except:
+            print("Error drawing trace.")
     return trace
 
 
@@ -124,7 +127,7 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
     # unet_ids = sorted(list(unet_ids))
 
     # load models
-    yolo_model = digitization_model['yolov7-ecg-2c']
+    yolo_model = digitization_model['yolov7']
     unet_generated = digitization_model['unet_generated']
     unet_real = digitization_model['unet_real']
     image_classifier = digitization_model['image_classifier']
@@ -144,7 +147,7 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
     stats = []
     
     for i in range(len(ids[:200])): # care, seems to crash after plotting ~200 or so - I blame tkinter
-        print(image_ids[i])
+        print(f"####### {image_ids[i]} ########")
         image_info = {}
         image_info["record"] = ids[i]
         image_path = os.path.join(test_images_dir, image_ids[i] + '.png')
@@ -202,26 +205,25 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
         
         if rot_angle != 0: # currently just rotate the mask, do no re-predict 
             print(f"Rotation angle detected: {rot_angle}")
-        #     try: # sometimes this fails, if there are edge effects
-        #         args.source = rotated_image_path
-        #         rois = digitization.YOLOv7.detect.detect_single(yolo_model, args, True)
-        #         reconstructed_signal, raw_signals, gridsize = team_code.reconstruct_signal(ids[i], rotated_mask, 
-        #                                                 rois,
-        #                                                 header_txt,
-        #                                                 reconstructed_signal_dir, 
-        #                                                 save_signal=True,
-        #                                              is_real_image=is_real_image)
-        #         unet_image = rotated_mask # to save later, optional
-        #     except Exception as e: # in that case try it with the original (non-rotated) mask
-        #         print(f"Error reconstructing signal after rotating image {image_path}: {e}")
-        #         reconstructed_signal, raw_signals, gridsize = team_code.reconstruct_signal(ids[i], unet_image,
-        #                                                 rois, 
-        #                                                 header_txt,
-        #                                                 reconstructed_signal_dir, 
-        #                                                 save_signal=True,
-        #                                              is_real_image=is_real_image)        
-        # else: # no rotation needed
-        reconstructed_signal, raw_signals, gridsize = team_code.reconstruct_signal(ids[i], unet_image, 
+            args.source = rotated_image_path
+            rois = digitization.YOLOv7.detect.detect_single(yolo_model, args, True)
+            reconstructed_signal, raw_signals, gridsize = team_code.reconstruct_signal(ids[i], rotated_mask, 
+                                                        rois,
+                                                        header_txt,
+                                                        reconstructed_signal_dir, 
+                                                        save_signal=True,
+                                                     is_real_image=is_real_image)
+            if reconstructed_signal is None: # in that case try it with the original (non-rotated) mask
+                print(f"Error reconstructing signal after rotating image {image_path}, trying with original mask.")
+                reconstructed_signal, raw_signals, gridsize = team_code.reconstruct_signal(ids[i], unet_image,
+                                                        rois, 
+                                                        header_txt,
+                                                        reconstructed_signal_dir, 
+                                                        save_signal=True,
+                                                     is_real_image=is_real_image)   
+            else: unet_image = rotated_mask # to save later, optional     
+        else: # no rotation needed
+            reconstructed_signal, raw_signals, gridsize = team_code.reconstruct_signal(ids[i], unet_image, 
                                                     rois,
                                                     header_txt,
                                                     reconstructed_signal_dir, 
@@ -255,10 +257,12 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
                 true_gridsize = config['x_grid']
                 dc_pulse = config['dc_pulse']
                 rhythm = config['full_mode_lead']
+                rotation = config['rotate']
             except:
                 true_gridsize = 'N/A'
                 dc_pulse = 'N/A' 
                 rhythm = 'II'
+                rotation = 'N/A'
 
             # match signal lengths to only plotted leads
             output_signal, output_fields, label_signal, label_fields = \
@@ -313,7 +317,6 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
             if output_fields is None: # if digitization failed, don't try to classify
                 labels = None
             else: 
-                signal = np.nan_to_num(output_signal) # cast any NaNs to 0
                 labels = team_code.classify_signals(ids[i], reconstructed_signal_dir, resnet_models, 
                                         dx_classes, verbose=True)
                 
@@ -326,7 +329,7 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
             try:
                 description_string = f"""{ids[i]} ({output_fields['fs']} Hz)
     Reconstruction SNR: {mean_snr:.2f}
-    Gridsize: {gridsize}
+    Gridsize: {gridsize}, Detected rotation: {rot_angle} (actual {rotation})
     {output_fields['comments'][1:-1]}
     Predicted real? {is_real_image}
     Predicted label(s): {labels}"""
@@ -359,6 +362,8 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
             plt.figure(mosaic)
             plt.savefig(os.path.join(visualization_save_dir, filename))
             plt.close()
+        else: 
+            print(f"Skipping plot of image {ids[i]} with SNR {mean_snr:.2f}.")
 
         image_info["snr"] = mean_snr
         image_info["snr_median"] = mean_snr_median
@@ -394,7 +399,7 @@ if __name__ == "__main__":
     model_folder = 'model'
     digitization_model = dict()
     models = model_persistence.load_models(model_folder, True, 
-                        models_to_load=['yolov7-ecg-2c', 
+                        models_to_load=['yolov7-ecg-1c', 
                                         'unet_generated',
                                         'unet_real',
                                         'image_classifier', 
@@ -406,7 +411,7 @@ if __name__ == "__main__":
     digitization_model['unet_real'] = Unet.utils.load_unet_from_state_dict(models['unet_real'])
     digitization_model['image_classifier'] = classifier.load_from_state_dict(
                                                     models['image_classifier'])
-    digitization_model['yolov7-ecg-2c'] = models['yolov7-ecg-2c']
+    digitization_model['yolov7'] = models['yolov7-ecg-1c']
     classification_model = dict((m, models[m]) for m in ['res0', 'res1', 'res2', 'res3', 'res4', 
                                                          'dx_classes'])
 
