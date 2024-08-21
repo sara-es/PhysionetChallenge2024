@@ -7,6 +7,7 @@ from digitization.ECGminer.assets.Point import Point
 from digitization.ECGminer.assets.Format import Format
 from digitization.ECGminer.assets.Lead import Lead
 from digitization.ECGminer import layout
+from utils import constants
 
 
 def is_pulse(
@@ -248,11 +249,13 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
     else: 
         NROWS = 3 # ATTENTION: LAYOUT HARD CODED FOR NOW 
         NCOLS = 4 # We know Challenge team will only use 3x4 format
-        is_cabrera = layout.cabrera_detector(interp_signals, NCOLS)
+        is_cabrera = False
+        if constants.CHECK_CABRERA:
+            is_cabrera = layout.cabrera_detector(interp_signals, NCOLS)
     ORDER = Format.CABRERA if is_cabrera else Format.STANDARD
     if is_cabrera:
         print('Cabrera format detected!')
-    rhythm_leads = layout.detect_rhythm_strip(interp_signals, is_cabrera, THRESH=1)
+    rhythm_leads = layout.detect_rhythm_deterministic(interp_signals)
     if rhythm_leads != [Lead.II]:
         print(f'ALTERNATIVE RHYTHM LEAD DETECTED: {rhythm_leads}')
     
@@ -271,7 +274,7 @@ def vectorize(signal_coords: Iterable[Iterable[Point]], sig_len: int, max_durati
     else:
         first_pixels = [pulso[0].y for pulso in signal_coords]
 
-    if any((np.diff(first_pixels) - np.diff(first_pixels).mean()) > grid_size_px*0.5):
+    if ref_pulse_present and any((np.diff(first_pixels) - np.diff(first_pixels).mean()) > grid_size_px*0.5):
         print("WARNING: Reference pulses are not evenly spaced")
         # if there's too much variation in the first pixel, we've probably missed the reference pulses
         ref_pulse_present = 0 # set this to 0 so we don't scale the signals with the reference pulses

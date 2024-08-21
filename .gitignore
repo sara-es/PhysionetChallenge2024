@@ -191,3 +191,4 @@ model/unet_gen_256
 model/unet_real_256
 model/unet_real_256_checkpoint
 model/unet_real_256_losses.npy
+/test_data_clean

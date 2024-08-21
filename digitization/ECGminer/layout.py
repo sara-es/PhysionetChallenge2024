@@ -125,6 +125,20 @@ def return_formats(is_cabrera):
         ] 
     return format_3x4, format_6x2
 
+def detect_rhythm_deterministic(signal_arr):
+    NROWS = signal_arr.shape[0]
+    if NROWS == 3:
+        rhythm = []
+    elif NROWS == 4:
+        rhythm = [Lead.II]
+    elif NROWS == 5:
+        rhythm = [Lead.II, Lead.V5]
+    elif NROWS == 6:
+        rhythm = [Lead.V1, Lead.II, Lead.V5]
+    else:
+        #this should never happen
+        rhythm = []
+    return rhythm
 
 def detect_rhythm_strip(signal_arr, is_cabrera, THRESH = 2):
     """
@@ -163,16 +177,62 @@ def detect_rhythm_strip(signal_arr, is_cabrera, THRESH = 2):
                     fin = col_width*(k+1)-1
                     test_grid[j,k] = sum(test[j][start:fin]) / col_width
             
-            # find the minimum value of test_grid. If minimum value is less than threshold, 
-            # report j,k. Otherwise, use defaults rhythm values
-            if (np.min(test_grid) < THRESH): # i.e. on average, maximum of 1 pixel difference
-                x,y = np.where(test_grid == np.min(test_grid))
-                rhythm.append(format_3x4[x[0]][y[0]]) # get corresponding label
-            else:
-                #record offset idx of any fails
-                rhythm.append('FAIL')
-                fails.append(i-NUM_SHORTROWS)
+            # count number of leads that meet the criteria
+            bin_test_grid = test_grid.copy()
+            bin_test_grid[test_grid < THRESH] = 1
+            bin_test_grid[test_grid >= THRESH] = 0
             
+            if np.sum(bin_test_grid) <= 1:
+                # find the minimum value of test_grid. If minimum value is less than threshold, 
+                # report j,k. Otherwise, use defaults rhythm values
+                if (np.min(test_grid) < THRESH): # i.e. on average, maximum of 1 pixel difference
+                    x,y = np.where(test_grid == np.min(test_grid))
+                    rhythm.append(format_3x4[x[0]][y[0]]) # get corresponding label
+                else:
+                    #record offset idx of any fails
+                    rhythm.append('FAIL')
+                    fails.append(i-NUM_SHORTROWS)
+            else:
+                # if there is a choice, select Lead.II for the top
+                x,y = np.where(test_grid < THRESH)
+                a = x,y
+                if (NROWS == 4 | NROWS ==5) & i == 3: # if it is a 4 or 5 row ECG, and we are on the 4th row, then set to lead II if plausible
+                    
+                    for xy in a:
+                        if np.array_equal(xy,[0,1]):
+                            rhythm.append(Lead.II)
+                        else: # set as normal 
+                            x,y = np.where(test_grid == np.min(test_grid))
+                            rhythm.append(format_3x4[x[0]][y[0]])
+                elif (NROWS == 5 & i == 4): #if it is a 5 lead ECG, and we are on row 5, favour Lead.V5
+                    for xy in a:
+                        if np.array_equal(xy,[1,3]):
+                            rhythm.append(Lead.V5)
+                        else: # set as normal 
+                            x,y = np.where(test_grid == np.min(test_grid))
+                            rhythm.append(format_3x4[x[0]][y[0]])
+                elif (NROWS == 6):
+                    if i == 4: # favour Lead.V1
+                        if np.array_equal(xy,[0,2]):
+                            rhythm.append(Lead.V1)
+                        else: # set as normal 
+                            x,y = np.where(test_grid == np.min(test_grid))
+                            rhythm.append(format_3x4[x[0]][y[0]])
+                    elif i == 5: #favour lead.II
+                        for xy in a:
+                            if np.array_equal(xy,[0,1]):
+                                rhythm.append(Lead.II)
+                            else: # set as normal 
+                                x,y = np.where(test_grid == np.min(test_grid))
+                                rhythm.append(format_3x4[x[0]][y[0]])
+                    elif i == 6: #if i==6 favour lead.v5
+                        for xy in a:
+                            if np.array_equal(xy,[1,3]):
+                                rhythm.append(Lead.II)
+                            else: # set as normal 
+                                x,y = np.where(test_grid == np.min(test_grid))
+                                rhythm.append(format_3x4[x[0]][y[0]])
+        
         # Hacky code ahead - 
         if NROWS == 4:
             default_rhythm = [Lead.II]

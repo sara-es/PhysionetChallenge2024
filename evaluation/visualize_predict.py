@@ -91,27 +91,38 @@ def get_trace(image, raw_signals, bounds, rhythm_leads=[Lead.II]):
 
     # Draw signals
     for i, lead in enumerate(ORDER):
-        rhythm = lead in rhythm_leads
-        r = rhythm_leads.index(lead) + NROWS if rhythm else i % NROWS
-        c = 0 if rhythm else i // NROWS
-        signal = raw_signals[r]
-        obs_num = len(signal) // (1 if rhythm else NCOLS)
-        signal = signal[c * obs_num : (c + 1) * obs_num]
-        color = COLORS[i % len(COLORS)]
-        for p1, p2 in zip(signal, signal[1:]):
-            trace.line(p1, p2, color, thickness=2)
+        try:
+            rhythm = lead in rhythm_leads
+            r = rhythm_leads.index(lead) + NROWS if rhythm else i % NROWS
+            c = 0 if rhythm else i // NROWS
+            signal = raw_signals[r]
+            obs_num = len(signal) // (1 if rhythm else NCOLS)
+            signal = signal[c * obs_num : (c + 1) * obs_num]
+            color = COLORS[i % len(COLORS)]
+            for p1, p2 in zip(signal, signal[1:]):
+                trace.line(p1, p2, color, thickness=2)
+        except:
+            print("Error drawing trace.")
     return trace
 
 
-def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
+def visualize_trace(test_images_dir,
+                    base_dir,
                     digitization_model,
-                    wfdb_records_dir, visualization_save_dir, save_images,
+                    wfdb_records_dir, save_images,
                     classification_model=None):
+    
     records = helper_code.find_records(wfdb_records_dir)
     ids = team_helper_code.check_dirs_for_ids(records, test_images_dir, 
                                               None, True)
     image_ids = team_helper_code.find_available_images(ids, 
                                                        test_images_dir, verbose=True)
+    unet_outputs_dir = os.path.join(base_dir, "unet_outputs")
+    os.makedirs(unet_outputs_dir, exist_ok=True)
+    reconstructed_signal_dir = os.path.join(base_dir, "reconstructed_signals")
+    os.makedirs(reconstructed_signal_dir, exist_ok=True)
+    visualization_save_folder = os.path.join(base_dir, "trace_visualizations")
+    os.makedirs(visualization_save_folder, exist_ok=True)
     # unet_ids = team_helper_code.find_available_images(ids, 
     #                                                   unet_outputs_dir, verbose=True)
     # if len(image_ids) != len(unet_ids) and len(image_ids) > 0:
@@ -124,7 +135,7 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
     # unet_ids = sorted(list(unet_ids))
 
     # load models
-    yolo_model = digitization_model['yolov7-ecg-2c']
+    yolo_model = digitization_model['yolov7']
     unet_generated = digitization_model['unet_generated']
     unet_real = digitization_model['unet_real']
     image_classifier = digitization_model['image_classifier']
@@ -137,14 +148,14 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
     # unet_generated = Unet.utils.load_unet_from_state_dict(models['digitization_model'])
     #############################
 
-    patch_folder = os.path.join('test_data', 'patches', 'image_patches')
+    patch_folder = os.path.join(base_dir, 'patches', 'image_patches')
     os.makedirs(patch_folder, exist_ok=True)
 
     snrs = []  
     stats = []
     
     for i in range(len(ids[:200])): # care, seems to crash after plotting ~200 or so - I blame tkinter
-        print(image_ids[i])
+        print(f"####### {image_ids[i]} ########")
         image_info = {}
         image_info["record"] = ids[i]
         image_path = os.path.join(test_images_dir, image_ids[i] + '.png')
@@ -153,7 +164,7 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
         args = digitization.YOLOv7.detect.OptArgs()
         args.device = "0"
         args.source = image_path
-        args.project = "test_data\\detect"
+        args.project = base_dir + "\\detect"
         args.nosave = False # set False for testing to save images with ROIs
         rois = digitization.YOLOv7.detect.detect_single(yolo_model, args, verbose=True)
 
@@ -176,20 +187,19 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
         is_real_image = False
         is_real_image = classifier.classify_image(ids[i], patch_folder, 
                                                     image_classifier, True)
-        if is_real_image:
-            print("Detected real image")
         
         if is_real_image:
+            print("Detected real image")
             unet_model = unet_real
         else:
             unet_model = unet_generated
         # predict on patches, recover u-net output image
-        unet_image = Unet.predict_single_image(ids[i], patch_folder, unet_model,
+        unet_image, entropy = Unet.predict_single_image(ids[i], patch_folder, unet_model,
                                                 original_image_size=image.shape[:2])
         
         # save u-net output image
         np.save(os.path.join(unet_outputs_dir, ids[i]), unet_image)
-        with open(os.path.join("test_data", "unet_out_imgs", ids[i] + '.png'), 'wb') as f:
+        with open(os.path.join(base_dir, "unet_out_imgs", ids[i] + '.png'), 'wb') as f:
             plt.imsave(f, unet_image, cmap='gray')
 
         # digitize signal from u-net ouput
@@ -202,26 +212,25 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
         
         if rot_angle != 0: # currently just rotate the mask, do no re-predict 
             print(f"Rotation angle detected: {rot_angle}")
-        #     try: # sometimes this fails, if there are edge effects
-        #         args.source = rotated_image_path
-        #         rois = digitization.YOLOv7.detect.detect_single(yolo_model, args, True)
-        #         reconstructed_signal, raw_signals, gridsize = team_code.reconstruct_signal(ids[i], rotated_mask, 
-        #                                                 rois,
-        #                                                 header_txt,
-        #                                                 reconstructed_signal_dir, 
-        #                                                 save_signal=True,
-        #                                              is_real_image=is_real_image)
-        #         unet_image = rotated_mask # to save later, optional
-        #     except Exception as e: # in that case try it with the original (non-rotated) mask
-        #         print(f"Error reconstructing signal after rotating image {image_path}: {e}")
-        #         reconstructed_signal, raw_signals, gridsize = team_code.reconstruct_signal(ids[i], unet_image,
-        #                                                 rois, 
-        #                                                 header_txt,
-        #                                                 reconstructed_signal_dir, 
-        #                                                 save_signal=True,
-        #                                              is_real_image=is_real_image)        
-        # else: # no rotation needed
-        reconstructed_signal, raw_signals, gridsize = team_code.reconstruct_signal(ids[i], unet_image, 
+            args.source = rotated_image_path
+            rois = digitization.YOLOv7.detect.detect_single(yolo_model, args, True)
+            reconstructed_signal, raw_signals, gridsize = team_code.reconstruct_signal(ids[i], rotated_mask, 
+                                                        rois,
+                                                        header_txt,
+                                                        reconstructed_signal_dir, 
+                                                        save_signal=True,
+                                                     is_real_image=is_real_image)
+            if reconstructed_signal is None: # in that case try it with the original (non-rotated) mask
+                print(f"Error reconstructing signal after rotating image {image_path}, trying with original mask.")
+                reconstructed_signal, raw_signals, gridsize = team_code.reconstruct_signal(ids[i], unet_image,
+                                                        rois, 
+                                                        header_txt,
+                                                        reconstructed_signal_dir, 
+                                                        save_signal=True,
+                                                     is_real_image=is_real_image)   
+            else: unet_image = rotated_mask # to save later, optional     
+        else: # no rotation needed
+            reconstructed_signal, raw_signals, gridsize = team_code.reconstruct_signal(ids[i], unet_image, 
                                                     rois,
                                                     header_txt,
                                                     reconstructed_signal_dir, 
@@ -255,10 +264,12 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
                 true_gridsize = config['x_grid']
                 dc_pulse = config['dc_pulse']
                 rhythm = config['full_mode_lead']
+                rotation = config['rotate']
             except:
                 true_gridsize = 'N/A'
                 dc_pulse = 'N/A' 
                 rhythm = 'II'
+                rotation = 'N/A'
 
             # match signal lengths to only plotted leads
             output_signal, output_fields, label_signal, label_fields = \
@@ -293,7 +304,7 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
                                             ['trace', 'ecg_plots']
                                         ])
             # load image from YOLO detection
-            yolo_img_path = os.path.join("test_data", "detect", "exp", image_ids[i]+'.png')
+            yolo_img_path = os.path.join(base_dir, "detect", "exp", image_ids[i]+'.png')
             with Image.open(yolo_img_path) as img:
                 axd['original_image'].axis('off')
                 axd['original_image'].imshow(img, cmap='gray')
@@ -313,7 +324,6 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
             if output_fields is None: # if digitization failed, don't try to classify
                 labels = None
             else: 
-                signal = np.nan_to_num(output_signal) # cast any NaNs to 0
                 labels = team_code.classify_signals(ids[i], reconstructed_signal_dir, resnet_models, 
                                         dx_classes, verbose=True)
                 
@@ -326,12 +336,13 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
             try:
                 description_string = f"""{ids[i]} ({output_fields['fs']} Hz)
     Reconstruction SNR: {mean_snr:.2f}
-    Gridsize: {gridsize}
+    Gridsize: {gridsize}, Detected rotation: {rot_angle} (actual {rotation})
     {output_fields['comments'][1:-1]}
-    Predicted real? {is_real_image}
+    Predicted real? {is_real_image}, entropy: {entropy:.2f}
     Predicted label(s): {labels}"""
             except:
                 description_string = f"""{ids[i]}
+    Predicted real? {is_real_image}, entropy: {entropy:.2f}
     Reconstruction SNR: {mean_snr:.2f}"""
         
             # plot ground truth and reconstructed signal
@@ -357,8 +368,10 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
             # save everything in one image
             filename = f"{ids[i]}_reconstruction.png"
             plt.figure(mosaic)
-            plt.savefig(os.path.join(visualization_save_dir, filename))
+            plt.savefig(os.path.join(visualization_save_folder, filename))
             plt.close()
+        else: 
+            print(f"Skipping plot of image {ids[i]} with SNR {mean_snr:.2f}.")
 
         image_info["snr"] = mean_snr
         image_info["snr_median"] = mean_snr_median
@@ -381,20 +394,15 @@ def visualize_trace(test_images_dir, unet_outputs_dir, reconstructed_signal_dir,
 
 
 if __name__ == "__main__":
-    test_images_folder = os.path.join("test_data", "images")
+    base_dir = "test_data_clean"
+    test_images_folder = os.path.join(base_dir, "images")
     # unet_outputs_folder = os.path.join("test_data", "unet_outputs")
-    unet_outputs_folder = os.path.join("test_data", "unet_outputs")
-    os.makedirs(unet_outputs_folder, exist_ok=True)
-    reconstructed_signal_dir = os.path.join("test_data", "reconstructed_signals")
-    os.makedirs(reconstructed_signal_dir, exist_ok=True)
-    visualization_save_folder = os.path.join("test_data", "trace_visualizations")
-    os.makedirs(visualization_save_folder, exist_ok=True)
     save_image_threshold = 10 # snr threshold below which images will be saved for visualization
 
     model_folder = 'model'
     digitization_model = dict()
     models = model_persistence.load_models(model_folder, True, 
-                        models_to_load=['yolov7-ecg-2c', 
+                        models_to_load=['yolov7-ecg-1c', 
                                         'unet_generated',
                                         'unet_real',
                                         'image_classifier', 
@@ -406,15 +414,13 @@ if __name__ == "__main__":
     digitization_model['unet_real'] = Unet.utils.load_unet_from_state_dict(models['unet_real'])
     digitization_model['image_classifier'] = classifier.load_from_state_dict(
                                                     models['image_classifier'])
-    digitization_model['yolov7-ecg-2c'] = models['yolov7-ecg-2c']
+    digitization_model['yolov7'] = models['yolov7-ecg-1c']
     classification_model = dict((m, models[m]) for m in ['res0', 'res1', 'res2', 'res3', 'res4', 
                                                          'dx_classes'])
 
     visualize_trace(test_images_folder, 
-                    unet_outputs_folder, 
-                    reconstructed_signal_dir,
+                    base_dir,
                     digitization_model,
                     wfdb_records_dir=test_images_folder,
-                    visualization_save_dir=visualization_save_folder,
                     save_images=save_image_threshold,
                     classification_model=classification_model)

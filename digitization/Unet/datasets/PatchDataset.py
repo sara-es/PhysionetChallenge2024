@@ -48,8 +48,8 @@ class PatchDataset(Dataset):  # Inherit from Dataset class
                     x = jitter(x)
                 elif option == 'rotation':
                     rot = int(torch.randint(low=0, high=90, size=(1,)))
-                    x = TF.rotate(x, rot, fill=1) # patching fills empty space with 1s for images
-                    y = TF.rotate(y, rot, fill=0) # and 0s for labels
+                    x = TF.rotate(x, rot, fill=0) # fill with 0 for both
+                    y = TF.rotate(y, rot, fill=0)
                 elif option == 'blur':
                     blurer = transforms.GaussianBlur(kernel_size=(3,3), sigma=(0.5, 0.5))
                     x = blurer(x)
@@ -58,7 +58,7 @@ class PatchDataset(Dataset):  # Inherit from Dataset class
                     x = x + noise
                 elif option == 'scale':
                     scale = float(torch.rand(1)) + 0.5
-                    scaler = transforms.RandomAffine(degrees=0, translate=None, scale=(scale, scale), fill=1) # Nearest neighbour interpolation by standard, use that for now 
+                    scaler = transforms.RandomAffine(degrees=0, translate=None, scale=(scale, scale), fill=0) # Nearest neighbour interpolation by standard, use that for now 
                     x = scaler(x)
                     scaler = transforms.RandomAffine(degrees=0, translate=None, scale=(scale, scale), fill=0) # 0 fill for labels
                     y = scaler(y)

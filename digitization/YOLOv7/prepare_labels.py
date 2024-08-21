@@ -2,6 +2,7 @@ import os, sys
 sys.path.append(os.path.join(sys.path[0], '..'))
 import json
 from utils import team_helper_code
+import numpy as np
 
 def prepare_label_text(metadata, lead_text_label=None, short_lead_label=0, long_lead_label=1):
     """
@@ -53,6 +54,62 @@ def prepare_label_text(metadata, lead_text_label=None, short_lead_label=0, long_
     return out_str
 
 
+def prepare_label_text_1c(metadata):
+    """
+    Assumes fixed layout of the leads in the image.
+    """
+    lead_order = [["I", "aVR", "V1", "V4"],
+                  ["II", "aVL", "V2", "V5"],
+                  ["III", "aVF", "V3", "V6"]]
+    
+    bounds = np.zeros((3, 4, 4, 2)) # 3 rows, 4 columns, 4 bounds per lead, 2 coords
+
+    n_leads = len(lead_order) + 1 # assuming 1 full mode lead
+    out_str = ""
+
+    image_width = metadata["width"]
+    image_height = metadata["height"]
+    sampling_frequency = metadata["sampling_frequency"]
+    
+    for lead in metadata["leads"]:
+        for i, row in enumerate(lead_order):
+            for j, lead_name in enumerate(row):
+                if lead["lead_name"] == lead_name:
+                    if lead["end_sample"] - lead["start_sample"] == sampling_frequency*10:
+                        # rhythm lead
+                        x_min = lead["lead_bounding_box"]["0"][1] / image_width
+                        x_max = lead["lead_bounding_box"]["2"][1] / image_width
+                        y_min = lead["lead_bounding_box"]["0"][0] / image_height
+                        y_max = lead["lead_bounding_box"]["2"][0] / image_height
+
+                        x_center = (x_min + x_max) / 2
+                        y_center = (y_min + y_max) / 2
+                        width = x_max - x_min
+                        height = y_max - y_min
+
+                        out_str += f"0 {x_center} {y_center} {width} {height}\n"
+                    else:
+                        bounds[i, j] = np.array(list(lead["lead_bounding_box"].values()))
+
+    for i in range(len(lead_order)):
+        x_min = np.min(bounds[i, :, :, 1]) / image_width
+        x_max = np.max(bounds[i, :, :, 1]) / image_width
+        y_min = np.min(bounds[i, :, :, 0]) / image_height
+        y_max = np.max(bounds[i, :, :, 0]) / image_height
+
+        x_center = (x_min + x_max) / 2
+        y_center = (y_min + y_max) / 2
+        width = x_max - x_min
+        height = y_max - y_min
+
+        out_str += f"0 {x_center} {y_center} {width} {height}\n"
+
+    n_labels = len(out_str.split("\n")) - 1
+    if n_labels != n_leads:   
+        raise ValueError(f'Expected {n_leads} lines in the label file, but found {n_labels}.')
+    return out_str
+
+
 def prepare_label_files(ids, json_file_dir, label_file_dir, verbose):
     """
     Prepare label files for the images in the dataset.
@@ -82,14 +139,7 @@ def prepare_label_files(ids, json_file_dir, label_file_dir, verbose):
         json_path = os.path.join(json_file_dir, json_file + ".json")
         with open(json_path, 'r') as f:
             metadata = json.load(f)
-        label_text = prepare_label_text(metadata)
+        # label_text = prepare_label_text(metadata) # two class labels
+        label_text = prepare_label_text_1c(metadata)
         with open(os.path.join(label_file_dir, json_file + ".txt"), 'w') as f:
             f.write(label_text)
-
-
-
-# if __name__ == "__main__":
-#     ids = set([f.split(".")[0] for f in os.listdir("yolo_data\\val_images\\images") if f.endswith(".png")]) 
-#     json_file_dir = "yolo_data\\val_images"
-#     label_file_dir = "yolo_data\\val_images\\labels"
-#     prepare_label_files(ids, json_file_dir, label_file_dir)

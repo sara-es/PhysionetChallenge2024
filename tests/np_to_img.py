@@ -2,7 +2,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-base_path = "G:\\PhysionetChallenge2024\\temp_data\\"
+base_path = "G:\\PhysionetChallenge2024\\temp_data\\train\\"
 dir_path = base_path + "masks"
 out_path = base_path + "masks_imgs"
 os.makedirs(out_path, exist_ok=True)

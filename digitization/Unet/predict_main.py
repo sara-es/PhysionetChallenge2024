@@ -87,11 +87,12 @@ def predict_single_image(image_id, im_patch_dir, unet, original_image_size=(1700
 
     results, _, _ = normal_predict(unet, test_dataloader, have_labels=False)
 
+    entropy = entropy_estimator.entropy_est(results, reduce=True)
     results = results.squeeze()
     results = np.argmax(results, axis=1)
 
     predicted_im = Unet.patching.depatchify(results, results.shape[1:], original_image_size)
-    return predicted_im
+    return predicted_im, entropy
 
 
 def batch_predict_full_images(ids_to_predict, patch_dir, unet, save_pth, 

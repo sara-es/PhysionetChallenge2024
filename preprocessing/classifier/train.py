@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader
 
 from preprocessing.classifier import datasets, utils
 from preprocessing.classifier.ResNet_adapt import ResNet_adapt
+from utils import constants
 
 
 def train_epoch(args, model, train_loader, optimizer, criterion, epoch, verbose):
@@ -88,7 +89,7 @@ def train_image_classifier(real_patch_folder, gen_patch_folder, model_folder,
         args = utils.Args()
         args.learning_rate = 0.5e-3
         args.patience = 10
-        # args.epochs = 1
+        args.epochs = constants.UNET_EPOCHS
 
     cuda = torch.cuda.is_available()
     device = torch.device("cuda" if cuda else "cpu")
