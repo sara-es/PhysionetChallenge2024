@@ -13,6 +13,7 @@ from iterstrat.ml_stratifiers import MultilabelStratifiedShuffleSplit, Multilabe
 from classification.ResNet.SEResNet import ResNet, BasicBlock
 from classification.ResNet.datasets.ECGDataset import ECGDataset, get_transforms
 from classification import utils
+from utils import constants
 
 
 def split_data(data, labels, n_splits=1):
@@ -255,7 +256,7 @@ def train_model(data, multilabels, uniq_labels, verbose, epochs=5, validate=True
     return model.state_dict()
 
 
-def predict_proba(saved_model, data, classes, verbose, multi_dx_threshold=0.5):
+def predict_proba(saved_model, data, classes, verbose, multi_dx_threshold=constants.MULTILABEL_THRESHOLD):
     """
     NOTE: As opposed to the train function, this function takes in a signal 
     (numpy array) directly, instead of a path to a signal.
