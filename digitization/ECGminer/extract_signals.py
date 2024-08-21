@@ -4,6 +4,7 @@ from typing import Iterable
 from digitization.ECGminer.assets.DigitizationError import DigitizationError, SignalExtractionError
 from digitization.ECGminer.assets.Image import Image
 from digitization.ECGminer.assets.Point import Point
+from utils import constants
 
 
 def get_roi(ecg: Image, n: int) -> Iterable[int]:
@@ -32,6 +33,7 @@ def get_roi(ecg: Image, n: int) -> Iterable[int]:
     min_distance = int(ecg.height * 0.1)
     peaks, _ = sp.signal.find_peaks(stds, distance=min_distance)
     rois = sorted(peaks, key=lambda x: stds[x], reverse=True)
+    print(f"ROIs: {rois}")
     if len(rois) < n:
         raise DigitizationError("The indicated number of rois could not be detected.")
     rois = rois[0: n]
@@ -68,7 +70,53 @@ def find_start_coords(image, rois, row):
     idxs = np.where(rowvals == 0)[0]
     idx = np.argmin(abs(idxs - row))
     startrow = idxs[idx]
-    return startrow, startcol, endcol
+    return startrow, startcol, endcol, row
+
+
+def find_start_coords_from_bounds(image, bound_box):
+    """
+    takes in an image and signal bounding box and returns the start row and column of signal
+    bounding box is x_center, y_center, width, height in percent of image height, width
+    """
+    row = bound_box[1]*image.shape[0] # row y center
+    top = int(row - image.shape[0]*bound_box[3]/2)
+    bottom = int(row + image.shape[0]*bound_box[3]/2)
+    if top < 0:
+        top = 0
+    if bottom > image.shape[0]:
+        bottom = image.shape[0]
+    row = int(row)
+
+    left = int(image.shape[1]*bound_box[0] - image.shape[1]*bound_box[2]/2)
+    right = int(image.shape[1]*bound_box[0] + image.shape[1]*bound_box[2]/2)
+    if left < 0:
+        left = 0
+    if right > image.shape[1]:
+        right = image.shape[1]
+
+    # find the starting and end column - columns with black pixels within the active region
+    colsums = np.min(image[top:bottom,:],0)
+    idxs = np.where(colsums == 0)[0]
+    startcol = idxs[0]
+    endcol = idxs[-1]
+
+    if startcol < left: # restrict starting point to edge of bounding box
+        startcol = left
+    if endcol > right: # restrict end point to edge of bounding box
+        endcol = right
+    
+    # find the start row - the black pixel that is nearest to the baseline. This also doesn't work
+    # if adjacent row bleeds into this row
+    rowvals = image[:,startcol]
+    idxs = np.where(rowvals == 0)[0]
+    while idxs.size == 0: # if there is no black pixel in this column, move to the next column
+        startcol += 1
+        rowvals = image[:,startcol]
+        idxs = np.where(rowvals == 0)[0]
+    idx = np.argmin(abs(idxs - int(row)))
+    startrow = idxs[idx]
+
+    return startrow, startcol, endcol, row
 
 
 def signal_to_miner(signals, rois):
@@ -149,14 +197,32 @@ def ecg_sqi(signals, rois, max_duration=10, thresh_lens=5, thresh_secs=0.1) -> b
     return SQI
 
 
-def extract_row_signals(ecg: Image, n_lines: int) -> Iterable[Iterable[Point]]:
+def extract_row_signals(ecg: Image, yolo_rois_cropped : np.array, n_lines: int) -> Iterable[Iterable[Point]]:
+    x_coords, y_coords, endcols, rows = [], [], [], []
+    if yolo_rois_cropped.size > 0 and constants.YOLO_ROIS and constants.YOLO_CONFIG == 'yolov7-ecg-1c':
+        bounding_boxes = yolo_rois_cropped[yolo_rois_cropped[:, 1].argsort()] # sort by y_center
+        rois = sorted((ecg.height*bounding_boxes[:, 1]).astype(int)) # y_center of bounding box
+        for row in bounding_boxes:
+            x, y, endcol, row_yval = find_start_coords_from_bounds(ecg.data, row)
+            x_coords.append(x)
+            y_coords.append(y)
+            endcols.append(endcol)
+            rows.append(row_yval)
+    else:
+        print("No yolo boxes found")
+        rois = get_roi(ecg, n_lines)
+        for row in rois:
+            x, y, endcol, row_yval = find_start_coords(ecg.data, rois, row)
+            x_coords.append(x)
+            y_coords.append(y)
+            endcols.append(endcol)
+            rows.append(row_yval)
+
     thresh = 50
     test_im = ecg.data
-    rois = get_roi(ecg, n_lines)
     s = []
     
-    for row in rois:
-        x, y, endcol = find_start_coords(test_im, rois, row)
+    for x, y, endcol, row in zip(x_coords, y_coords, endcols, rows):
         signal = []
         signal_col = []
         signal_col.append([x,y])

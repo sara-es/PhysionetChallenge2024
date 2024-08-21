@@ -60,7 +60,7 @@ def binarize_image(image):
     return image
 
 
-def crop_image(image, box):
+def crop_image(image, box, yolo_boxes):
     # threshold and binarize
     image = binarize_image(image) # returns Image object
     height = image.height
@@ -79,6 +79,21 @@ def crop_image(image, box):
     if box[2] < 0 : box[2] = 0
     if box[3] < height : box[3] = height
 
+    # adjust yolo boxes to new coordinates
+    yolo_boxes = np.array(yolo_boxes)
+    if yolo_boxes.size > 0:
+        box_pct = np.array(box.copy()).astype(float)
+        box_pct[0] = box[0] / width # left
+        box_pct[1] = box[1] / width # right
+        box_pct[2] = box[2] / height # top
+        box_pct[3] = box[3] / height # bottom
+        yolo_boxes[:,1] = (yolo_boxes[:,1] - box_pct[0]) / (box_pct[1] - box_pct[0]) # x center
+        yolo_boxes[:,2] = (yolo_boxes[:,2] - box_pct[2]) / (box_pct[3] - box_pct[2]) # y center
+        yolo_boxes[:,3] = yolo_boxes[:,3] / (box_pct[1] - box_pct[0]) # width
+        yolo_boxes[:,4] = yolo_boxes[:,4] / (box_pct[3] - box_pct[2]) # height
+
+        yolo_boxes = yolo_boxes[:,1:] # remove the first column which is the class number
+
     if constants.YOLO_BOUNDING:
         rect = Rectangle(Point(box[0], box[2]), Point(box[1], box[3])) # cropped image from yolo
     else:
@@ -87,4 +102,4 @@ def crop_image(image, box):
     image.crop(rect)
     image.to_GRAY()
 
-    return image, rect
+    return image, rect, yolo_boxes

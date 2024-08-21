@@ -69,7 +69,7 @@ def train_models(data_folder, model_folder, verbose):
     unet_generated, unet_real, image_classifier = train_digitization_model(data_folder, 
                                                         model_folder, verbose, 
                                                         records_to_process=records, 
-                                                        delete_training_data=False,
+                                                        delete_training_data=constants.DELETE_DATA,
                                                         real_data_folder=real_data_folder)
     
     digitization_model = dict()
@@ -113,7 +113,7 @@ def train_models(data_folder, model_folder, verbose):
 def load_models(model_folder, verbose):
     digitization_model = dict()
     models = model_persistence.load_models(model_folder, verbose, 
-                        models_to_load=['yolov7-ecg-1c', 
+                        models_to_load=[constants.YOLO_CONFIG, 
                                         'unet_generated',
                                         'unet_real',
                                         'image_classifier', 
@@ -124,7 +124,7 @@ def load_models(model_folder, verbose):
     digitization_model['unet_real'] = Unet.utils.load_unet_from_state_dict(models['unet_real'])
     digitization_model['image_classifier'] = classifier.load_from_state_dict(
                                                     models['image_classifier'])
-    digitization_model['yolov7'] = models['yolov7-ecg-1c']
+    digitization_model['yolov7'] = models[constants.YOLO_CONFIG]
     classification_model = dict((m, models[m]) for m in ['res0', 'res1', 'res2', 'res3', 'res4', 
                                                          'dx_classes'])
     return digitization_model, classification_model
@@ -135,8 +135,10 @@ def load_models(model_folder, verbose):
 # the models, then you can return None for the model.
 def run_models(record, digitization_model, classification_model, verbose):
     # Run the digitization model; if you did not train this model, then you can set signal=None.
-    signal, reconstructed_signal_dir = unet_reconstruct_single_image(record, digitization_model, 
-                                                                     verbose, delete_patches=True)
+    signal, reconstructed_signal_dir, is_real_image = unet_reconstruct_single_image(record, 
+                                                        digitization_model, 
+                                                        verbose, 
+                                                        delete_patches=constants.DELETE_DATA)
     
     # Load the classification model and classes.
     resnet_models = classification_model.copy()
@@ -152,6 +154,9 @@ def run_models(record, digitization_model, classification_model, verbose):
     # delete any temporary files
     for f in os.listdir(reconstructed_signal_dir):
         os.remove(os.path.join(reconstructed_signal_dir, f))
+
+    if is_real_image and constants.RETURN_SIGNAL_IF_REAL == False:
+        signal = None
     
     return signal, labels
 
@@ -173,12 +178,13 @@ def save_models(model_folder, digitization_model=None, classification_model=None
         
 
 def train_digitization_model(data_folder, model_folder, verbose, records_to_process=None,
-                             delete_training_data=True, max_size_training_set=3000,
+                             delete_training_data=True, 
+                             max_size_training_set=constants.MAX_GENERATE_IMAGES,
                              real_data_folder=None):
     """
     Our general digitization process is
-    1. generate testing images and masks
-    2. preprocess testing images to estimate grid size/scale
+    1. generate synthetic images and masks
+    2. preprocess 
     3. generate u-net patches
     4. run u-net on patches
     5. recover full image with signal outline from u-net outputs
@@ -242,7 +248,6 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
         if not os.path.exists(real_images_folder) or not os.path.exists(real_masks_folder):
             print(f"Real images or masks not found in {real_data_folder}, unable to train " +\
                     "real image classifier or u-net.")
-        # gen_img_patch_dir = os.path.join(gen_patch_folder, 'image_patches')
         real_records = os.listdir(real_images_folder)
         real_records = [r.split('.')[0] for r in real_records]
         Unet.patching.save_patches_batch(real_records, real_images_folder, real_masks_folder, 
@@ -261,13 +266,13 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
         if verbose:
             print("Training U-net for real data...")
         unet_real = train_unet(real_records, real_patch_folder, model_folder, verbose, args=args,
-                            warm_start=False, ckpt_name='unet_real')
+                            warm_start=constants.WARM_START, ckpt_name='unet_real')
 
     # train U-net: generated data
     if verbose: 
         print("Training U-net for generated data...")
     unet_generated = train_unet(records_to_process, gen_patch_folder, model_folder, verbose,
-                             args=args, warm_start=True, ckpt_name='unet_gen')
+                             args=args, warm_start=constants.WARM_START, ckpt_name='unet_gen')
     
     # optional: delete any leftover training data
     if delete_training_data:
@@ -302,18 +307,10 @@ def generate_training_images(wfdb_records_folder, images_folder, masks_folder, b
     img_gen_params = generator.DefaultArgs()
     img_gen_params.input_directory = wfdb_records_folder
     img_gen_params.output_directory = images_folder
-    img_gen_params.random_bw = 0.2
-    img_gen_params.wrinkles = True
-    img_gen_params.print_header = True
-    img_gen_params.augment = True
-    img_gen_params.crop = 0.0
-    img_gen_params.rotate = 0
     img_gen_params.lead_bbox = True
     img_gen_params.lead_name_bbox = True
+    img_gen_params.print_header = True
     img_gen_params.store_config = 2
-
-    # img_gen_params.augment = False
-    img_gen_params.calibration_pulse = 0
 
     # set params for generating masks
     mask_gen_params = generator.MaskArgs()
@@ -322,19 +319,29 @@ def generate_training_images(wfdb_records_folder, images_folder, masks_folder, b
     mask_gen_params.calibration_pulse = 0
 
     # generate images - params done manually because the generator doesn't implement seed correctly
-    split = int(len(records_to_process)/4) # 25% no calibration pulse, 25% no noise/wrinkles
+    split = int(len(records_to_process)/4) # 25% no calibration pulse, 50% no noise/wrinkles
     records_to_process = shuffle(records_to_process)
+
     if verbose:
-        print("Generating images from wfdb files (set 1/3)...")
+        print("Generating images from wfdb files (set 1/4)...")
     generator.gen_ecg_images_from_data_batch.run(img_gen_params, records_to_process[:split])
+
+    if verbose:
+        print("Generating images from wfdb files (set 2/4)...")
     img_gen_params.calibration_pulse = 1
+    generator.gen_ecg_images_from_data_batch.run(img_gen_params, records_to_process[split:int(split*2)])
+    
     if verbose:
-        print("Generating images from wfdb files (set 2/3)...")
-    generator.gen_ecg_images_from_data_batch.run(img_gen_params, records_to_process[split:int(split*3)])
-    img_gen_params.wrinkles = False
-    img_gen_params.augment = False
+        print("Generating images from wfdb files (set 3/4)...")
+    img_gen_params.random_bw = 0.2
+    img_gen_params.wrinkles = True
+    img_gen_params.augment = True
+    img_gen_params.crop = 0.0
+    img_gen_params.rotate = 0
+    generator.gen_ecg_images_from_data_batch.run(img_gen_params, records_to_process[int(split*2):int(split*3)])
+    
     if verbose:
-        print("Generating images from wfdb files (set 3/3)...")    
+        print("Generating images from wfdb files (set 4/4)...")  
     generator.gen_ecg_images_from_data_batch.run(img_gen_params, records_to_process[int(split*3):])
 
     # generate bounding box labels and save to a separate folder
@@ -348,9 +355,10 @@ def generate_training_images(wfdb_records_folder, images_folder, masks_folder, b
     if verbose:
         print("Generating masks from wfdb files (set 1/2)...")
     generator.gen_ecg_images_from_data_batch.run(mask_gen_params, records_to_process[:split])
-    mask_gen_params.calibration_pulse = 1
+
     if verbose:
         print("Generating masks from wfdb files (set 2/2)...")
+    mask_gen_params.calibration_pulse = 1
     generator.gen_ecg_images_from_data_batch.run(mask_gen_params, records_to_process[split:])
     
     if verbose:
@@ -358,11 +366,11 @@ def generate_training_images(wfdb_records_folder, images_folder, masks_folder, b
 
 
 def train_yolo(record_ids, train_data_folder, bb_labels_folder, model_folder, verbose, 
-               args=None, delete_training_data=True, warm_start=False):
+               args=None, delete_training_data=True, warm_start=constants.WARM_START):
     """
     A quick and dirty setup of yolo training config files, and model training call.
     """
-    config = "yolov7-ecg-1c"
+    config = constants.YOLO_CONFIG
     if verbose:
         print("Preparing YOLOv7 training data...")
     if not args:
@@ -621,7 +629,7 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
     else:
         unet_model = unet_generated
     # predict on patches, recover u-net output image
-    predicted_mask = Unet.predict_single_image(record_id, patch_folder, unet_model,
+    predicted_mask, entropy = Unet.predict_single_image(record_id, patch_folder, unet_model,
                                                 original_image_size=image.shape[:2])
     
     # rotate reconstructed u-net output to original orientation
@@ -667,7 +675,7 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
             os.remove(os.path.join(patch_folder, im))
 
     # return reconstructed signal
-    return reconstructed_signal, reconstructed_signals_folder
+    return reconstructed_signal, reconstructed_signals_folder, is_real_image
 
 
 def classify_signals(record_path, data_folder, resnet_model, classes, verbose):
