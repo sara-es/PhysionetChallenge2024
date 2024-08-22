@@ -16,6 +16,6 @@ for i, file in enumerate(os.listdir(dir_path)):
     # save image
     with open(os.path.join(out_path, file.replace('.npy', '.png')), 'wb') as f:
         plt.imsave(f, img, cmap='gray')
-    # if i > 5:
-    #     break
+    if i > 10:
+        break
 

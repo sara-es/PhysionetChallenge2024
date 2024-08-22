@@ -59,13 +59,11 @@ def train_models(data_folder, model_folder, verbose, max_size_training_set=4000,
 
     # generate images, bounding boxes, and masks for training YOLO and u-net
     # note that YOLO labels assume two classes: short and long leads
-    team_code.generate_training_images(data_folder, gen_images_folder, 
-                             gen_masks_folder, bb_labels_folder, 
-                             verbose, records_to_process=records_to_process)
+    # team_code.generate_training_images(data_folder, gen_images_folder, 
+    #                          gen_masks_folder, bb_labels_folder, 
+    #                          verbose, records_to_process=records_to_process)
     
-    return
-    
-    # train YOLOv7 (only one epoch w/ low lr - assume pre-trained model is good enough)
+    # train YOLOv7 
     team_code.train_yolo(records_to_process, gen_images_folder, bb_labels_folder, model_folder,
                verbose, delete_training_data=delete_training_data)
     

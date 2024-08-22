@@ -383,11 +383,12 @@ def train_yolo(record_ids, train_data_folder, bb_labels_folder, model_folder, ve
         args.data = os.path.join("digitization", "YOLOv7", "data", config + ".yaml")
         args.name = config
         args.epochs = constants.YOLO_EPOCHS
-        args.weights = os.path.join("digitization", "model_checkpoints", "yolov7.pt")
+        args.weights = os.path.join("digitization", "model_checkpoints", "yolov7_training.pt")
         args.hyp = os.path.join("digitization", "YOLOv7", "data", "hyp.scratch.custom.yaml") #default
 
     # use the best weights from previous fine-tuning as starting point
     if warm_start and os.path.exists(os.path.join("digitization", "model_checkpoints", config + ".pt")):
+        args.resume = True
         args.weights = os.path.join("digitization", "model_checkpoints", config + ".pt")
 
     # yolo requires we also have val data
@@ -399,8 +400,11 @@ def train_yolo(record_ids, train_data_folder, bb_labels_folder, model_folder, ve
         record_id = record.split(os.sep)[-1]
         image_path = os.path.join(train_data_folder, record_id + "-0.png")
         label_path = os.path.join(bb_labels_folder, record_id + "-0.txt")
-        shutil.move(image_path, os.path.join("temp_data", "val", "images"))
-        shutil.move(label_path, os.path.join("temp_data", "val", "labels"))
+        try:
+            shutil.move(image_path, os.path.join("temp_data", "val", "images"))
+            shutil.move(label_path, os.path.join("temp_data", "val", "labels"))
+        except:
+            pass
 
     # Train the model
     if verbose:
