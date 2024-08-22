@@ -6,6 +6,7 @@ WARM_START = False # if True, use pre-trained model weights to start training
 DELETE_DATA = True # delete all generated data after training or inference
 MAX_GENERATE_IMAGES = 3000 # maximum number of images to generate
 RESNET_ENSEMBLE = 5 # number of ResNet models to ensemble, max 5
+ALLOW_MULTIPROCESSING = True # speeds up training, but may cause issues in docker
 
 # training epochs
 YOLO_EPOCHS = 300 # number of epochs for YOLO training

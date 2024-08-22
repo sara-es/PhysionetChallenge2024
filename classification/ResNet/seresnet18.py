@@ -148,12 +148,13 @@ def test(model, test_loader, device, sigmoid, verbose):
 
 
 def initialise_with_eval(train_data, train_labels, val_data, val_labels, device, batch_size=5):
-    # Load the datasets       
+    # Load the datasets     
+    workers = 8 if torch.cuda.is_available() and constants.ALLOW_MULTIPROCESSING else 0  
     training_set = ECGDataset(train_data, 'train', train_labels)
     train_dl = DataLoader(training_set,
                           batch_size=batch_size,
                           shuffle=True,
-                          num_workers=1,
+                          num_workers=workers,
                           pin_memory=(True if device == 'cuda' else False),
                           drop_last=True)
 
@@ -162,7 +163,7 @@ def initialise_with_eval(train_data, train_labels, val_data, val_labels, device,
     val_dl = DataLoader(validation_set,
                         batch_size=1,
                         shuffle=False,
-                        num_workers=1,
+                        num_workers=workers,
                         pin_memory=(True if device == 'cuda' else False),
                         drop_last=True)
     
@@ -170,11 +171,12 @@ def initialise_with_eval(train_data, train_labels, val_data, val_labels, device,
 
 
 def initialise_train_only(train_data, train_labels, device, batch_size=5):
+    workers = 8 if torch.cuda.is_available() and constants.ALLOW_MULTIPROCESSING else 0
     training_set = ECGDataset(train_data, 'train', train_labels)
     train_dl = DataLoader(training_set,
                           batch_size=batch_size,
                           shuffle=True,
-                          num_workers=1,
+                          num_workers=workers,
                           pin_memory=(True if device == 'cuda' else False),
                           drop_last=True)
     

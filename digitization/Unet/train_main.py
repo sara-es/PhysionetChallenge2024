@@ -12,6 +12,7 @@ from digitization.Unet import Unet
 
 import matplotlib.pyplot as plt
 import os
+from utils import constants
 
 
 def train_epoch(args, model, train_loader, optimizer, criterion, epoch, verbose):
@@ -121,12 +122,13 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
         print('Validation patches: ', len(val_patch_ids), flush=True)
 
         print('Creating datasets and dataloaders...')
+    workers = 8 if cuda and constants.ALLOW_MULTIPROCESSING else 0
     train_dataset = PatchDataset(train_patch_ids, im_patch_dir, label_patch_dir, 
                                  transform=args.augmentation)
     val_dataset = PatchDataset(val_patch_ids, im_patch_dir, label_patch_dir, transform=None)
     train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, 
-                                  num_workers=8, pin_memory=(True if device == 'cuda' else False))
-    val_dataloader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=8, 
+                                  num_workers=workers, pin_memory=(True if device == 'cuda' else False))
+    val_dataloader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=workers, 
                                 pin_memory=(True if device == 'cuda' else False))
 
     # Initialize and load the model

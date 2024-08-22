@@ -106,12 +106,14 @@ def train_image_classifier(real_patch_folder, gen_patch_folder, model_folder,
         print('Validation patches: ', len(val_data), flush=True)
 
         print('Creating datasets and dataloaders...')
+    workers = 8 if cuda and constants.ALLOW_MULTIPROCESSING else 0
     train_dataset = datasets.PatchDataset(train_data, train_labels, #transform=None)
                                  transform=args.augmentation)
     val_dataset = datasets.PatchDataset(val_data, val_labels, transform=None)
     train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, 
+                                  num_workers=workers, 
                                   pin_memory=(True if device == 'cuda' else False))
-    val_dataloader = DataLoader(val_dataset, batch_size=1, shuffle=False,  
+    val_dataloader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=workers,
                                 pin_memory=(True if device == 'cuda' else False))
 
     # Initialize and load the model
