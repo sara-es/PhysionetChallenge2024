@@ -110,7 +110,7 @@ def prepare_label_text_1c(metadata):
     return out_str
 
 
-def prepare_label_files(ids, json_file_dir, label_file_dir, verbose):
+def prepare_label_files(ids, json_file_dir, label_file_dir, verbose, n_classes=1):
     """
     Prepare label files for the images in the dataset.
 
@@ -140,6 +140,11 @@ def prepare_label_files(ids, json_file_dir, label_file_dir, verbose):
         with open(json_path, 'r') as f:
             metadata = json.load(f)
         # label_text = prepare_label_text(metadata) # two class labels
-        label_text = prepare_label_text_1c(metadata)
+        if n_classes == 1: 
+            label_text = prepare_label_text_1c(metadata)
+        elif n_classes == 2:
+            label_text = prepare_label_text(metadata) # two class labels
+        elif n_classes == 3:
+            label_text = prepare_label_text(metadata, lead_text_label=2) # include lead labels
         with open(os.path.join(label_file_dir, json_file + ".txt"), 'w') as f:
             f.write(label_text)

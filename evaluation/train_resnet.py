@@ -8,6 +8,7 @@ import classification
 from classification import seresnet18
 from utils import model_persistence
 from sklearn.model_selection import train_test_split
+from classification.utils import multiclass_predict_from_logits
 
 
 def split_data(data_folder, tts=0.8, max_samples=None):
@@ -34,32 +35,37 @@ def split_data(data_folder, tts=0.8, max_samples=None):
 
 
 def eval_resnet(data_folder, records, resnet_model, classes, verbose, max_samples=None):
-
-    input_labels = []
-    output_labels = []
-    for r in records:
-        data = [classification.get_testing_data(r, data_folder)] 
-        pred_dx, probabilities = seresnet18.predict_proba(resnet_model, data, classes, verbose)
-        labels = classes[np.where(pred_dx == 1)]
-        # if verbose:
-        #     print(f"Classes: {classes}, probabilities: {probabilities}")
-        #     print(f"Predicted labels: {labels}")
-
-        actual_labels = helper_code.load_labels(os.path.join(data_folder, r))
+    y_pred = np.zeros((len(records), len(resnet_model), len(classes)))
+    y_true = np.zeros((len(records), len(classes)))
+    outputs = []
+    targets = []
+    for j, r in enumerate(records):
+        # check to make sure we have labels
+        target = helper_code.load_labels(os.path.join(data_folder, r))
         
-        if actual_labels and not '' in actual_labels:
-            input_labels.append(actual_labels)
-            output_labels.append(labels)
+        if target and not '' in target:
+            y_true[j] = helper_code.compute_one_hot_encoding(target, classes)
+            targets.append(target)
+        else: continue
 
-    """
-    with open('input_labels.pkl', 'wb') as f:
-        pickle.dump(input_labels, f)
+        data = [classification.get_testing_data(r, data_folder)]
+        for i, val in enumerate(resnet_model):
+            _, y_pred[j, i] = seresnet18.predict_proba(
+                                                resnet_model[val], data, classes, verbose)
+        
+        # hacky way to get the mean of all the resnets
+        probs = np.mean(y_pred[j], axis=0)
+        
+        pred_dx = multiclass_predict_from_logits(classes, probs)
+        outputs.append(classes[np.where(pred_dx == 1)])
 
-    with open('output_labels.pkl', 'wb') as f:
-        pickle.dump(output_labels, f)
-    """
+    with open('output_probabilities.pkl', 'wb') as f:
+        pickle.dump(y_pred, f)
 
-    f_measure, _, _ = helper_code.compute_f_measure(input_labels, output_labels)
+    with open('target_labels.pkl', 'wb') as f:
+        pickle.dump(y_true, f)
+
+    f_measure, _, _ = helper_code.compute_f_measure(targets, outputs)
     print('F-measure = ', f_measure)
 
 
@@ -83,20 +89,21 @@ def main(data_folder, model_folder, verbose, max_samples=None):
     # val_records = val_records[:100]
 
     # train classification model
-    resnet_model, uniq_labels = team_code.train_classification_model(
-        data_folder, verbose, records_to_process=train_records)
+#     resnet_model, uniq_labels = team_code.train_classification_model(
+#         data_folder, verbose, records_to_process=train_records)
+# :
+#     unet_model = None
+#     team_code.save_models(model_folder, unet_model, resnet_model, uniq_labels)
 
-    # save trained classification model
-    try:
-        model = model_persistence.load_models("model", True, 
-                            models_to_load=['digitization_model'])
-        unet_model = model['digitization_model']
-    except:
-        unet_model = None
-    team_code.save_models(model_folder, unet_model, resnet_model, uniq_labels)
+    resnet_models = model_persistence.load_models(model_folder, verbose, 
+                        models_to_load=[ 
+                                        'dx_classes', 
+                                        'res0', 'res1', 'res2', 'res3', 'res4'
+                                        ])
+    uniq_labels = resnet_models.pop('dx_classes')
 
     # test model
-    eval_resnet(data_folder, val_records, resnet_model, uniq_labels, verbose, max_samples)
+    eval_resnet(data_folder, val_records, resnet_models, uniq_labels, verbose, max_samples)
 
 
 if __name__ == "__main__":

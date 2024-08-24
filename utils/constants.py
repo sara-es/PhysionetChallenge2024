@@ -2,7 +2,7 @@
 PATCH_SIZE = 256 # Size of the u-net patches in pixels - assumes square patches
 YOLO_N_CLASSES = 1 # number of classes for YOLO: 2 distinguishes between long and short leads
 YOLO_CONFIG = 'yolov7-ecg-' + str(YOLO_N_CLASSES) + 'c' # one or two classes: 'yolov7-ecg-1c' or 'yolov7-ecg-2c'
-WARM_START = False # if True, use pre-trained model weights to start training
+WARM_START = True # if True, resume previous training 
 DELETE_DATA = True # delete all generated data after training or inference
 MAX_GENERATE_IMAGES = 3000 # maximum number of images to generate
 RESNET_ENSEMBLE = 5 # number of ResNet models to ensemble, max 5
