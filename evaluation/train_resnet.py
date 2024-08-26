@@ -44,7 +44,7 @@ def eval_resnet(data_folder, records, resnet_model, classes, verbose, max_sample
         target = helper_code.load_labels(os.path.join(data_folder, r))
         
         if target and not '' in target:
-            y_true[j] = helper_code.compute_one_hot_encoding(target, classes)
+            y_true[j] = np.sum(helper_code.compute_one_hot_encoding(target, classes), axis=0)
             targets.append(target)
         else: continue
 
@@ -53,7 +53,6 @@ def eval_resnet(data_folder, records, resnet_model, classes, verbose, max_sample
             _, y_pred[j, i] = seresnet18.predict_proba(
                                                 resnet_model[val], data, classes, verbose)
         
-        # hacky way to get the mean of all the resnets
         probs = np.mean(y_pred[j], axis=0)
         
         pred_dx = multiclass_predict_from_logits(classes, probs)

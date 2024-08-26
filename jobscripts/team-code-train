@@ -6,9 +6,7 @@
 #$ -pe smp.pe 8      # 8 cpu cores, should speed up dataloaders
 
 #$ -o jobscripts/logs/   # put outputs in logs folder
-#$ -e jobscripts/logs/    
-
-mail -s "CSF job started: train yolo 1c" "sara.summerton@manchester.ac.uk"
+#$ -e jobscripts/logs/   
 
 # Load any required modulefiles
 source ~/envs/physionet2024/bin/activate
@@ -21,4 +19,4 @@ echo "Starting job with $NGPUS GPU(s) with ID(s) $CUDA_VISIBLE_DEVICES and $NSLO
 # Run code
 python tests/team_code_train.py
 
-mail -s "CSF job completed: train yolo 1c" "sara.summerton@manchester.ac.uk"
+# to get email updates: -m bea -M "sara.summerton@manchester.ac.uk"

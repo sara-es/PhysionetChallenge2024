@@ -691,15 +691,9 @@ def classify_signals(record_path, data_folder, resnet_model, classes, verbose):
     if type(resnet_model) == dict:
         probs = np.zeros((len(resnet_model), len(classes)))
         for i, val in enumerate(resnet_model):
-            _, probabilities = seresnet18.predict_proba(
+            _, probs[i] = seresnet18.predict_proba(
                                                 resnet_model[val], data, classes, verbose)
-            if i == 0:
-                probs = probabilities
-            else:
-                probs = probs + probabilities
-        
-        # hacky way to get the mean of all the resnets
-        probs = probs / len(resnet_model)
+        probs = probs.mean(axis=0)
         
         pred_dx = multiclass_predict_from_logits(classes, probs)
         labels = classes[np.where(pred_dx == 1)]
