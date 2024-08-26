@@ -7,7 +7,7 @@ scratch.ipynb
 *.png
 !tiny_testset/*/*.png
 !real_images/*
-
+!real_images/*/*.png
 jobscripts/
 
 
