@@ -693,9 +693,9 @@ def classify_signals(record_path, data_folder, resnet_model, classes, verbose):
         for i, val in enumerate(resnet_model):
             _, probs[i] = seresnet18.predict_proba(
                                                 resnet_model[val], data, classes, verbose)
-        probs = probs.mean(axis=0)
+        probabilities = probs.mean(axis=0)
         
-        pred_dx = multiclass_predict_from_logits(classes, probs)
+        pred_dx = multiclass_predict_from_logits(classes, probabilities)
         labels = classes[np.where(pred_dx == 1)]
     
     # single model output
