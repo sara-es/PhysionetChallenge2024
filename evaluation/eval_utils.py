@@ -36,11 +36,8 @@ def match_signal_lengths(output_signal, output_fields, label_signal, label_field
             output_signal = helper_code.reorder_signal(output_signal, output_channels, 
                                                        label_channels)
 
-            # Replace the samples with NaN values in the output signal with zeros.
-            output_signal[np.isnan(output_signal)] = 0
-
         else:
-            output_signal = np.zeros(np.shape(label_signal), dtype=label_signal.dtype)
+            output_signal = np.nan*np.ones(np.shape(label_signal))
     
     return output_signal, output_fields, label_signal, label_fields
 
@@ -62,6 +59,7 @@ def trim_label_signal(input_signal, signal_names, num_samples_trimmed,
     """
     input_signal = np.asarray(input_signal)
     trimmed_signal = np.zeros_like(input_signal)
+    trimmed_signal[:] = np.nan # set to nan to account for new scoring metric
 
     for i, lead in enumerate(signal_names):
         if lead in rhythm:

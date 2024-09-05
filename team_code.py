@@ -351,7 +351,7 @@ def generate_training_images(wfdb_records_folder, images_folder, masks_folder, b
     if verbose:
         print("Preparing bounding box labels...")
     digitization.YOLOv7.prepare_labels.prepare_label_files(img_files, images_folder, bb_labels_folder,
-                                                           verbose)
+                                                           verbose, n_classes=constants.YOLO_N_CLASSES)
 
     # generate masks
     if verbose:
@@ -689,18 +689,13 @@ def classify_signals(record_path, data_folder, resnet_model, classes, verbose):
     data = [classification.get_testing_data(record_id, data_folder)]
     # deal with the ensemble
     if type(resnet_model) == dict:
+        probs = np.zeros((len(resnet_model), len(classes)))
         for i, val in enumerate(resnet_model):
-            _, probabilities = seresnet18.predict_proba(
+            _, probs[i] = seresnet18.predict_proba(
                                                 resnet_model[val], data, classes, verbose)
-            if i == 0:
-                probs = probabilities
-            else:
-                probs = probs + probabilities
+        probabilities = probs.mean(axis=0)
         
-        # hacky way to get the mean of all the resnets
-        probs = probs / len(resnet_model)
-        
-        pred_dx = multiclass_predict_from_logits(classes, probs)
+        pred_dx = multiclass_predict_from_logits(classes, probabilities)
         labels = classes[np.where(pred_dx == 1)]
     
     # single model output

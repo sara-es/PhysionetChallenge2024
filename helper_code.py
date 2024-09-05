@@ -585,12 +585,15 @@ def compute_ks_metric(x_ref, x_est, keep_nans=True):
     x_ref_cdf = np.nancumsum(np.abs(x_ref))
     x_est_cdf = np.nancumsum(np.abs(x_est))
 
-    if x_ref_cdf[-1] > 0:
+    if len(x_ref_cdf) > 0 and x_ref_cdf[-1] > 0:
         x_ref_cdf = x_ref_cdf / x_ref_cdf[-1]
-    if x_est_cdf[-1] > 0:
+    if len(x_est_cdf) > 0 and x_est_cdf[-1] > 0:
         x_est_cdf = x_est_cdf / x_est_cdf[-1]
 
-    goodness_of_fit = 1.0 - np.max(np.abs(x_ref_cdf - x_est_cdf))
+    if len(x_ref_cdf) > 0 and len(x_est_cdf) > 0:
+        goodness_of_fit = 1.0 - np.max(np.abs(x_ref_cdf - x_est_cdf))
+    else:
+        goodness_of_fit = float('nan')
 
     return goodness_of_fit
 

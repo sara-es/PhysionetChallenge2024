@@ -113,10 +113,10 @@ def generate_and_predict_unet_batch(images_folder, mask_folder, patch_folder,
 if __name__ == '__main__':
     # set up paths
     wfdb_records_folder = os.path.join("ptb-xl", "records500")
-    images_folder = os.path.join('test_data', 'images')
-    mask_folder = os.path.join('test_data', 'masks')
-    patch_folder = os.path.join('test_data', 'patches')
-    unet_output_folder = os.path.join('test_data', 'unet_outputs')
+    images_folder = os.path.join('test_data_clean', 'images')
+    mask_folder = os.path.join('test_data_clean', 'masks')
+    patch_folder = os.path.join('test_data_clean', 'patches')
+    unet_output_folder = os.path.join('test_data_clean', 'unet_outputs')
 
     os.makedirs(images_folder, exist_ok=True)
     os.makedirs(mask_folder, exist_ok=True)
@@ -131,7 +131,7 @@ if __name__ == '__main__':
     digitization_model['unet_generated'] = Unet.utils.load_unet_from_state_dict(
                                                         models['unet_generated'])
 
-    num_images_to_generate = 2 # int, set to 0 if data has already been generated to speed up testing time
+    num_images_to_generate = 0 # int, set to 0 if data has already been generated to speed up testing time
 
     # generate images from records, run through U-net, and reconstruct signals
     generate_and_predict_unet_batch(images_folder, mask_folder, patch_folder,

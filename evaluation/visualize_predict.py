@@ -123,6 +123,7 @@ def visualize_trace(test_images_dir,
     os.makedirs(reconstructed_signal_dir, exist_ok=True)
     visualization_save_folder = os.path.join(base_dir, "trace_visualizations")
     os.makedirs(visualization_save_folder, exist_ok=True)
+    os.makedirs(os.path.join(base_dir, "unet_out_imgs"), exist_ok=True)
     # unet_ids = team_helper_code.find_available_images(ids, 
     #                                                   unet_outputs_dir, verbose=True)
     # if len(image_ids) != len(unet_ids) and len(image_ids) > 0:
@@ -165,7 +166,7 @@ def visualize_trace(test_images_dir,
         args.device = "0"
         args.source = image_path
         args.project = base_dir + "\\detect"
-        args.nosave = False # set False for testing to save images with ROIs
+        args.nosave = True # set False for testing to save images with ROIs
         rois = digitization.YOLOv7.detect.detect_single(yolo_model, args, verbose=True)
 
         # resize image if it's very large
@@ -283,7 +284,7 @@ def visualize_trace(test_images_dir,
             # calculate reconstruction SNR
             mean_snr, mean_snr_median, mean_ks_metric, mean_asci_metric, \
                 mean_weighted_absolute_difference_metric = eval_utils.single_signal_snr(output_signal,
-                            output_fields, label_signal, label_fields, ids[i], extra_scores=True)
+                            output_fields, label_signal, label_fields, ids[i], extra_scores=False)
 
         else:
             label_signal = np.zeros_like(output_signal)
@@ -324,8 +325,8 @@ def visualize_trace(test_images_dir,
             if output_fields is None: # if digitization failed, don't try to classify
                 labels = None
             else: 
-                labels = team_code.classify_signals(ids[i], reconstructed_signal_dir, resnet_models, 
-                                        dx_classes, verbose=True)
+                labels = None #team_code.classify_signals(ids[i], reconstructed_signal_dir, resnet_models, 
+                                        # dx_classes, verbose=True)
                 
             # try to get true label from header
             try:
@@ -334,11 +335,15 @@ def visualize_trace(test_images_dir,
                 pred_labels = None
             
             try:
+    #             description_string = f"""{ids[i]} ({output_fields['fs']} Hz)
+    # Reconstruction SNR: {mean_snr:.2f}
+    # Gridsize: {gridsize}, Detected rotation: {rot_angle} (actual {rotation})
+    # {output_fields['comments'][1:-1]}
+    # Predicted real? {is_real_image}, entropy: {entropy:.2f}
+    # Predicted label(s): {labels}"""
                 description_string = f"""{ids[i]} ({output_fields['fs']} Hz)
     Reconstruction SNR: {mean_snr:.2f}
-    Gridsize: {gridsize}, Detected rotation: {rot_angle} (actual {rotation})
     {output_fields['comments'][1:-1]}
-    Predicted real? {is_real_image}, entropy: {entropy:.2f}
     Predicted label(s): {labels}"""
             except:
                 description_string = f"""{ids[i]}
@@ -374,10 +379,10 @@ def visualize_trace(test_images_dir,
             print(f"Skipping plot of image {ids[i]} with SNR {mean_snr:.2f}.")
 
         image_info["snr"] = mean_snr
-        image_info["snr_median"] = mean_snr_median
-        image_info["mean_ks_metric"] = mean_ks_metric
-        image_info["mean_asci_metric"] = mean_asci_metric
-        image_info["mean_weighted_absolute_difference_metric"] = mean_weighted_absolute_difference_metric
+        # image_info["snr_median"] = mean_snr_median
+        # image_info["mean_ks_metric"] = mean_ks_metric
+        # image_info["mean_asci_metric"] = mean_asci_metric
+        # image_info["mean_weighted_absolute_difference_metric"] = mean_weighted_absolute_difference_metric
         image_info["estimated_gridsize"] = gridsize
         image_info["actual_gridsize"] = true_gridsize
         image_info["reference_pulse"] = dc_pulse
@@ -386,6 +391,10 @@ def visualize_trace(test_images_dir,
         stats.append(image_info)
         if mean_snr < 3.5:
             print(f"Low SNR for {ids[i]}: {mean_snr:.2f}")
+
+        # delete patch files
+        for file in os.listdir(patch_folder):
+            os.remove(os.path.join(patch_folder, file))    
 
     print(f"Average SNR: {np.mean(snrs):.2f}")
     df = pd.DataFrame(stats)
@@ -397,7 +406,7 @@ if __name__ == "__main__":
     base_dir = "test_data_clean"
     test_images_folder = os.path.join(base_dir, "images")
     # unet_outputs_folder = os.path.join("test_data", "unet_outputs")
-    save_image_threshold = 10 # snr threshold below which images will be saved for visualization
+    save_image_threshold = -10 # snr threshold below which images will be saved for visualization
 
     model_folder = 'model'
     digitization_model = dict()
