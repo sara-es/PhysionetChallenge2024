@@ -72,7 +72,7 @@ def find_start_coords(image, rois, row):
     return startrow, startcol, endcol, row
 
 
-def find_start_coords_from_bounds(image, bound_box):
+def find_start_coords_from_bounds(image, bound_box, max_horizontal_bounds):
     """
     takes in an image and signal bounding box and returns the start row and column of signal
     bounding box is x_center, y_center, width, height in percent of image height, width
@@ -99,9 +99,9 @@ def find_start_coords_from_bounds(image, bound_box):
     startcol = idxs[0]
     endcol = idxs[-1]
 
-    if startcol < left: # restrict starting point to edge of bounding box
+    if startcol < max_horizontal_bounds[0]: # restrict starting point to edge of bounding box
         startcol = left
-    if endcol > right: # restrict end point to edge of bounding box
+    if endcol > max_horizontal_bounds[1]: # restrict end point to edge of bounding box
         endcol = right
     
     # find the start row - the black pixel that is nearest to the baseline. This also doesn't work
@@ -201,8 +201,14 @@ def extract_row_signals(ecg: Image, yolo_rois_cropped : np.array, n_lines: int) 
     if yolo_rois_cropped.size > 0 and constants.YOLO_ROIS and constants.YOLO_CONFIG == 'yolov7-ecg-1c':
         bounding_boxes = yolo_rois_cropped[yolo_rois_cropped[:, 1].argsort()] # sort by y_center
         rois = sorted((ecg.height*bounding_boxes[:, 1]).astype(int)) # y_center of bounding box
+        # get max horizontal (left and right) bounds
+        horizontal_bounds = np.zeros(2)
+        min_left = np.min(ecg.width*bounding_boxes[:, 0] - ecg.width*bounding_boxes[:, 2]/2)
+        max_right = np.max(ecg.width*bounding_boxes[:, 0] + ecg.width*bounding_boxes[:, 2]/2) 
+        horizontal_bounds[0] = min_left if min_left > 0 else 0
+        horizontal_bounds[1] = max_right if max_right < ecg.width else ecg.width
         for row in bounding_boxes:
-            x, y, endcol, row_yval = find_start_coords_from_bounds(ecg.data, row)
+            x, y, endcol, row_yval = find_start_coords_from_bounds(ecg.data, row, horizontal_bounds)
             x_coords.append(x)
             y_coords.append(y)
             endcols.append(endcol)
