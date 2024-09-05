@@ -57,6 +57,11 @@ def train_models(data_folder, model_folder, verbose):
 
     if num_records == 0:
         raise FileNotFoundError('No data were provided.')
+    
+    if constants.REQUIRE_CUDA:
+        import torch
+        if torch.cuda.is_available() != True:
+            raise Exception("CUDA not available, but required for training.")
 
     # Train the digitization model. If you are not training a digitization model, then you can
     # remove this part of the code.
@@ -245,18 +250,20 @@ def train_digitization_model(data_folder, model_folder, verbose, records_to_proc
         real_patch_folder = os.path.join('temp_data', 'train', 'real_patches')
         os.makedirs(real_patch_folder, exist_ok=True)
         # check that real images and masks are available
-        if not os.path.exists(real_images_folder) or not os.path.exists(real_masks_folder):
+        if (not os.path.exists(real_images_folder) or not os.path.exists(real_masks_folder) 
+            or len(os.listdir(real_images_folder)) == 0):
             print(f"Real images or masks not found in {real_data_folder}, unable to train " +\
                     "real image classifier or u-net.")
-        real_records = os.listdir(real_images_folder)
-        real_records = [r.split('.')[0] for r in real_records]
-        Unet.patching.save_patches_batch(real_records, real_images_folder, real_masks_folder, 
-                                         constants.PATCH_SIZE, real_patch_folder, verbose, 
-                                         delete_images=False, require_masks=False)
-        # train classifier for real vs. generated data
-        if verbose:
-            print("Training real vs. generated image classifier...")
-        image_classifier = classifier.train_image_classifier(real_patch_folder, gen_patch_folder, 
+        else:
+            real_records = os.listdir(real_images_folder)
+            real_records = [r.split('.')[0] for r in real_records]
+            Unet.patching.save_patches_batch(real_records, real_images_folder, real_masks_folder, 
+                                            constants.PATCH_SIZE, real_patch_folder, verbose, 
+                                            delete_images=False, require_masks=False)
+            # train classifier for real vs. generated data
+            if verbose:
+                print("Training real vs. generated image classifier...")
+            image_classifier = classifier.train_image_classifier(real_patch_folder, gen_patch_folder, 
                                         model_folder, constants.PATCH_SIZE, verbose)
 
     args = Unet.utils.Args()
@@ -374,6 +381,13 @@ def train_yolo(record_ids, train_data_folder, bb_labels_folder, model_folder, ve
     A quick and dirty setup of yolo training config files, and model training call.
     """
     config = constants.YOLO_CONFIG
+
+    if (constants.SHORT_TRAIN and 
+    os.path.exists(os.path.join("digitization", "model_checkpoints", config + ".pt"))):
+        # skip training, use pretrained model
+        shutil.copy(os.path.join("digitization", "model_checkpoints", config + ".pt"), model_folder)
+        return
+
     if verbose:
         print("Preparing YOLOv7 training data...")
     if not args:
@@ -466,10 +480,11 @@ def train_unet(record_ids, patch_folder, model_folder, verbose,
     LOSS_PATH = os.path.join(model_folder, ckpt_name + "_" + str(patchsize) + '_losses')
     # if we're loading a pretrained model - hardcoded for now
     LOAD_PATH_UNET = None
-    if warm_start:
+    if warm_start or constants.SHORT_TRAIN:
         chkpt_path = os.path.join('digitization', 'model_checkpoints', 
                                       ckpt_name + "_"+ str(patchsize) + '_checkpoint')
-        args.patience = 5 # decrease patience if using a pretrained model
+        if constants.SHORT_TRAIN:
+            args.patience = 5 # decrease patience if using a pretrained model
         if not os.path.exists(chkpt_path):
             print(f"Warm start requested but no checkpoint found at {LOAD_PATH_UNET}, " +\
                   "training U-net from scratch.")
@@ -565,6 +580,16 @@ def train_classification_model(records_folder, verbose, records_to_process=None)
     resnet_model = {}
     n_models = constants.RESNET_ENSEMBLE
     num_epochs = constants.RESNET_EPOCHS
+    if constants.SHORT_TRAIN:
+        pretrained = os.listdir(os.path.join("classification", "model_checkpoints"))
+        if len(pretrained) > 0:
+             resnet_model = model_persistence.load_models(
+                                        os.path.join("classification", "model_checkpoints"), 
+                                        verbose, 
+                                        models_to_load=pretrained
+                                        )
+        n_models = 1 # only train one model if we're short training, load pretrained for the rest
+            
     for i in range(n_models):
         resnet_model[f'res{i}'] = seresnet18.train_model(
                                     all_data, multilabels, uniq_labels, verbose, epochs=num_epochs, 
