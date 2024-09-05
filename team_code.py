@@ -580,15 +580,22 @@ def train_classification_model(records_folder, verbose, records_to_process=None)
     resnet_model = {}
     n_models = constants.RESNET_ENSEMBLE
     num_epochs = constants.RESNET_EPOCHS
+
+    # optionally skip training some models if we can
     if constants.SHORT_TRAIN:
-        pretrained = os.listdir(os.path.join("classification", "model_checkpoints"))
-        if len(pretrained) > 0:
-             resnet_model = model_persistence.load_models(
-                                        os.path.join("classification", "model_checkpoints"), 
+        ckpt_folder = os.path.join("classification", "model_checkpoints")
+        pretrained_classes = model_persistence.load_models(ckpt_folder, True, 
+                        models_to_load=['dx_classes'])
+        pretrained = [p for p in os.listdir(pretrained) if p.startswith('res') 
+                      and p.endswith('.pt')]
+        # IMPORTANT: only load pretrained models if they were trained on the same classes
+        if len(pretrained) > 0 and pretrained_classes == uniq_labels:
+            resnet_model = model_persistence.load_models(
+                                        ckpt_folder, 
                                         verbose, 
                                         models_to_load=pretrained
                                         )
-        n_models = 1 # only train one model if we're short training, load pretrained for the rest
+            n_models = 1 # only train one model if short training, load pretrained for the rest
             
     for i in range(n_models):
         resnet_model[f'res{i}'] = seresnet18.train_model(
