@@ -2,6 +2,7 @@ import sys, os, numpy as np, pickle
 sys.path.append(os.path.join(sys.path[0], '..'))
 import joblib
 import team_code, helper_code
+from tqdm import tqdm
 from sklearn.utils import shuffle
 from digitization import Unet
 import classification
@@ -39,7 +40,7 @@ def eval_resnet(data_folder, records, resnet_model, classes, verbose, max_sample
     y_true = np.zeros((len(records), len(classes)))
     outputs = []
     targets = []
-    for j, r in enumerate(records):
+    for j, r in tqdm(enumerate(records), total=len(records)):
         # check to make sure we have labels
         target = helper_code.load_labels(os.path.join(data_folder, r))
         
@@ -55,14 +56,14 @@ def eval_resnet(data_folder, records, resnet_model, classes, verbose, max_sample
         
         probs = np.mean(y_pred[j], axis=0)
         
-        pred_dx = multiclass_predict_from_logits(classes, probs)
+        pred_dx = multiclass_predict_from_logits(classes, probs, threshold=0.6)
         outputs.append(classes[np.where(pred_dx == 1)])
 
     with open('output_probabilities.pkl', 'wb') as f:
         pickle.dump(y_pred, f)
 
     with open('target_labels.pkl', 'wb') as f:
-        pickle.dump(y_true, f)
+        pickle.dump(targets, f)
 
     f_measure, _, _ = helper_code.compute_f_measure(targets, outputs)
     print('F-measure = ', f_measure)
