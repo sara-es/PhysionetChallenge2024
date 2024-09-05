@@ -10,7 +10,7 @@ ALLOW_MULTIPROCESSING = True # speeds up training, but may cause issues in docke
 
 # training epochs
 YOLO_EPOCHS = 300 # number of epochs for YOLO training
-RESNET_EPOCHS = 120 # number of epochs for ResNet training
+RESNET_EPOCHS = 150 # number of epochs for ResNet training
 UNET_EPOCHS = 500 # number of epochs for U-Net training - has early stopping, so can be high
 
 # digitization / vectorization
@@ -20,7 +20,7 @@ CHECK_CABRERA = False # flag to check for Cabrera format
 ATTEMPT_ROTATION = True # attempt to detect rotation of the image
 
 # classification
-MULTILABEL_THRESHOLD = 0.5 # threshold for multiclass classification
+MULTILABEL_THRESHOLD = 0.35 # threshold for multiclass classification
 
 # SNR hacks
 RETURN_SIGNAL_IF_REAL = True # return SNR if real ECG
