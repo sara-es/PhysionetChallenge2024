@@ -175,14 +175,14 @@ def train_unet(ids, im_patch_dir, label_patch_dir, args,
         return unet.state_dict()
             
     # Loss function from paper --> dice loss + focal loss
-    criterion = Unet.ComboLoss(
+    crit = Unet.ComboLoss(
                 weights={'dice': 1, 'focal': 1},
                 channel_weights=[1],
                 channel_losses=[['dice', 'focal']],
                 per_image=False
             )
     if cuda:
-        crit = criterion.cuda()
+        crit = crit.cuda()
     crit.to(device)
 
     for epoch in range(epoch_reached, args.epochs+1):

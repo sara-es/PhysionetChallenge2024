@@ -525,11 +525,11 @@ def train(hyp, opt, device, tb_writer=None):
 
 class OptArgs:
     def __init__(self):
-        self.weights = 'yolo7.pt' # initial weights path
+        self.weights = 'yolov7_training.pt' # initial weights path
         self.cfg = '' # model.yaml path
         self.data = 'data/coco.yaml' # data.yaml path
         self.hyp = 'data/hyp.scratch.p5.yaml' # hyperparameters path
-        self.epochs = 200 # number of epochs, default 300
+        self.epochs = 300 # number of epochs, default 300
         self.batch_size = 8 # total batch size for all GPUs, default 16
         self.img_size = [640, 640] # [train, test] image sizes
         self.rect = False # rectangular training
@@ -541,7 +541,7 @@ class OptArgs:
         self.bucket = '' # gsutil bucket
         self.cache_images = False # cache images for faster training
         self.image_weights = False # use weighted image selection for training
-        self.device = '' # cuda device, i.e. 0 or 0,1,2,3 or cpu
+        self.device = '0' if torch.cuda.is_available() else 'cpu' # cuda device, i.e. 0 or 0,1,2,3 or cpu
         self.multi_scale = True # vary img-size +/- 50%, default False
         self.single_cls = False # train multi-class data as single-class
         self.adam = False # use torch.optim.Adam() optimizer

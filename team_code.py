@@ -378,7 +378,6 @@ def train_yolo(record_ids, train_data_folder, bb_labels_folder, model_folder, ve
         print("Preparing YOLOv7 training data...")
     if not args:
         args = digitization.YOLOv7.train.OptArgs()
-        args.device = "0"
         args.cfg = os.path.join("digitization", "YOLOv7", "cfg", "training", config + ".yaml")
         args.data = os.path.join("digitization", "YOLOv7", "data", config + ".yaml")
         args.name = config
@@ -606,7 +605,6 @@ def unet_reconstruct_single_image(record, digitization_model, verbose, delete_pa
 
     # get bounding boxes/ROIs using YOLOv7
     args = digitization.YOLOv7.detect.OptArgs()
-    args.device = "0"
     args.source = image_path
     args.nosave = True # set False for testing to save images with ROIs
     rois = digitization.YOLOv7.detect.detect_single(yolo_model, args, verbose)

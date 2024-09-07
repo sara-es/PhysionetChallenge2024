@@ -316,7 +316,7 @@ class OptArgs:
         self.img_size = 640
         self.conf_thres = 0.25
         self.iou_thres = 0.45
-        self.device = '0'
+        self.device = ''
         self.view_img = False
         self.save_txt = False
         self.save_conf = False
