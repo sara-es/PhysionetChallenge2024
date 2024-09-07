@@ -9,9 +9,9 @@ RESNET_ENSEMBLE = 3 # number of ResNet models to ensemble, max 5
 ALLOW_MULTIPROCESSING = True # speeds up training, but may cause issues in docker
 
 # training epochs
-YOLO_EPOCHS = 1 # number of epochs for YOLO training
-RESNET_EPOCHS = 1 # number of epochs for ResNet training
-UNET_EPOCHS = 1 # number of epochs for U-Net training - has early stopping, so can be high
+YOLO_EPOCHS = 300 # number of epochs for YOLO training
+RESNET_EPOCHS = 150 # number of epochs for ResNet training
+UNET_EPOCHS = 500 # number of epochs for U-Net training - has early stopping, so can be high
 
 # digitization / vectorization
 YOLO_BOUNDING = True # use YOLO for cropping ECG image before line tracing
